@@ -1,0 +1,65 @@
+
+let power = \a \b {
+   if (b /= 0) then {
+      let pom = \ta \tb \b {
+         if b > 1 then
+            pom (ta * ta)
+                (if b mod 2 /= 0 then tb * ta else tb)
+                (b div 2)
+         else
+            ta * tb
+      };
+      pom a 1 b
+   } else {
+      1
+   }
+};
+
+print (power 3 4);
+print (power 2 16);
+print (power 5 7);
+
+let powerl = \a \b {
+   if (b /= 0) then {
+      let pom = \&ta \&tb \&b {
+         if b > 1 then
+            pom (ta * ta)
+                (if b mod 2 /= 0 then tb * ta else tb)
+                (b div 2)
+         else
+            ta * tb
+      };
+      pom a 1 b
+   } else {
+      1
+   }
+};
+
+print (powerl 3 4);
+print (powerl 2 16);
+print (powerl 5 7);
+
+let power2 = \a \b {
+   if b = 0 then 1
+   else if b mod 2 = 1 then a * (power2 (a * a) (b div 2))
+   else power2 (a * a) (b div 2);
+};
+
+/*
+ * This is a big comment.
+ *  Tralala!!!
+ */
+
+print (power2 3 4);
+print (power2 2 16);
+print (power2 5 7);
+
+let power2l = \&a \&b {
+   if b = 0 then 1
+   else if b mod 2 = 1 then a * (power2l (a * a) (b div 2))
+   else power2l (a * a) (b div 2);
+};
+
+print (power2l 3 4);
+print (power2l 2 16);
+print (power2l 5 7);

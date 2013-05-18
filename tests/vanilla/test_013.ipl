@@ -1,0 +1,27 @@
+
+// simple arithmetic test
+
+let f = \x \y {
+   print (+ x y);
+};
+
+let g = \x \y {
+   - (+ x 1) (* y 7)
+};
+
+let h = \f \y \z {
+   * (f y y) z
+};
+
+(f (h g 2 3) 4); // (g 2 2) * 3 + 4 = (2+1-2*7)*3 + 4 = -11*3 + 4 = -33+4 = -29
+
+let x = 5;
+let y = 17;
+let funkcja = \x . + x 4;
+let z = 0;
+
+print (funkcja (div y x)); // 17 div 5 + 4 = 7
+
+let vx = 30; let vy = 7;
+
+print (+ vx (* vy (+ z 1))); // 37

@@ -1,0 +1,12 @@
+
+let f = \!g . g 5;
+let h = \!x \!z . + x z;
+let u = \!x . + (f (h 4)) x;
+
+print (u 2) // 11
+
+let f2 = \&g . g 5;
+let h2 = \&x \&z . + x z;
+let u2 = \&x . + (f2 (h2 4)) x;
+
+print (u2 2) // 11

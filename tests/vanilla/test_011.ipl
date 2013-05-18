@@ -1,0 +1,35 @@
+
+// higher-order recursive functions test
+
+let f0 = \&f \&g \&x {
+   print 6;
+   print x;
+   print 7;
+   if (not (= x 0)) then {
+      print 9;
+      f f g (g x)
+   } else
+      ()
+};
+
+let g = \&x {
+   print (* 10 x);
+   - x 1
+};
+
+let f1 = \&f \&g \!x {
+   print 6;
+   print x;
+   print 7;
+   if (not (= x 0)) then {
+      print 9;
+      f f g (g x)
+   } else
+      ()
+};
+
+let f = f0 f0 g;
+let fe = f0 f1 g;
+
+print (f 4);
+print (fe 4);

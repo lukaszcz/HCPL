@@ -1,0 +1,28 @@
+
+// test tail recursion
+
+let f = \x \a \&b {
+   if = x 0 then
+      a
+   else
+      f (- x 1) (+ a b) b
+};
+
+let fe = \x \a \b {
+   if = x 0 then
+      a
+   else
+      fe (- x 1) (+ a b) b
+};
+
+print (fe 1000000 0 4);
+print (fe 1000000 0 2);
+
+print (f 1000000 0 4);
+print (f 1000000 0 2);
+
+print (fe 100000000 0 4);
+print (fe 100000000 0 2);
+
+print (f 100000000 0 4);
+print (f 100000000 0 2);

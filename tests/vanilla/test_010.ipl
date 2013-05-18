@@ -1,0 +1,62 @@
+
+// recursive functions test
+
+let f91 = \&n . if > n 100 then - n 10 else f91 (f91 (+ n 11));
+
+print (f91 101);
+print (f91 95);
+print (f91 16);
+print (f91 5);
+
+let subp = \&i \&j . if = i j then 0 else + (subp i (+ 1 j)) 1;
+
+print (subp 101 1);
+print (subp 11 5);
+print (subp 10 4);
+print (subp 1000 600);
+print (subp 10000 6000);
+
+let f91e = \!n . if > n 100 then - n 10 else f91e (f91e (+ n 11));
+
+print (f91e 101);
+print (f91e 95);
+print (f91e 16);
+print (f91e 5);
+
+let subpe = \!i \!j . if = i j then 0 else + (subpe i (+ 1 j)) 1;
+
+print (subpe 101 1);
+print (subpe 11 5);
+print (subpe 10 4);
+print (subpe 1000 600);
+print (subpe 10000 6000);
+
+let! f91x = \&n . if > n 100 then - n 10 else f91x (f91x (+ n 11));
+
+print (f91x 101);
+print (f91x 95);
+print (f91x 16);
+print (f91x 5);
+
+let! subpx = \&i \&j . if = i j then 0 else + (subpx i (+ 1 j)) 1;
+
+print (subpx 101 1);
+print (subpx 11 5);
+print (subpx 10 4);
+print (subpx 1000 600);
+print (subpx 10000 6000);
+
+let! f91ex = \!n . if > n 100 then - n 10 else f91ex (f91ex (+ n 11));
+
+print (f91ex 101);
+print (f91ex 95);
+print (f91ex 16);
+print (f91ex 5);
+
+let! subpex = \!i \!j . if = i j then 0 else + (subpex i (+ 1 j)) 1;
+
+print (subpex 101 1);
+print (subpex 11 5);
+print (subpex 10 4);
+print (subpex 1000 600);
+print (subpex 10000 6000);

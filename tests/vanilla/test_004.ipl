@@ -1,0 +1,19 @@
+
+let fib = \&n . {
+   if = n 0 then 0
+   else if = n 1 then 1
+   else { + (fib (- n 1)) (fib (- n 2)) } };
+
+let fibe = \!n .
+   if = n 0 then 0
+   else if = n 1 then 1
+   else + (fibe (- n 1)) (fibe (- n 2));
+
+print (fibe 5);
+print (fibe 12);
+
+print ((\&x . x) 5);
+print ((\&x . + x 3) 5);
+
+print (fib 5);
+print (fib 12);
