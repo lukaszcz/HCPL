@@ -51,8 +51,9 @@ let eval_limited node limit =
     | Progn(lst, _) ->
         begin
           match lst with
+          | [h] -> shift h stack env env_len
           | h :: t -> shift h (ReturnProgn(t) :: stack) env env_len
-          | [] -> return Node.Nil stack env env_len env env_len
+          | [] -> return Nil stack env env_len env env_len
         end
 
     | Appl(x, y, _) ->
@@ -69,7 +70,7 @@ let eval_limited node limit =
 
     | Delayed(rx) ->
         if is_immediate !rx then
-          return !rx stack env env_len env env_len
+          shift !rx stack env env_len
         else
           shift !rx ((Store(rx)) :: stack) env env_len
 
@@ -204,8 +205,9 @@ let eval_limited node limit =
     | Progn(lst, _) ->
         begin
           match lst with
+          | [h] -> shift h (ChangeStackEnv(s_env, s_env_len) :: stack) env env_len
           | h :: t -> shift h (ReturnProgn(t) :: ChangeStackEnv(s_env, s_env_len) :: stack) env env_len
-          | [] -> return Node.Nil stack env env_len s_env s_env_len
+          | [] -> return Nil stack env env_len s_env s_env_len
         end
 
     | Appl(x, y, _) ->
@@ -237,8 +239,9 @@ let eval_limited node limit =
     | ReturnProgn(lst) :: t ->
         begin
           match lst with
-          | h :: t2 -> shift h (ReturnProgn(t2) :: t) s_env s_env_len
-          | [] -> return node t env env_len s_env s_env_len
+          | [h] -> shift h t s_env s_env_len
+          | h :: rest -> shift h (ReturnProgn(rest) :: t) s_env s_env_len
+          | _ -> assert false
         end
     | ReturnApply(body2, env2, env2_len) :: t ->
         reduce body2 t ((close node env env_len) :: env2) (env2_len + 1) s_env s_env_len

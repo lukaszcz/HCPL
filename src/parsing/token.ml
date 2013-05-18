@@ -18,6 +18,7 @@ type t =
   | RightParenCurl
   | LetEager
   | LetLazy
+  | DoubleSep
   | Sep
   | Lambda
   | Force

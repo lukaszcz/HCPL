@@ -209,7 +209,7 @@ let to_string node =
         | Data(_) -> "<data>"
         | Error(_) -> "<error>"
         | Delayed(_) -> "<delayed>"
-        | Closure(_) -> "<closure>"
+        | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
         | ChangeStackEnv(_) -> "<change-stack-env>"
         | Store(_) -> "<store>"
         | ReturnProgn(_) -> "<return-progn>"

@@ -15,6 +15,7 @@ let id = ['a'-'z' 'A'-'Z' '_']['-' 'a'-'z' 'A'-'Z' '_' '0'-'9']*['?' '!' '@' '#'
 let special_oper = [',' '#' '@' '|' ''']
 
 rule read_token symtab = parse
+  | ";;"                           { Token.DoubleSep }
   | ';'                            { Token.Sep }
   | '\\'                           { Token.Lambda }
   | '!'                            { Token.Force }
@@ -55,14 +56,14 @@ and comment symtab level = parse
 
 {
 
-let rec scan_prepend symtab lexbuf strm =
+let rec scan_prepend symtab lexbuf cont =
   let token = read_token symtab lexbuf
   in
   if token = Token.Eof then
-    strm
+    cont ()
   else
-    TokenStream.cons token (lexeme_start_p lexbuf) (lazy (scan_prepend symtab lexbuf strm))
+    TokenStream.cons token (lexeme_start_p lexbuf) (lazy (scan_prepend symtab lexbuf cont))
 
-let scan symtab lexbuf = scan_prepend symtab lexbuf TokenStream.empty
+let scan symtab lexbuf = scan_prepend symtab lexbuf (fun () -> TokenStream.empty)
 
 }

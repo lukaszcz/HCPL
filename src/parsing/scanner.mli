@@ -4,4 +4,4 @@
 *)
 
 val scan : Symtab.t -> Lexing.lexbuf -> TokenStream.t
-val scan_prepend : Symtab.t -> Lexing.lexbuf -> TokenStream.t -> TokenStream.t
+val scan_prepend : Symtab.t -> Lexing.lexbuf -> (unit -> TokenStream.t) -> TokenStream.t

@@ -118,7 +118,7 @@ let (>>) (r : parser_rule_t) (a : parser_action_t) =
       (fun (lst2, attrs2, strm2, scope2) ->
         cont ((a (List.rev lst2) attrs2 scope2) :: lst, attrs, strm2, scope))
       (* the above closure (hopefully) will refer only to lst and
-         attrs, so that strm and scope could be reclaimed by the gc *)
+         attrs, so that strm could be reclaimed by the gc *)
 
 let (+>) = (>>)
 
@@ -282,24 +282,26 @@ let new_frame (r : parser_rule_t) =
 
 (* execution of parser rules *)
 
-let execute r keywords builtins strm =
+let execute r keywords builtins symtab lexbufs =
   let scope =
     List.fold_left
       (fun scope f -> f scope)
       (List.fold_left (fun scope x -> Scope.add_permanent_keyword scope x) Scope.empty keywords)
       builtins
   in
-  let rec loop f =
-    try
-      f ()
-    with
-      ParseSuccess(resume) -> loop resume
+  let rec scan lst =
+    match lst with
+    | h :: t -> Scanner.scan_prepend symtab h (fun () -> scan t)
+    | [] -> TokenStream.empty
   in
-  loop (fun () -> r () ([], None, strm, scope) (fun x -> x))
+  r () ([], None, scan lexbufs, scope) (fun x -> x)
 
 (* -------------------------------------------------------------------------- *)
 
-let parse builtins symtab strm =
+let parse lexbufs handler =
+
+  let symtab = Symtab.create ()
+  in
 
   (* symbols begin *)
 
@@ -386,10 +388,33 @@ let parse builtins symtab strm =
 
   (* grammar begin *)
 
-  let rec program () =
+  let rec programs () =
     recursive
       begin
-        progn ++ eof
+        maybe double_seps ++ program ++ maybe double_seps ++ maybe programs
+          >>
+        (fun lst attrs _ ->
+          if lst = [] then
+            Program(Node.Nil)
+          else
+            Program(Node.Progn(List.map (function Program(x) -> x | _ -> assert false) lst, attrs)))
+      end
+
+  and double_seps () =
+    recursive
+      begin
+        token Token.DoubleSep ++ maybe double_seps
+      end
+
+  and program () =
+    recursive
+      begin
+        progn ++ (token Token.DoubleSep ||| eof)
+          >>
+        (fun lst _ _ ->
+          match lst with
+          | [Program(node)] -> Program(handler node)
+          | _ -> assert false)
       end
 
   and progn () =
@@ -407,7 +432,7 @@ let parse builtins symtab strm =
   and statements () =
     recursive
       begin
-         statement ++ maybe separators ++ maybe statements
+         maybe separators ++ statement ++ maybe separators ++ maybe statements
       end
 
   and statement () =
@@ -453,18 +478,20 @@ let parse builtins symtab strm =
                    begin
                      match Scope.find_ident scope sym with
                      | Node.Proxy(r) ->
-                         r := value;
-                         let node =
+                         let value2 =
                            match value with
                            | Node.Lambda(body, frm, seen, attrs) ->
                                Node.Lambda(body, frm, seen, Node.Attrs.set_name attrs sym)
                            | Node.LambdaEager(body, frm, seen, attrs) ->
                                Node.LambdaEager(body, frm, seen, Node.Attrs.set_name attrs sym)
-                           | _ ->
-                               if Node.is_immediate value then
-                                 value
-                               else
-                                 Node.Var(Scope.frame scope + 1)
+                           | _ -> value
+                         in
+                         r := value2;
+                         let node =
+                           if Node.is_immediate value2 then
+                             value2
+                           else
+                             Node.Var(Scope.frame scope + 1)
                          in
                          let scope2 = Scope.replace_ident scope sym node
                          in
@@ -633,6 +660,8 @@ let parse builtins symtab strm =
     try
       f ()
     with
+    | ParseSuccess(resume) ->
+        loop resume
     | ParseFailure(pos, msg, resume) ->
         Error.error (Some(pos)) msg;
         loop resume
@@ -640,9 +669,13 @@ let parse builtins symtab strm =
         Error.fatal "unexpected end of file";
         ([Program(Node.Nil)], None, TokenStream.empty, Scope.empty)
   and kwds = [sym_fun; sym_def]
+  and builtins =
+    [(fun x -> Arith_builtins.declare_builtins x symtab);
+     (fun x -> Generic_builtins.declare_builtins x symtab);
+     (fun x -> Bool_builtins.declare_builtins x symtab)]
   in
   let (lst, _, _, _) =
     loop
-      (fun () -> execute program kwds builtins strm)
+      (fun () -> execute programs kwds builtins symtab lexbufs)
   in
   get_singleton_node lst
