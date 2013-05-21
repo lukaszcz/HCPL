@@ -34,7 +34,7 @@ let close x env env_len =
   | LambdaEager(_, frame, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
   | _ -> Closure(x, env, env_len)
 
-let eval_limited node limit =
+let do_eval node limit env =
 
   (* The evaluator is essentially a variant of the ZINC machine. *)
 
@@ -263,8 +263,12 @@ let eval_limited node limit =
         else
           close node env env_len
   in
-  shift node [] [] 0
+  shift node [] env (List.length env)
 
-let reduce node = eval_limited node 1
+let reduce node = do_eval node 1 []
 
-let eval node = eval_limited node (-1)
+let eval node = do_eval node (-1) []
+
+let eval_limited node limit = do_eval node limit []
+
+let eval_in node env = do_eval node (-1) env

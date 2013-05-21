@@ -63,6 +63,11 @@ let rec sexp_to_string sexp =
   | Sexp(lst) -> "Sexp(" ^ sexp_list_to_string lst ^ ")"
 and sexp_list_to_string lst = Utils.list_to_string sexp_to_string lst
 
+let new_attrs scope strm =
+  let pos = if Scope.is_strm_empty scope strm then None else Some(Scope.strm_position scope strm)
+  in
+  Node.Attrs.create None pos
+
 module State =
   struct
     type t = sexp_t list * Node.Attrs.t * TokenStream.t * Scope.t
@@ -108,17 +113,15 @@ let (|||) (r1 : parser_rule_t) (r2 : parser_rule_t) =
         success_cont_ref := cont;
         resume ()
 
-let (>>) (r : parser_rule_t) (a : parser_action_t) =
+let (>>) (rule : parser_rule_t) (action : parser_action_t) =
   fun () ((lst, attrs, strm, scope) : State.t) (cont : parser_cont_t) ->
-    let pos = if TokenStream.is_empty strm then None else Some(TokenStream.position strm)
+    let attrs1 = new_attrs scope strm
     in
-    let attrs1 = Node.Attrs.create None pos
-    in
-    r () ([], attrs1, strm, scope)
+    rule () ([], attrs1, strm, scope)
       (fun (lst2, attrs2, strm2, scope2) ->
-        cont ((a (List.rev lst2) attrs2 scope2) :: lst, attrs, strm2, scope))
-      (* the above closure (hopefully) will refer only to lst and
-         attrs, so that strm could be reclaimed by the gc *)
+        cont ((action (List.rev lst2) attrs2 scope2) :: lst, attrs, strm2, scope))
+      (* the above closure (hopefully) will refer only to lst, attrs
+      and scope, so that strm could be reclaimed by the gc *)
 
 let (+>) = (>>)
 
@@ -183,12 +186,12 @@ let empty () state cont = cont state
    the token from the stream *)
 let token (token : Token.t) =
   fun () ((lst, attrs, strm, scope) : State.t) (cont : parser_cont_t) ->
-    let state2 = (lst, attrs, TokenStream.next strm, scope)
+    let state2 = (lst, attrs, Scope.strm_next scope strm, scope)
     in
-    if Token.eq (Scope.get_token scope strm) token then
+    if Token.eq (Scope.strm_token scope strm) token then
       cont state2
     else
-      raise (ParseFailure(TokenStream.position strm,
+      raise (ParseFailure(Scope.strm_position scope strm,
                           "syntax error",
                           (fun () -> cont state2)))
 
@@ -196,12 +199,12 @@ let symbol sym = token (Token.Symbol(sym))
 let keyword sym = token (Token.Keyword(sym))
 
 let number () (lst, attrs, strm, scope) cont =
-  match Scope.get_token scope strm with
-  | Token.Number(num) -> cont ((Number(num)) :: lst, attrs, TokenStream.next strm, scope)
-  | _ -> raise (ParseFailure(TokenStream.position strm,
-                             "expected a number",
+  match Scope.strm_token scope strm with
+  | Token.Number(num) -> cont ((Number(num)) :: lst, attrs, Scope.strm_next scope strm, scope)
+  | _ -> raise (ParseFailure(Scope.strm_position scope strm,
+                             "syntax error",
                              (fun () -> cont ((Number(Big_int.zero_big_int)) :: lst,
-                                              attrs, TokenStream.next strm, scope))))
+                                              attrs, Scope.strm_next scope strm, scope))))
 
 let lparen = token Token.LeftParen
 let rparen = token Token.RightParen
@@ -212,26 +215,31 @@ let rparen_curl = token Token.RightParenCurl
 
 (* skips a single token *)
 let skip () ((lst, attrs, strm, scope) : State.t) (cont : parser_cont_t) =
-  cont (lst, attrs, TokenStream.next strm, scope)
+  cont (lst, attrs, Scope.strm_next scope strm, scope)
 
 (* skips tokens until one of the tokens in the list is found *)
 let skip_until (tokens : Token.t list) =
   fun () ((lst, attrs, strm, scope) : State.t) (cont : parser_cont_t) ->
     let rec loop strm =
-      let token = Scope.get_token scope strm
-      in
-      if List.exists (fun x -> Token.eq x token) tokens then
+      if Scope.is_strm_empty scope strm then
         cont (lst, attrs, strm, scope)
       else
-        loop (TokenStream.next strm)
+        begin
+          let token = Scope.strm_token scope strm
+          in
+          if List.exists (fun x -> Token.eq x token) tokens then
+            cont (lst, attrs, strm, scope)
+          else
+            loop (Scope.strm_next scope strm)
+        end
     in
     loop strm
 
 let eof () ((lst, attrs, strm, scope) as state) cont =
-  if TokenStream.is_empty strm then
+  if Scope.is_strm_empty scope strm then
     cont state
   else
-    raise (ParseFailure(TokenStream.position strm,
+    raise (ParseFailure(Scope.strm_position scope strm,
                         "syntax error",
                         (fun () -> skip_until [Token.Sep] () state cont)))
 
@@ -259,34 +267,34 @@ let change_scope f =
 let save_scope (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->
     r () (lst, attrs, strm, scope)
-      (fun (lst2, attrs2, strm2, scope2) ->
+      (fun (lst2, attrs2, strm2, _) ->
         cont (lst2, attrs2, strm2, scope))
 
 let new_scope (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->
     r () (lst, attrs, strm, Scope.push scope)
-      (fun (lst2, attrs2, strm2, scope2) ->
+      (fun (lst2, attrs2, strm2, _) ->
         cont (lst2, attrs2, strm2, scope))
 
 let new_keyword sym (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->
     r () (lst, attrs, strm, Scope.add_keyword scope sym)
-      (fun (lst2, attrs2, strm2, scope2) ->
+      (fun (lst2, attrs2, strm2, _) ->
         cont (lst2, attrs2, strm2, scope))
 
 let new_frame (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->
     r () (lst, attrs, strm, Scope.push_frame scope)
-      (fun (lst2, attrs2, strm2, scope2) ->
+      (fun (lst2, attrs2, strm2, _) ->
         cont (lst2, attrs2, strm2, scope))
 
 (* execution of parser rules *)
 
-let execute r keywords builtins symtab lexbufs =
+let execute r keywords builtins symtab lexbufs scope0 =
   let scope =
     List.fold_left
       (fun scope f -> f scope)
-      (List.fold_left (fun scope x -> Scope.add_permanent_keyword scope x) Scope.empty keywords)
+      (List.fold_left (fun scope x -> Scope.add_permanent_keyword scope x) scope0 keywords)
       builtins
   in
   let rec scan lst =
@@ -298,7 +306,7 @@ let execute r keywords builtins symtab lexbufs =
 
 (* -------------------------------------------------------------------------- *)
 
-let parse lexbufs handler =
+let do_parse is_repl_mode lexbufs eval_handler decl_handler =
 
   let symtab = Symtab.create ()
   in
@@ -336,12 +344,12 @@ let parse lexbufs handler =
   in
   let decl f () (lst, attrs, strm, scope) (cont : parser_cont_t) =
     begin
-      let pos = TokenStream.position strm
+      let pos = Scope.strm_position scope strm
       and error_resume state2 cont =
         (fun () ->
-          skip_until [Token.Keyword(sym_eq); Token.Sep; Token.Symbol(sym_colon)] () state2 cont)
+          skip_until [Token.Symbol(sym_eq); Token.Sep; Token.Symbol(sym_colon)] () state2 cont)
       in
-      match Scope.get_token scope strm with
+      match Scope.strm_token scope strm with
       | Token.Symbol(sym) ->
           let scope2 =
             try
@@ -351,28 +359,32 @@ let parse lexbufs handler =
               in
               let mpos = Node.get_pos node
               in
+              let scope3 = Scope.replace_ident scope sym (Node.Proxy(ref Node.Nil))
+              in
               let msg =
                 "duplicate identifier `" ^ Symbol.to_string sym ^
                 match mpos with
-                | Some(pos) -> "', previous declaraction at " ^ Error.pos_to_string (Some(pos))
+                | Some(pos) -> "', previous declaration at " ^ Error.pos_to_string (Some(pos))
                 | None -> "'"
-              and resume = error_resume ((Ident sym) :: lst, attrs, TokenStream.next strm, scope) cont
+              and resume = error_resume ((Ident sym) :: lst, attrs, Scope.strm_next scope strm, scope3) cont
               in
               raise (ParseFailure(pos, msg, resume))
           in
-          cont ((Ident sym) :: lst, attrs, TokenStream.next strm, scope2)
+          cont ((Ident sym) :: lst, attrs, Scope.strm_next scope2 strm, scope2)
       | _ ->
+          let scope2 = Scope.replace_ident scope sym_unknown (Node.Proxy(ref Node.Nil))
+          in
           raise (ParseFailure(pos, "expected identifier",
-                              error_resume ((Ident sym_unknown) :: lst, attrs, strm, scope) cont))
+                              error_resume ((Ident sym_unknown) :: lst, attrs, strm, scope2) cont))
     end
 
   and name () (lst, attrs, strm, scope) cont =
-    match Scope.get_token scope strm with
-    | Token.Symbol(sym) -> cont ((Ident(sym)) :: lst, attrs, TokenStream.next strm, scope)
-    | _ -> raise (ParseFailure(TokenStream.position strm,
+    match Scope.strm_token scope strm with
+    | Token.Symbol(sym) -> cont ((Ident(sym)) :: lst, attrs, Scope.strm_next scope strm, scope)
+    | _ -> raise (ParseFailure(Scope.strm_position scope strm,
                                "expected identifier",
                                (fun () ->
-                                 cont ((Ident(sym_unknown)) :: lst, attrs, TokenStream.next strm, scope))))
+                                 cont ((Ident(sym_unknown)) :: lst, attrs, Scope.strm_next scope strm, scope))))
 
   and get_singleton_node lst =
     match lst with
@@ -384,37 +396,41 @@ let parse lexbufs handler =
       match lst with
       | [Number(num)] -> Program(Node.Integer(num))
       | _ -> assert false)
+
+  and repl_eval () ((lst, attrs, _, scope) as state) cont =
+    if is_repl_mode && Scope.nesting scope = 0 then
+      begin
+        match lst with
+        | Program(stmt) :: _ ->
+            eval_handler stmt (Scope.lineno scope);
+            cont state
+        | _ -> assert false
+      end
+    else
+      cont state
+
+  and repl_decl () ((lst, attrs, _, scope) as state) cont =
+    if is_repl_mode && Scope.nesting scope = 0 then
+      begin
+        match lst with
+        | [Program(value); Ident(_); Bool(is_eager)] ->
+            if Node.is_immediate value then
+              eval_handler value (Scope.lineno scope)
+            else
+              decl_handler (if is_eager then value else Node.Delay(value)) (Scope.lineno scope);
+            cont state
+        | _ -> assert false
+      end
+    else
+      cont state
   in
 
   (* grammar begin *)
 
-  let rec programs () =
+  let rec program () =
     recursive
       begin
-        maybe double_seps ++ program ++ maybe double_seps ++ maybe programs
-          >>
-        (fun lst attrs _ ->
-          if lst = [] then
-            Program(Node.Nil)
-          else
-            Program(Node.Progn(List.map (function Program(x) -> x | _ -> assert false) lst, attrs)))
-      end
-
-  and double_seps () =
-    recursive
-      begin
-        token Token.DoubleSep ++ maybe double_seps
-      end
-
-  and program () =
-    recursive
-      begin
-        progn ++ (token Token.DoubleSep ||| eof)
-          >>
-        (fun lst _ _ ->
-          match lst with
-          | [Program(node)] -> Program(handler node)
-          | _ -> assert false)
+        progn ++ eof
       end
 
   and progn () =
@@ -425,6 +441,7 @@ let parse lexbufs handler =
         (fun lst attrs scope ->
           match lst with
           | [x] -> x
+          | [] -> Program(Node.Nil)
           | _ ->
               Program(Node.Progn(List.map (function Program(x) -> x | _ -> assert false) lst, attrs)))
       end
@@ -432,19 +449,16 @@ let parse lexbufs handler =
   and statements () =
     recursive
       begin
-         maybe separators ++ statement ++ maybe separators ++ maybe statements
+        (token Token.Sep +> return (Program(Node.Nil)) |||
+           statement ++ maybe (token Token.Sep)) ++
+        repl_eval ++
+        maybe statements
       end
 
   and statement () =
     recursive
       begin
         xlet ||| (* xfun ||| def ||| syntax ||| *) expr
-      end
-
-  and separators () =
-    recursive
-      begin
-        token Token.Sep ++ maybe separators
       end
 
 (*
@@ -499,12 +513,11 @@ let parse lexbufs handler =
                            scope2
                          else
                            Scope.push_frame scope2
-                     | _ -> assert false
+                     | _ -> Debug.print (sexp_list_to_string lst); assert false
                    end
                | _ -> assert false)) ++
-          (symbol sym_in ++ new_scope expr |||
-           token Token.Sep ++ progn |||
-           empty +> return (Program(Node.Nil)))
+          (symbol sym_in +! new_scope expr |||
+           token Token.Sep ++ repl_decl ++ progn)
           >>
         (fun lst attrs scope ->
           match lst with
@@ -541,11 +554,13 @@ let parse lexbufs handler =
   and term () =
     recursive
       begin
-        lambda ||| cond ||| lparen ++ rparen +> return (Program(Node.Nil)) |||
-        lparen_curl ++ rparen_curl +> return (Program(Node.Nil)) ||| lparen +! new_scope progn ++ rparen |||
-        lparen_curl +! new_scope progn ++ rparen_curl |||
-        token Token.Lazy ++ term +> (fun lst _ _ -> Program(Node.Delay(get_singleton_node lst))) |||
-        token Token.Force ++ term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) |||
+        lambda ||| cond |||
+        lparen ++ new_scope rparen +> return (Program(Node.Nil)) |||
+        lparen_curl ++ new_scope rparen_curl +> return (Program(Node.Nil)) |||
+        lparen +! new_scope (progn ++ rparen) |||
+        lparen_curl +! new_scope (progn ++ rparen_curl) |||
+        token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(get_singleton_node lst))) |||
+        token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) |||
         ident_ref ||| number
       end
 
@@ -554,8 +569,8 @@ let parse lexbufs handler =
       begin
         discard (maybe attributes) ++ token Token.Lambda +!
           (token Token.Force +> return (Bool true) |||
-          token Token.Lazy +> return (Bool false) |||
-          empty +> return (Bool true)) ++
+             token Token.Lazy +> return (Bool false) |||
+             empty +> return (Bool true)) ++
           new_scope
           (new_frame
              (ident_lambda ++ discard (maybe ret_atype) ++
@@ -574,7 +589,7 @@ let parse lexbufs handler =
   and cond () =
     recursive
       begin
-        token Token.If ++ expr ++ token Token.Then ++ expr ++ token Token.Else ++ expr
+        token Token.If +! expr ++ token Token.Then ++ expr ++ token Token.Else ++ expr
           >>
         (fun lst attrs _ ->
           match lst with
@@ -642,7 +657,7 @@ let parse lexbufs handler =
   and attribute () =
     recursive
       begin
-        symbol sym_at ++ name ++ optional (symbol sym_eq ++ term) ++
+        symbol sym_at +! name ++ optional (symbol sym_eq ++ term) ++
           change_attrs
           (fun lst attrs ->
             match lst with
@@ -670,12 +685,16 @@ let parse lexbufs handler =
         ([Program(Node.Nil)], None, TokenStream.empty, Scope.empty)
   and kwds = [sym_fun; sym_def]
   and builtins =
-    [(fun x -> Arith_builtins.declare_builtins x symtab);
-     (fun x -> Generic_builtins.declare_builtins x symtab);
+    [(fun x -> Generic_builtins.declare_builtins x symtab);
+     (fun x -> Arith_builtins.declare_builtins x symtab);
      (fun x -> Bool_builtins.declare_builtins x symtab)]
+  and scope0 = if is_repl_mode then Scope.empty_repl else Scope.empty
   in
   let (lst, _, _, _) =
     loop
-      (fun () -> execute programs kwds builtins symtab lexbufs)
+      (fun () -> execute program kwds builtins symtab lexbufs scope0)
   in
   get_singleton_node lst
+
+let parse lexbufs = do_parse false lexbufs (fun _ _ -> ()) (fun _ _ -> ())
+let parse_repl = do_parse true
