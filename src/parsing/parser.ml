@@ -202,7 +202,7 @@ let number () (lst, attrs, strm, scope) cont =
   match Scope.strm_token scope strm with
   | Token.Number(num) -> cont ((Number(num)) :: lst, attrs, Scope.strm_next scope strm, scope)
   | _ -> raise (ParseFailure(Scope.strm_position scope strm,
-                             "syntax error",
+                             "expected expression",
                              (fun () -> cont ((Number(Big_int.zero_big_int)) :: lst,
                                               attrs, Scope.strm_next scope strm, scope))))
 
@@ -346,36 +346,40 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
     begin
       let pos = Scope.strm_position scope strm
       and error_resume state2 cont =
-        (fun () ->
-          skip_until [Token.Symbol(sym_eq); Token.Sep; Token.Symbol(sym_colon)] () state2 cont)
+        skip_until [Token.Symbol(sym_eq); Token.Sep; Token.Symbol(sym_colon)] () state2 cont
       in
       match Scope.strm_token scope strm with
       | Token.Symbol(sym) ->
           let scope2 =
             try
-              Scope.add_ident scope sym (f sym pos scope)
-            with Scope.Duplicate_ident ->
-              let node = Scope.find_ident scope sym
-              in
-              let mpos = Node.get_pos node
-              in
-              let scope3 = Scope.replace_ident scope sym (Node.Proxy(ref Node.Nil))
-              in
-              let msg =
-                "duplicate identifier `" ^ Symbol.to_string sym ^
-                match mpos with
-                | Some(pos) -> "', previous declaration at " ^ Error.pos_to_string (Some(pos))
-                | None -> "'"
-              and resume = error_resume ((Ident sym) :: lst, attrs, Scope.strm_next scope strm, scope3) cont
-              in
-              raise (ParseFailure(pos, msg, resume))
+              Some (Scope.add_ident scope sym (f sym pos scope))
+            with Scope.Duplicate_ident -> None
           in
-          cont ((Ident sym) :: lst, attrs, Scope.strm_next scope2 strm, scope2)
+          begin
+            match scope2 with
+            | Some(sc) ->
+                cont ((Ident sym) :: lst, attrs, Scope.strm_next sc strm, sc)
+            | None ->
+                let node = Scope.find_ident scope sym
+                in
+                let mpos = Node.get_pos node
+                in
+                let scope3 = Scope.replace_ident scope sym (Node.Proxy(ref Node.Nil))
+                in
+                let msg =
+                  "duplicate identifier `" ^ Symbol.to_string sym ^
+                  match mpos with
+                  | Some(_) -> "', previous declaration at " ^ Error.pos_to_string mpos
+                  | None -> "'"
+                in
+                Error.error (Some pos) msg;
+                error_resume ((Ident sym) :: lst, attrs, Scope.strm_next scope strm, scope3) cont
+          end
       | _ ->
           let scope2 = Scope.replace_ident scope sym_unknown (Node.Proxy(ref Node.Nil))
           in
-          raise (ParseFailure(pos, "expected identifier",
-                              error_resume ((Ident sym_unknown) :: lst, attrs, strm, scope2) cont))
+          Error.error (Some pos) "expected identifier";
+          error_resume ((Ident sym_unknown) :: lst, attrs, strm, scope2) cont
     end
 
   and name () (lst, attrs, strm, scope) cont =
@@ -436,7 +440,7 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
   and progn () =
     recursive
       begin
-        statements
+        (if is_repl_mode then repl_statements else statements) ||| empty
           >>
         (fun lst attrs scope ->
           match lst with
@@ -450,9 +454,20 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
     recursive
       begin
         (token Token.Sep +> return (Program(Node.Nil)) |||
-           statement ++ maybe (token Token.Sep)) ++
-        repl_eval ++
+           statement ++ maybe (token Token.Sep)) +!
         maybe statements
+      end
+
+  and repl_statements () =
+    recursive
+      begin
+        xlet |||
+        begin
+          (token Token.Sep +> return (Program(Node.Nil)) |||
+             statement ++ maybe (token Token.Sep)) +!
+          repl_eval ++
+          maybe repl_statements
+        end
       end
 
   and statement () =
@@ -555,8 +570,6 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
     recursive
       begin
         lambda ||| cond |||
-        lparen ++ new_scope rparen +> return (Program(Node.Nil)) |||
-        lparen_curl ++ new_scope rparen_curl +> return (Program(Node.Nil)) |||
         lparen +! new_scope (progn ++ rparen) |||
         lparen_curl +! new_scope (progn ++ rparen_curl) |||
         token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(get_singleton_node lst))) |||
