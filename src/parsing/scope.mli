@@ -43,3 +43,7 @@ val is_strm_empty : t -> TokenStream.t -> bool
 val frame : t -> int
 (* increases the current frame number *)
 val push_frame : t -> t
+
+val rewrite : t -> Node.t list -> Node.t
+val add_oper : t -> Symbol.t -> Opertab.prio_t -> int (* assoc *) -> int (* arity *) -> t
+val drop_oper : t -> Symbol.t -> t

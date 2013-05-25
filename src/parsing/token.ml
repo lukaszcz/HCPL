@@ -10,6 +10,8 @@ type t =
   | If
   | Then
   | Else
+  | True
+  | False
   | LeftParen
   | RightParen
   | LeftParenSqr

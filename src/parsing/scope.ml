@@ -8,7 +8,8 @@ type identtab_t = (Node.t * int) Symbol.Map.t
 
 type t = { identtab : identtab_t; frame : int; scopenum : int;
            keywords : Symbol.Set.t; permanent_keywords : Symbol.Set.t;
-           is_repl_mode : bool; mutable line_num : int }
+           is_repl_mode : bool; opertab : Opertab.t;
+           mutable line_num : int }
 
 exception Duplicate_ident
 
@@ -17,21 +18,12 @@ let empty = { identtab = Symbol.Map.empty;
               keywords = Symbol.Set.empty;
               permanent_keywords = Symbol.Set.empty;
               is_repl_mode = false;
+              opertab = Opertab.empty;
               line_num = 0 }
 
-let empty_repl = { identtab = Symbol.Map.empty;
-                   frame = -1; scopenum = 0;
-                   keywords = Symbol.Set.empty;
-                   permanent_keywords = Symbol.Set.empty;
-                   is_repl_mode = true;
-                   line_num = 0 }
+let empty_repl = { empty with is_repl_mode = true }
 
-let push scope = { identtab = scope.identtab; frame = scope.frame;
-                   scopenum = scope.scopenum + 1; keywords = Symbol.Set.empty;
-                   permanent_keywords = scope.permanent_keywords;
-                   is_repl_mode = scope.is_repl_mode;
-                   line_num = scope.line_num
-                 }
+let push scope = { scope with scopenum = scope.scopenum + 1 }
 
 let nesting scope = scope.scopenum
 
@@ -48,11 +40,7 @@ let add_ident scope sym node =
     with
       Not_found -> Symbol.Map.add sym (node, scope.scopenum) scope.identtab
   in
-  { identtab = newtab; frame = scope.frame;
-    scopenum = scope.scopenum; keywords = scope.keywords;
-    permanent_keywords = scope.permanent_keywords; is_repl_mode = scope.is_repl_mode;
-    line_num = scope.line_num
-  }
+  { scope with identtab = newtab }
 
 let find_ident scope sym =
   let node = fst (Symbol.Map.find sym scope.identtab)
@@ -64,31 +52,17 @@ let find_ident scope sym =
 let replace_ident scope sym node =
   let newtab = Symbol.Map.add sym (node, scope.scopenum) scope.identtab
   in
-  { identtab = newtab; frame = scope.frame;
-    scopenum = scope.scopenum; keywords = scope.keywords;
-    permanent_keywords = scope.permanent_keywords;
-    is_repl_mode = scope.is_repl_mode;
-    line_num = scope.line_num
-  }
+  { scope with identtab = newtab }
 
 let add_keyword scope sym =
   let kwds = Symbol.Set.add sym scope.keywords
   in
-  { identtab = scope.identtab; frame = scope.frame;
-    scopenum = scope.scopenum; keywords = kwds;
-    permanent_keywords = scope.permanent_keywords;
-    is_repl_mode = scope.is_repl_mode;
-    line_num = scope.line_num
-  }
+  { scope with keywords = kwds }
 
 let add_permanent_keyword scope sym =
   let kwds = Symbol.Set.add sym scope.permanent_keywords
   in
-  { identtab = scope.identtab; frame = scope.frame;
-    scopenum = scope.scopenum; keywords = scope.keywords;
-    permanent_keywords = kwds; is_repl_mode = scope.is_repl_mode;
-    line_num = scope.line_num
-  }
+  { scope with permanent_keywords = kwds }
 
 let lineno scope = scope.line_num
 
@@ -126,9 +100,17 @@ let is_strm_empty scope strm =
 let frame scope = scope.frame
 
 let push_frame scope =
-  { identtab = scope.identtab; frame = scope.frame + 1;
-    scopenum = scope.scopenum; keywords = scope.keywords;
-    permanent_keywords = scope.permanent_keywords;
-    is_repl_mode = scope.is_repl_mode;
-    line_num = scope.line_num
-  }
+  { scope with frame = scope.frame + 1 }
+
+let rewrite scope lst =
+  Opertab.rewrite scope.opertab lst
+
+let add_oper scope sym prio assoc arity =
+  let tab = Opertab.add scope.opertab sym prio assoc arity
+  in
+  { scope with opertab = tab }
+
+let drop_oper scope sym =
+  let tab = Opertab.drop scope.opertab sym
+  in
+  { scope with opertab = tab }

@@ -36,6 +36,7 @@ syntax operator and is left, binary, after =;
 syntax operator xor is left, binary, after and;
 syntax operator or  is left, binary, after xor;
 
+{
 
 let neg = \x . 0 - x;
 let not = \x . if x = true then false else true;
@@ -44,11 +45,14 @@ let or = \&x \y if x then true else y;
 
 let x = 120;
 let y = 30;
-let z = 4 + 4;
+let& z = 4 + 4;
 
 print (x + y + z); // 158
+print (x + 4 * y * y); // 3720
+print (x + x * y * z * x - 2); // 3456118
+print (x * x * y + z - 89 + 2 * 6 * y - 8 - 9 - x + 7 * 2 * 3 - z); // 432176
 print (x + y * 2 - z div 3); // 178
-print (-x + 5); // -115
+print (neg x + 5); // -115
 print (x >= 120 and y > 10); // true
 print (x > 115 + 5 and y <= 10 or z = 8); // true
 print (not (x * 8 div (2 * 4) >= 120 - 2 + 1 * 2 and y div 3 <= 10)); // false
@@ -59,23 +63,25 @@ let f = \&x \&g \&y {
    x + g y + y
 };
 
-let f1 = \&x . -x + -x * 7;
+let f1 = \&x . neg x + neg x * 7;
 
 let z2 = 7;
 
-print (f -y f1 z2); // -79
+print (f (neg y) f1 z2); // -79
 print (f1 z2 + 5); // -51
-print (f -y f1 z2 - -90); // 11
+print (f (neg y) f1 z2 - -90); // 11
 
 let fe = \x \g \y {
    x + g y + y
 };
 
-let f1e = \x . -x + -x * 7;
+let f1e = \x . neg x + neg x * 7;
 
-print (fe -y f1e z2); // -79
+print (fe (neg y) f1e z2); // -79
 print (f1e z2 + 5); // -51
-print (fe -y f1e z2 - -90); // 11
+print (fe (neg y) f1e z2 - -90); // 11
 
-print (fe -y f1 z2); // -79
-print (fe -y f1 z2 - -90); // 11
+print (fe (neg y) f1 z2); // -79
+print (fe (neg y) f1 z2 - -90); // 11
+
+}

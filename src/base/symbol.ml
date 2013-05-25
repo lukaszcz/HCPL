@@ -18,6 +18,7 @@ let alloc =
   in
   fun str ->
     incr id;
+    if !id = 0 then failwith "Symbol.alloc crashed";
     { s_str = str; s_hash = Hashtbl.hash str; s_id = !id }
 
 module OrderedType =

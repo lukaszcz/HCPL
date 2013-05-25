@@ -52,6 +52,9 @@ type sexp_t =
   | Bool of bool
   | Number of Big_int.big_int
   | Sexp of sexp_t list
+  | Assoc of int
+  | Arity of int
+  | Prio of Opertab.prio_t
 
 (* pretty printing *)
 let rec sexp_to_string sexp =
@@ -61,9 +64,12 @@ let rec sexp_to_string sexp =
   | Bool(b) -> "Bool(" ^ (if b then "true" else "false") ^ ")"
   | Number(num) -> "Number(" ^ Big_int.string_of_big_int num ^ ")"
   | Sexp(lst) -> "Sexp(" ^ sexp_list_to_string lst ^ ")"
+  | Assoc(x) -> "Assoc(" ^ string_of_int x ^ ")"
+  | Arity(x) -> "Arity(" ^ string_of_int x ^ ")"
+  | Prio(_) -> "Prio"
 and sexp_list_to_string lst = Utils.list_to_string sexp_to_string lst
 
-let new_attrs scope strm =
+let create_attrs scope strm =
   let pos = if Scope.is_strm_empty scope strm then None else Some(Scope.strm_position scope strm)
   in
   Node.Attrs.create None pos
@@ -115,7 +121,7 @@ let (|||) (r1 : parser_rule_t) (r2 : parser_rule_t) =
 
 let (>>) (rule : parser_rule_t) (action : parser_action_t) =
   fun () ((lst, attrs, strm, scope) : State.t) (cont : parser_cont_t) ->
-    let attrs1 = new_attrs scope strm
+    let attrs1 = create_attrs scope strm
     in
     rule () ([], attrs1, strm, scope)
       (fun (lst2, attrs2, strm2, scope2) ->
@@ -256,13 +262,25 @@ let discard r =
       (fun (_, attrs2, strm2, scope2) ->
         cont (lst, attrs2, strm2, scope2)))
 
+let save_attrs r =
+  (fun () (lst, attrs, strm, scope) cont ->
+    r () (lst, attrs, strm, scope)
+      (fun (lst2, _, strm2, scope2) ->
+        cont (lst2, attrs, strm2, scope2)))
+
+let new_attrs (r : parser_rule_t) =
+  (fun () (lst, attrs, strm, scope) cont ->
+    r () (lst, create_attrs scope strm, strm, scope)
+      (fun (lst2, _, strm2, scope2) ->
+        cont (lst2, attrs, strm2, scope2)))
+
 let change_attrs f =
   fun () (lst, attrs, strm, scope) cont ->
     cont (lst, f (List.rev lst) attrs, strm, scope)
 
 let change_scope f =
   fun () (lst, attrs, strm, scope) cont ->
-    cont (lst, attrs, strm, f (List.rev lst) scope)
+    cont (lst, attrs, strm, f (List.rev lst) attrs scope)
 
 let save_scope (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->
@@ -315,16 +333,17 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
 
   let sym_dot = Symtab.find symtab "."
   and sym_colon = Symtab.find symtab ":"
+  and sym_comma = Symtab.find symtab ","
   and sym_eq = Symtab.find symtab "="
   and sym_in = Symtab.find symtab "in"
-  (*and sym_lazy = Symtab.find symtab "&" *)
+  and sym_is = Symtab.find symtab "is"
   and sym_at = Symtab.find symtab "@"
   and sym_ret_type = Symtab.find symtab ":>"
 
   and sym_fun = Symtab.find symtab "fun"
   and sym_def = Symtab.find symtab "def"
 
-(*  and sym_syntax = Symtab.find symtab "syntax"
+  and sym_syntax = Symtab.find symtab "syntax"
   and sym_drop = Symtab.find symtab "drop"
   and sym_operator = Symtab.find symtab "operator"
   and sym_left = Symtab.find symtab "left"
@@ -333,7 +352,10 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
   and sym_before = Symtab.find symtab "before"
   and sym_after = Symtab.find symtab "after"
   and sym_first = Symtab.find symtab "first"
-  and sym_last = Symtab.find symtab "last" *)
+  and sym_last = Symtab.find symtab "last"
+  and sym_binary = Symtab.find symtab "binary"
+  and sym_unary = Symtab.find symtab "unary"
+  and sym_appl = Symtab.find symtab "appl"
 
   and sym_return_type = Symtab.find symtab "return_type"
 
@@ -390,6 +412,8 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
                                (fun () ->
                                  cont ((Ident(sym_unknown)) :: lst, attrs, Scope.strm_next scope strm, scope))))
 
+  and comma = symbol sym_comma
+
   and get_singleton_node lst =
     match lst with
     | [Program(node)] -> node
@@ -444,7 +468,6 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
           >>
         (fun lst attrs scope ->
           match lst with
-          | [x] -> x
           | [] -> Program(Node.Nil)
           | _ ->
               Program(Node.Progn(List.map (function Program(x) -> x | _ -> assert false) lst, attrs)))
@@ -473,25 +496,8 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
   and statement () =
     recursive
       begin
-        xlet ||| (* xfun ||| def ||| syntax ||| *) expr
+        xlet ||| syntax ||| expr
       end
-
-(*
-<xfun> ::= fun <ident> <args> [>: <term>] [= <expr>]
-<def> ::= def <ident> [<args>] [>: <term>] [= <expr>]
-<args> ::= <ident> [<args>]
-*)
-
-(*
-<syntax> ::= syntax (<operator> | <drop>)
-<operator> ::= operator <symbol> [is] <oper-spec-lst>
-<oper-spec-lst> ::= <oper-spec> [, <oper-spec-lst>]
-<oper-spec> ::= left | right | binary | unary | prio <symbol>
-             | [prio] after <symbol> | [prio] before <symbol>
-             | [prio] last | [prio] first
-<drop> ::= drop <symbol-lst>
-<symbol-lst> ::= <symbol> [, <symbol-lst>]
-*)
 
   and xlet () =
     recursive
@@ -501,7 +507,7 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
           symbol sym_eq ++
           new_keyword sym_in (expr) ++
           (change_scope
-             (fun lst scope ->
+             (fun lst _ scope ->
                match lst with
                | [_; Ident(sym); Program(value)] ->
                    begin
@@ -545,19 +551,142 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
           | _ -> assert false)
       end
 
+  and syntax () =
+    recursive
+      begin
+        symbol sym_syntax +! (operator ||| drop)
+      end
+
+  and operator () =
+    recursive
+      begin
+        new_attrs
+          (discard
+             (symbol sym_operator +! name ++ maybe (symbol sym_is) ++ oper_spec_list ++
+                (change_scope
+                   (fun lst attrs scope ->
+                     let prio_lst = List.filter (fun x -> match x with Prio(_) -> true | _ -> false) lst
+                     and assoc_lst = List.filter (fun x -> match x with Assoc(_) -> true | _ -> false) lst
+                     and arity_lst = List.filter (fun x -> match x with Arity(_) -> true | _ -> false) lst
+                     and sym = match List.hd lst with Ident(sym) -> sym | _ -> assert false
+                     in
+                     let prio =
+                       match prio_lst with
+                       | Prio(x) :: _ -> x
+                       | _ -> Opertab.EqualAppl
+                     and assoc =
+                       match assoc_lst with
+                       | Assoc(x) :: _ -> x
+                       | _ -> 1
+                     and arity =
+                       match arity_lst with
+                       | Arity(x) :: _ -> x
+                       | _ -> 1
+                     in
+                     if List.length prio_lst > 1 then
+                       Error.error (Node.Attrs.get_pos attrs) "multiple operator priority specifications";
+                     if List.length assoc_lst > 1 then
+                       Error.error (Node.Attrs.get_pos attrs) "multiple operator associativity specifications";
+                     if List.length arity_lst > 1 then
+                       Error.error (Node.Attrs.get_pos attrs) "multiple operator arity specifications";
+                     try
+                       Scope.add_oper scope sym prio assoc arity
+                     with Not_found ->
+                       Error.error (Node.Attrs.get_pos attrs) "undeclared operator";
+                       scope))))
+      end
+
+  and oper_spec_list () =
+    recursive
+      begin
+        oper_spec ++ maybe (comma +! oper_spec_list)
+      end
+
+  and oper_spec =
+    symbol sym_left +> return (Assoc Opertab.assoc_left) |||
+    symbol sym_right +> return (Assoc Opertab.assoc_right) |||
+    symbol sym_binary +> return (Arity 2) |||
+    symbol sym_unary +> return (Arity 1) |||
+    maybe (symbol sym_prio) ++ symbol sym_after ++ name
+      +>
+    (fun lst attrs scope ->
+      match lst with
+      | [Ident(sym)] ->
+          if Symbol.eq sym sym_appl then
+            Prio(Opertab.AfterAppl)
+          else
+            Prio(Opertab.After(sym))
+      | _ -> assert false)
+    |||
+    maybe (symbol sym_prio) ++ symbol sym_before ++ name
+      +>
+    (fun lst attrs scope ->
+      match lst with
+      | [Ident(sym)] ->
+          if Symbol.eq sym sym_appl then
+            Prio(Opertab.BeforeAppl)
+          else
+            Prio(Opertab.Before(sym))
+      | _ -> assert false)
+    |||
+    maybe (symbol sym_prio) ++ symbol sym_last
+      +>
+      return (Prio(Opertab.Last))
+    |||
+    maybe (symbol sym_prio) ++ symbol sym_first
+      +>
+      return (Prio(Opertab.First))
+    |||
+    symbol sym_prio ++ name
+      +>
+    (fun lst attrs scope ->
+      match lst with
+      | [Ident(sym)] ->
+          if Symbol.eq sym sym_appl then
+            Prio(Opertab.EqualAppl)
+          else
+            Prio(Opertab.Equal(sym))
+      | _ -> assert false)
+
+  and drop () =
+    recursive
+      begin
+        symbol sym_drop +! name_list ++
+          (change_scope
+             (fun lst attrs scope ->
+               List.fold_left
+                 (fun scope x ->
+                   match x with
+                   | Ident(sym) ->
+                       begin
+                         try
+                           Scope.drop_oper scope sym
+                         with Not_found ->
+                           Error.error (Node.Attrs.get_pos attrs) "undeclared operator";
+                           scope
+                       end
+                   | _ -> assert false)
+                 scope
+                 lst))
+      end
+
+  and name_list () =
+    recursive
+      begin
+        name ++ maybe (comma +! name_list)
+      end
+
   and expr () =
     recursive
       begin
         terms
           >>
-        (fun lst attrs _ ->
-          let rec build_appl lst attrs =
-            match lst with
-            | [Program(x)] -> x
-            | Program(x) :: t -> Node.Appl(build_appl t None, x, attrs)
-            | _ -> assert false
+        (fun lst attrs scope ->
+          let node = Scope.rewrite scope (List.map (function Program(x) -> x | _ -> assert false) lst)
           in
-          Program(build_appl (List.rev lst) attrs))
+          match node with
+          | Node.Appl(x, y, _) -> Program(Node.Appl(x, y, attrs))
+          | _ -> Program(node))
       end
 
   and terms () =
@@ -574,6 +703,8 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
         lparen_curl +! new_scope (progn ++ rparen_curl) |||
         token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(get_singleton_node lst))) |||
         token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) |||
+        token Token.True +> return (Program(Node.True)) |||
+        token Token.False +> return (Program(Node.False)) |||
         ident_ref ||| number
       end
 
