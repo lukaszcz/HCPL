@@ -262,12 +262,6 @@ let discard r =
       (fun (_, attrs2, strm2, scope2) ->
         cont (lst, attrs2, strm2, scope2)))
 
-let save_attrs r =
-  (fun () (lst, attrs, strm, scope) cont ->
-    r () (lst, attrs, strm, scope)
-      (fun (lst2, _, strm2, scope2) ->
-        cont (lst2, attrs, strm2, scope2)))
-
 let new_attrs (r : parser_rule_t) =
   (fun () (lst, attrs, strm, scope) cont ->
     r () (lst, create_attrs scope strm, strm, scope)
@@ -281,12 +275,6 @@ let change_attrs f =
 let change_scope f =
   fun () (lst, attrs, strm, scope) cont ->
     cont (lst, attrs, strm, f (List.rev lst) attrs scope)
-
-let save_scope (r : parser_rule_t) =
-  fun () (lst, attrs, strm, scope) cont ->
-    r () (lst, attrs, strm, scope)
-      (fun (lst2, attrs2, strm2, _) ->
-        cont (lst2, attrs2, strm2, scope))
 
 let new_scope (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->

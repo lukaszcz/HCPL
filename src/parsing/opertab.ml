@@ -1,4 +1,4 @@
-(* oper.ml: Operator rewriting implementation.
+(* opertab.ml: Operator rewriting implementation.
 
    Copyright (C) 2013 by Łukasz Czajka
 *)
