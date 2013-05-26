@@ -34,6 +34,11 @@ let close x env env_len =
   | LambdaEager(_, frame, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
   | _ -> Closure(x, env, env_len)
 
+let change_stack_env stack env env_len =
+  match stack with
+  | ChangeStackEnv(_) :: _ -> stack
+  | _ -> ChangeStackEnv(env, env_len) :: stack
+
 let do_eval node limit env =
 
   (* The evaluator is essentially a variant of the ZINC machine. *)
@@ -205,13 +210,13 @@ let do_eval node limit env =
     | Progn(lst, _) ->
         begin
           match lst with
-          | [h] -> shift h (ChangeStackEnv(s_env, s_env_len) :: stack) env env_len
-          | h :: t -> shift h (ReturnProgn(t) :: ChangeStackEnv(s_env, s_env_len) :: stack) env env_len
+          | [h] -> shift h (change_stack_env stack s_env s_env_len) env env_len
+          | h :: t -> shift h (ReturnProgn(t) :: (change_stack_env stack s_env s_env_len)) env env_len
           | [] -> return Nil stack env env_len s_env s_env_len
         end
 
     | Appl(x, y, _) ->
-        shift x (y :: (ChangeStackEnv(s_env, s_env_len)) :: stack) env env_len
+        shift x (y :: (change_stack_env stack s_env s_env_len)) env env_len
 
     | Var(n) ->
         reduce (nth env n) stack env env_len s_env s_env_len
@@ -225,7 +230,7 @@ let do_eval node limit env =
     | Error(x, attrs) ->
         failwith "Errors not yet implemented"
 
-    | _ -> shift node ((ChangeStackEnv(s_env, s_env_len)) :: stack) env env_len
+    | _ -> shift node (change_stack_env stack s_env s_env_len) env env_len
 
   and return node stack env env_len s_env s_env_len =
     match stack with
