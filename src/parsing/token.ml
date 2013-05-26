@@ -42,6 +42,8 @@ let to_string x =
   | If -> "Token.If"
   | Then -> "Token.Then"
   | Else -> "Token.Else"
+  | True -> "Token.True"
+  | False -> "Token.False"
   | LeftParen -> "Token.LeftParen"
   | RightParen -> "Token.RightParen"
   | LeftParenSqr -> "Token.LeftParenSqr"

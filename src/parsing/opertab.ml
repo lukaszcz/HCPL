@@ -170,7 +170,9 @@ let rewrite (opertab, _, _) lst =
       | [] ->
           List.rev ((create_appl (List.rev acc)) :: left)
     in
-    shift [] lst
+    match lst with
+    | h :: t -> gather [] [h] t
+    | [] -> []
 
   and rewrite_binary f_before_appl lst =
     (* rewrite_binary works in linear time (simple amortized analysis) *)

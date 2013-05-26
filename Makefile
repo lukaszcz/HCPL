@@ -27,3 +27,4 @@ release:
 clean:
 	ocamlbuild -clean
 	-rm ipl
+	-rm *.out

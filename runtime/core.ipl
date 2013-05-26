@@ -1,0 +1,34 @@
+/*
+ * Core IPL runtime.
+ */
+
+// -------------------------------------------------------------------
+//  standard operators
+
+syntax operator neg is right, unary, before appl;
+
+syntax operator not is right, unary, prio appl;
+
+syntax operator *   is left, binary, after appl;
+syntax operator /   is left, binary, prio *;
+syntax operator div is left, binary, prio *;
+syntax operator mod is left, binary, prio *;
+
+syntax operator + is left, binary, after *;
+syntax operator - is left, binary, prio +;
+
+syntax operator <  is left, binary, after +;
+syntax operator <= is left, binary, prio <;
+syntax operator >  is left, binary, prio <;
+syntax operator >= is left, binary, prio <;
+
+syntax operator =  is left, binary, after <;
+syntax operator /= is left, binary, prio =;
+
+syntax operator and is left, binary, after =;
+syntax operator xor is left, binary, after and;
+syntax operator or  is left, binary, after xor;
+
+let neg = \!x . 0 - x;
+let /=  = \!x \!y . not (x = y);
+let when = \&x \&y . if x then y else ();

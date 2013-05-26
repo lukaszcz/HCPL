@@ -26,6 +26,11 @@ let div lst =
   | (Integer(b)) :: (Integer(a)) :: _ -> Integer(div_big_int a b)
   | _ -> failwith "div: type error"
 
+let xmod lst =
+  match lst with
+  | (Integer(b)) :: (Integer(a)) :: _ -> Integer(mod_big_int a b)
+  | _ -> failwith "div: type error"
+
 let gt lst =
   match lst with
   | (Integer(b)) :: (Integer(a)) :: _ -> if gt_big_int a b then True else False
@@ -52,6 +57,7 @@ let declare_builtins scope symtab =
     let scope = Builtin.declare scope (Symtab.find symtab "-") (sub, 2, true) in
     let scope = Builtin.declare scope (Symtab.find symtab "*") (mul, 2, true) in
     let scope = Builtin.declare scope (Symtab.find symtab "div") (div, 2, true) in
+    let scope = Builtin.declare scope (Symtab.find symtab "mod") (xmod, 2, true) in
     let scope = Builtin.declare scope (Symtab.find symtab ">") (gt, 2, true) in
     let scope = Builtin.declare scope (Symtab.find symtab "<") (lt, 2, true) in
     let scope = Builtin.declare scope (Symtab.find symtab ">=") (ge, 2, true) in

@@ -4,9 +4,9 @@
 *)
 
 let f_interactive = ref false;;
-let f_vanilla = ref true;;
+let f_vanilla = ref false;;
 let file_count = ref 0;;
-let runtime_path = ref "";;
+let runtime_path = ref "runtime/core.ipl";;
 
 let get_lexbuf name chan =
   let lexbuf = Lexing.from_channel chan
@@ -73,11 +73,11 @@ let run name chan =
 
 ;;
 
-let argspec = [ ("-i", Arg.Set(f_interactive), "interactive (repl) mode");
-                (("--interactive", Arg.Set(f_interactive), "interactive (repl) mode"));
-                (("--vanilla", Arg.Set(f_vanilla), "don't preload the standard runtime"));
-                (("-R", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "set runtime path"));
-                (("--runtime", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "set runtime path"))
+let argspec = [ ("-i", Arg.Set(f_interactive), "\t\t\tInteractive (repl) mode");
+                (("--interactive", Arg.Set(f_interactive), "\tInteractive (repl) mode"));
+                (("--vanilla", Arg.Set(f_vanilla), "\t\tDon't preload the standard runtime"));
+                (("-R", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\t\tSet runtime path"));
+                (("--runtime", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\tSet runtime path"))
               ]
 in
 try

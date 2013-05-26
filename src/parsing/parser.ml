@@ -262,9 +262,9 @@ let discard r =
       (fun (_, attrs2, strm2, scope2) ->
         cont (lst, attrs2, strm2, scope2)))
 
-let new_attrs (r : parser_rule_t) =
+let guard (r : parser_rule_t) =
   (fun () (lst, attrs, strm, scope) cont ->
-    r () (lst, create_attrs scope strm, strm, scope)
+    r () ([], create_attrs scope strm, strm, scope)
       (fun (lst2, _, strm2, scope2) ->
         cont (lst2, attrs, strm2, scope2)))
 
@@ -420,6 +420,7 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
         | Program(stmt) :: _ ->
             eval_handler stmt (Scope.lineno scope);
             cont state
+        | [] -> cont state
         | _ -> assert false
       end
     else
@@ -548,7 +549,7 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
   and operator () =
     recursive
       begin
-        new_attrs
+        guard
           (discard
              (symbol sym_operator +! name ++ maybe (symbol sym_is) ++ oper_spec_list ++
                 (change_scope
