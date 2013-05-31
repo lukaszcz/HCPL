@@ -6,7 +6,7 @@
 let f_interactive = ref false;;
 let f_vanilla = ref false;;
 let file_count = ref 0;;
-let runtime_path = ref "runtime/core.ipl";;
+let runtime_path = ref "lib/core.ipl";;
 
 let get_lexbuf name chan =
   let lexbuf = Lexing.from_channel chan
