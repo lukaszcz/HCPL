@@ -23,10 +23,10 @@ type t =
   | Builtin of (t list -> t) * int * attrs_t option
         (* (function, args num, attrs) *)
   | Integer of Big_int.big_int
+  | Nil
   | True
   | False
   | Cons of t * t
-  | Nil
   | Data of int * t list (* (tag, list of arguments) *)
   | Error of t * attrs_t option
 
@@ -46,7 +46,7 @@ module Attrs =
     type t = attrs_t option
 
     let create aname apos =
-      Some({ name = aname;  pos = apos; attr_map = None; node_type = None })
+      Some({ name = aname; pos = apos; attr_map = None; node_type = None })
 
     let get_name ma =
       match ma with
