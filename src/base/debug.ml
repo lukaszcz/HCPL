@@ -8,3 +8,6 @@ let print str =
 
 let print_int i =
   prerr_int i; prerr_newline ()
+
+let print_bool b =
+  prerr_endline (if b then "true" else "false")

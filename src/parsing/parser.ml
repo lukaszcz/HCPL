@@ -127,9 +127,9 @@ let (>>) (rule : parser_rule_t) (action : parser_action_t) =
     in
     rule () ([], attrs1, strm, scope)
       (fun (lst2, attrs2, strm2, scope2) ->
-        cont ((action (List.rev lst2) attrs2 scope2) :: lst, attrs, strm2, scope))
-      (* the above closure (hopefully) will refer only to lst, attrs
-      and scope, so that strm could be reclaimed by the gc *)
+        cont ((action (List.rev lst2) attrs2 scope2) :: lst, attrs, strm2, scope2))
+      (* the above closure (hopefully) will refer only to lst and
+      attrs, so that strm could be reclaimed by the gc *)
 
 let (+>) = (>>)
 
@@ -292,6 +292,12 @@ let new_scope (r : parser_rule_t) =
       (fun (lst2, attrs2, strm2, _) ->
         cont (lst2, attrs2, strm2, scope))
 
+let save_scope (r : parser_rule_t) =
+  fun () (lst, attrs, strm, scope) cont ->
+    r () (lst, attrs, strm, scope)
+      (fun (lst2, attrs2, strm2, _) ->
+        cont (lst2, attrs2, strm2, scope))
+
 let new_keyword sym (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->
     r () (lst, attrs, strm, Scope.add_keyword scope sym)
@@ -306,23 +312,15 @@ let new_frame (r : parser_rule_t) =
 
 (* execution of parser rules *)
 
-let execute r keywords builtins symtab lexbufs scope0 =
-  let scope =
-    List.fold_left
-      (fun scope f -> f scope)
-      (List.fold_left (fun scope x -> Scope.add_permanent_keyword scope x) scope0 keywords)
-      builtins
+let execute r lexbuf symtab scope =
+  let strm =
+    Scanner.scan_prepend symtab lexbuf (fun () -> TokenStream.empty)
   in
-  let rec scan lst =
-    match lst with
-    | h :: t -> Scanner.scan_prepend symtab h (fun () -> scan t)
-    | [] -> TokenStream.empty
-  in
-  r () ([], None, scan lexbufs, scope) (fun x -> x)
+  r () ([], None, strm, scope) (fun x -> x)
 
 (* -------------------------------------------------------------------------- *)
 
-let do_parse is_repl_mode lexbufs eval_handler decl_handler =
+let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
 
   let symtab = Symtab.create ()
   in
@@ -362,489 +360,521 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
   (* symbols end *)
 
   in
-  let decl f () (lst, attrs, strm, scope) (cont : parser_cont_t) =
-    begin
-      let pos = Scope.strm_position scope strm
-      and error_resume state2 cont =
-        skip_until [Token.Symbol(sym_eq); Token.Sep; Token.Symbol(sym_colon)] () state2 cont
-      in
-      match Scope.strm_token scope strm with
-      | Token.Symbol(sym) ->
-          let scope2 =
-            try
-              Some (Scope.add_ident scope sym (f sym pos scope))
-            with Scope.Duplicate_ident -> None
-          in
-          begin
-            match scope2 with
-            | Some(sc) ->
-                cont ((Ident sym) :: lst, attrs, Scope.strm_next sc strm, sc)
-            | None ->
-                let node = Scope.find_ident scope sym
-                in
-                let mpos = Node.get_pos node
-                in
-                let scope3 = Scope.replace_ident scope sym (Node.Proxy(ref Node.Nil))
-                in
-                let msg =
-                  "duplicate identifier `" ^ Symbol.to_string sym ^
-                  match mpos with
-                  | Some(_) -> "', previous declaration at " ^ Error.pos_to_string mpos
-                  | None -> "'"
-                in
-                Error.error (Some pos) msg;
-                error_resume ((Ident sym) :: lst, attrs, Scope.strm_next scope strm, scope3) cont
-          end
-      | _ ->
-          let scope2 = Scope.replace_ident scope sym_unknown (Node.Proxy(ref Node.Nil))
-          in
-          Error.error (Some pos) "expected identifier";
-          error_resume ((Ident sym_unknown) :: lst, attrs, strm, scope2) cont
-    end
 
-  and name () (lst, attrs, strm, scope) cont =
-    match Scope.strm_token scope strm with
-    | Token.Symbol(sym) -> cont ((Ident(sym)) :: lst, attrs, Scope.strm_next scope strm, scope)
-    | _ -> raise (ParseFailure(Scope.strm_position scope strm,
-                               "expected identifier",
-                               (fun () ->
-                                 cont ((Ident(sym_unknown)) :: lst, attrs, Scope.strm_next scope strm, scope))))
-
-  and comma = symbol sym_comma
-
-  and get_singleton_node lst =
+  let mkprogn lst attrs =
     match lst with
-    | [Program(node)] -> node
-    | _ -> assert false
-
-  and number = number +>
-    (fun lst _ _ ->
-      match lst with
-      | [Number(num)] -> Program(Node.Integer(num))
-      | _ -> assert false)
-
-  and string = string +>
-    (fun lst _ _ ->
-      match lst with
-      | [String(str)] -> Program(Node.String(str))
-      | _ -> assert false)
-
-  and repl_eval () ((lst, attrs, _, scope) as state) cont =
-    if is_repl_mode && Scope.nesting scope = 0 then
-      begin
-        match lst with
-        | Program(stmt) :: _ ->
-            eval_handler stmt (Scope.lineno scope);
-            cont state
-        | [] -> cont state
-        | _ -> assert false
-      end
-    else
-      cont state
-
-  and repl_decl () ((lst, attrs, _, scope) as state) cont =
-    if is_repl_mode && Scope.nesting scope = 0 then
-      begin
-        match lst with
-        | [Program(value); Ident(_); Bool(is_eager)] ->
-            if Node.is_immediate value then
-              eval_handler value (Scope.lineno scope)
-            else
-              decl_handler (if is_eager then value else Node.Delay(value)) (Scope.lineno scope);
-            cont state
-        | _ -> assert false
-      end
-    else
-      cont state
+    | [] -> Node.Nil
+    | _ ->
+        Node.Progn(List.map (function Program(x) -> x | _ -> assert false) lst, attrs)
   in
 
-  (* grammar begin *)
+  let do_parse_lexbuf is_repl_mode lexbuf initial_scope =
 
-  let rec program () =
-    recursive
+    let decl f () (lst, attrs, strm, scope) (cont : parser_cont_t) =
       begin
-        progn ++ eof
+        let pos = Scope.strm_position scope strm
+        and error_resume state2 cont =
+          skip_until [Token.Symbol(sym_eq); Token.Sep; Token.Symbol(sym_colon)] () state2 cont
+        in
+        match Scope.strm_token scope strm with
+        | Token.Symbol(sym) ->
+            let scope2 =
+              try
+                Some (Scope.add_ident scope sym (f sym pos scope))
+              with Scope.Duplicate_ident -> None
+            in
+            begin
+              match scope2 with
+              | Some(sc) ->
+                  cont ((Ident sym) :: lst, attrs, Scope.strm_next sc strm, sc)
+              | None ->
+                  let node = Scope.find_ident scope sym
+                  in
+                  let mpos = Node.get_pos node
+                  in
+                  let scope3 = Scope.replace_ident scope sym (Node.Proxy(ref Node.Nil))
+                  in
+                  let msg =
+                    "duplicate identifier `" ^ Symbol.to_string sym ^
+                    match mpos with
+                    | Some(_) -> "', previous declaration at " ^ Error.pos_to_string mpos
+                    | None -> "'"
+                  in
+                  Error.error (Some pos) msg;
+                  error_resume ((Ident sym) :: lst, attrs, Scope.strm_next scope strm, scope3) cont
+            end
+        | _ ->
+            let scope2 = Scope.replace_ident scope sym_unknown (Node.Proxy(ref Node.Nil))
+            in
+            Error.error (Some pos) "expected identifier";
+            error_resume ((Ident sym_unknown) :: lst, attrs, strm, scope2) cont
       end
 
-  and progn () =
-    recursive
-      begin
-        (if is_repl_mode then repl_statements else statements) ||| empty
-          >>
-        (fun lst attrs scope ->
+    and name () (lst, attrs, strm, scope) cont =
+      match Scope.strm_token scope strm with
+      | Token.Symbol(sym) -> cont ((Ident(sym)) :: lst, attrs, Scope.strm_next scope strm, scope)
+      | _ -> raise (ParseFailure(Scope.strm_position scope strm,
+                                 "expected identifier",
+                                 (fun () ->
+                                   cont ((Ident(sym_unknown)) :: lst, attrs, Scope.strm_next scope strm, scope))))
+
+    and comma = symbol sym_comma
+
+    and get_singleton_node lst =
+      match lst with
+      | [Program(node)] -> node
+      | _ -> assert false
+
+    and number = number +>
+      (fun lst _ _ ->
+        match lst with
+        | [Number(num)] -> Program(Node.Integer(num))
+        | _ -> assert false)
+
+    and string = string +>
+      (fun lst _ _ ->
+        match lst with
+        | [String(str)] -> Program(Node.String(str))
+        | _ -> assert false)
+
+    and repl_eval () ((lst, attrs, _, scope) as state) cont =
+      if is_repl_mode && Scope.nesting scope = 0 then
+        begin
           match lst with
-          | [] -> Program(Node.Nil)
-          | _ ->
-              Program(Node.Progn(List.map (function Program(x) -> x | _ -> assert false) lst, attrs)))
-      end
+          | Program(stmt) :: _ ->
+              eval_handler stmt (Scope.lineno scope);
+              cont state
+          | [] -> cont state
+          | _ -> assert false
+        end
+      else
+        cont state
 
-  and statements () =
-    recursive
-      begin
-        (token Token.Sep +> return (Program(Node.Nil)) |||
-           statement ++ maybe (token Token.Sep)) +!
-        maybe statements
-      end
+    and repl_decl () ((lst, attrs, _, scope) as state) cont =
+      if is_repl_mode && Scope.nesting scope = 0 then
+        begin
+          match lst with
+          | [Program(value); Ident(_); Bool(is_eager)] ->
+              if Node.is_immediate value then
+                eval_handler value (Scope.lineno scope)
+              else
+                decl_handler (if is_eager then value else Node.Delay(value)) (Scope.lineno scope);
+              cont state
+          | _ -> assert false
+        end
+      else
+        cont state
+    in
 
-  and repl_statements () =
-    recursive
-      begin
-        xlet |||
+    (* grammar begin *)
+
+    let rec program () =
+      recursive
+        begin
+          progn ++ eof
+        end
+
+    and progn () =
+      recursive
+        begin
+          (if is_repl_mode then repl_statements else statements) ||| empty
+            >>
+          (fun lst attrs _ -> Program(mkprogn lst attrs))
+        end
+
+    and statements () =
+      recursive
         begin
           (token Token.Sep +> return (Program(Node.Nil)) |||
-             statement ++ maybe (token Token.Sep)) +!
-          repl_eval ++
-          maybe repl_statements
+          statement ++ maybe (token Token.Sep)) +!
+            maybe statements
         end
-      end
 
-  and statement () =
-    recursive
-      begin
-        xlet ||| syntax ||| expr
-      end
+    and repl_statements () =
+      recursive
+        begin
+          xlet |||
+          begin
+            (token Token.Sep +> return (Program(Node.Nil)) |||
+            statement ++ maybe (token Token.Sep)) +!
+              repl_eval ++
+              maybe repl_statements
+          end
+        end
 
-  and xlet () =
-    recursive
-      begin
-        (token Token.LetEager +> return (Bool true) ||| token Token.LetLazy +> return (Bool false)) +!
-          ident_let ++
-          symbol sym_eq ++
-          new_keyword sym_in (expr) ++
-          (change_scope
-             (fun lst _ scope ->
-               match lst with
-               | [_; Ident(sym); Program(value)] ->
-                   begin
-                     match Scope.find_ident scope sym with
-                     | Node.Proxy(r) ->
-                         let value2 =
-                           match value with
-                           | Node.Lambda(body, frm, seen, attrs) ->
-                               Node.Lambda(body, frm, seen, Node.Attrs.set_name attrs sym)
-                           | Node.LambdaEager(body, frm, seen, attrs) ->
-                               Node.LambdaEager(body, frm, seen, Node.Attrs.set_name attrs sym)
-                           | _ -> value
-                         in
-                         r := value2;
-                         let node =
+    and statement () =
+      recursive
+        begin
+          xlet ||| syntax ||| expr
+        end
+
+    and xlet () =
+      recursive
+        begin
+          (token Token.LetEager +> return (Bool true) ||| token Token.LetLazy +> return (Bool false)) +!
+            ident_let ++
+            symbol sym_eq ++
+            new_keyword sym_in (expr) ++
+            (change_scope
+               (fun lst _ scope ->
+                 match lst with
+                 | [_; Ident(sym); Program(value)] ->
+                     begin
+                       match Scope.find_ident scope sym with
+                       | Node.Proxy(r) ->
+                           let value2 =
+                             match value with
+                             | Node.Lambda(body, frm, seen, attrs) ->
+                                 Node.Lambda(body, frm, seen, Node.Attrs.set_name attrs sym)
+                             | Node.LambdaEager(body, frm, seen, attrs) ->
+                                 Node.LambdaEager(body, frm, seen, Node.Attrs.set_name attrs sym)
+                             | _ -> value
+                           in
+                           r := value2;
+                           let node =
+                             if Node.is_immediate value2 then
+                               value2
+                             else
+                               Node.Var(Scope.frame scope + 1)
+                           in
+                           let scope2 = Scope.replace_ident scope sym node
+                           in
                            if Node.is_immediate value2 then
-                             value2
+                             scope2
                            else
-                             Node.Var(Scope.frame scope + 1)
-                         in
-                         let scope2 = Scope.replace_ident scope sym node
-                         in
-                         if Node.is_immediate value then
-                           scope2
-                         else
-                           Scope.push_frame scope2
-                     | _ -> Debug.print (sexp_list_to_string lst); assert false
-                   end
-               | _ -> assert false)) ++
-          (symbol sym_in +! new_scope expr |||
-           token Token.Sep ++ repl_decl ++ progn)
-          >>
-        (fun lst attrs scope ->
-          match lst with
-          | [Bool(is_eager); Ident(sym); Program(value); Program(body)] ->
-              if Node.is_immediate value then
-                Program(body)
-              else
-                Program(Node.Appl(Node.Lambda(body, Scope.frame scope, ref 0, attrs),
-                                  (if is_eager then Node.Force(value) else value), None))
-          | _ -> assert false)
-      end
+                             Scope.push_frame scope2
+                       | _ -> Debug.print (sexp_list_to_string lst); assert false
+                     end
+                 | _ -> assert false)) ++
+            (symbol sym_in +! new_scope expr |||
+            token Token.Sep ++ repl_decl ++ progn) ++
+            (change_scope
+               (fun lst _ scope ->
+                 match lst with
+                 | [_; _; Program(value); _] ->
+                     if Node.is_immediate value then
+                       scope
+                     else
+                       Scope.pop_frame scope
+                 | _ -> assert false))
+            >>
+          (fun lst attrs scope ->
+            match lst with
+            | [Bool(is_eager); Ident(sym); Program(value); Program(body)] ->
+                if Node.is_immediate value then
+                  Program(body)
+                else
+                  Program(Node.Appl(Node.Lambda(body, Scope.frame scope + 1, ref 0, attrs),
+                                    (if is_eager then Node.Force(value) else value), None))
+            | _ -> assert false)
+        end
 
-  and syntax () =
-    recursive
-      begin
-        symbol sym_syntax +! (operator ||| drop)
-      end
+    and syntax () =
+      recursive
+        begin
+          symbol sym_syntax +! (operator ||| drop)
+        end
 
-  and operator () =
-    recursive
-      begin
-        guard
-          (discard
-             (symbol sym_operator +! name ++ maybe (symbol sym_is) ++ oper_spec_list ++
-                (change_scope
-                   (fun lst attrs scope ->
-                     let prio_lst = List.filter (fun x -> match x with Prio(_) -> true | _ -> false) lst
-                     and assoc_lst = List.filter (fun x -> match x with Assoc(_) -> true | _ -> false) lst
-                     and arity_lst = List.filter (fun x -> match x with Arity(_) -> true | _ -> false) lst
-                     and sym = match List.hd lst with Ident(sym) -> sym | _ -> assert false
-                     in
-                     let prio =
-                       match prio_lst with
-                       | Prio(x) :: _ -> x
-                       | _ -> Opertab.EqualAppl
-                     and assoc =
-                       match assoc_lst with
-                       | Assoc(x) :: _ -> x
-                       | _ -> 1
-                     and arity =
-                       match arity_lst with
-                       | Arity(x) :: _ -> x
-                       | _ -> 1
-                     in
-                     if List.length prio_lst > 1 then
-                       Error.error (Node.Attrs.get_pos attrs) "multiple operator priority specifications";
-                     if List.length assoc_lst > 1 then
-                       Error.error (Node.Attrs.get_pos attrs) "multiple operator associativity specifications";
-                     if List.length arity_lst > 1 then
-                       Error.error (Node.Attrs.get_pos attrs) "multiple operator arity specifications";
-                     try
-                       Scope.add_oper scope sym prio assoc arity
-                     with Not_found ->
-                       Error.error (Node.Attrs.get_pos attrs) "undeclared operator";
-                       scope))))
-      end
+    and operator () =
+      recursive
+        begin
+          guard
+            (discard
+               (symbol sym_operator +! name ++ maybe (symbol sym_is) ++ oper_spec_list ++
+                  (change_scope
+                     (fun lst attrs scope ->
+                       let prio_lst = List.filter (fun x -> match x with Prio(_) -> true | _ -> false) lst
+                       and assoc_lst = List.filter (fun x -> match x with Assoc(_) -> true | _ -> false) lst
+                       and arity_lst = List.filter (fun x -> match x with Arity(_) -> true | _ -> false) lst
+                       and sym = match List.hd lst with Ident(sym) -> sym | _ -> assert false
+                       in
+                       let prio =
+                         match prio_lst with
+                         | Prio(x) :: _ -> x
+                         | _ -> Opertab.EqualAppl
+                       and assoc =
+                         match assoc_lst with
+                         | Assoc(x) :: _ -> x
+                         | _ -> 1
+                       and arity =
+                         match arity_lst with
+                         | Arity(x) :: _ -> x
+                         | _ -> 1
+                       in
+                       if List.length prio_lst > 1 then
+                         Error.error (Node.Attrs.get_pos attrs) "multiple operator priority specifications";
+                       if List.length assoc_lst > 1 then
+                         Error.error (Node.Attrs.get_pos attrs) "multiple operator associativity specifications";
+                       if List.length arity_lst > 1 then
+                         Error.error (Node.Attrs.get_pos attrs) "multiple operator arity specifications";
+                       try
+                         Scope.add_oper scope sym prio assoc arity
+                       with Not_found ->
+                         Error.error (Node.Attrs.get_pos attrs) "undeclared operator";
+                         scope))))
+        end
 
-  and oper_spec_list () =
-    recursive
-      begin
-        oper_spec ++ maybe (comma +! oper_spec_list)
-      end
+    and oper_spec_list () =
+      recursive
+        begin
+          oper_spec ++ maybe (comma +! oper_spec_list)
+        end
 
-  and oper_spec =
-    symbol sym_left +> return (Assoc Opertab.assoc_left) |||
-    symbol sym_right +> return (Assoc Opertab.assoc_right) |||
-    symbol sym_binary +> return (Arity 2) |||
-    symbol sym_unary +> return (Arity 1) |||
-    maybe (symbol sym_prio) ++ symbol sym_after ++ name
-      +>
-    (fun lst attrs scope ->
-      match lst with
-      | [Ident(sym)] ->
-          if Symbol.eq sym sym_appl then
-            Prio(Opertab.AfterAppl)
-          else
-            Prio(Opertab.After(sym))
-      | _ -> assert false)
+    and oper_spec =
+      symbol sym_left +> return (Assoc Opertab.assoc_left) |||
+      symbol sym_right +> return (Assoc Opertab.assoc_right) |||
+      symbol sym_binary +> return (Arity 2) |||
+      symbol sym_unary +> return (Arity 1) |||
+      maybe (symbol sym_prio) ++ symbol sym_after ++ name
+        +>
+      (fun lst attrs scope ->
+        match lst with
+        | [Ident(sym)] ->
+            if Symbol.eq sym sym_appl then
+              Prio(Opertab.AfterAppl)
+            else
+              Prio(Opertab.After(sym))
+        | _ -> assert false)
     |||
-    maybe (symbol sym_prio) ++ symbol sym_before ++ name
-      +>
-    (fun lst attrs scope ->
-      match lst with
-      | [Ident(sym)] ->
-          if Symbol.eq sym sym_appl then
-            Prio(Opertab.BeforeAppl)
-          else
-            Prio(Opertab.Before(sym))
-      | _ -> assert false)
+      maybe (symbol sym_prio) ++ symbol sym_before ++ name
+        +>
+      (fun lst attrs scope ->
+        match lst with
+        | [Ident(sym)] ->
+            if Symbol.eq sym sym_appl then
+              Prio(Opertab.BeforeAppl)
+            else
+              Prio(Opertab.Before(sym))
+        | _ -> assert false)
     |||
-    maybe (symbol sym_prio) ++ symbol sym_last
-      +>
+      maybe (symbol sym_prio) ++ symbol sym_last
+        +>
       return (Prio(Opertab.Last))
     |||
-    maybe (symbol sym_prio) ++ symbol sym_first
-      +>
+      maybe (symbol sym_prio) ++ symbol sym_first
+        +>
       return (Prio(Opertab.First))
     |||
-    symbol sym_prio ++ name
-      +>
-    (fun lst attrs scope ->
-      match lst with
-      | [Ident(sym)] ->
-          if Symbol.eq sym sym_appl then
-            Prio(Opertab.EqualAppl)
-          else
-            Prio(Opertab.Equal(sym))
-      | _ -> assert false)
+      symbol sym_prio ++ name
+        +>
+      (fun lst attrs scope ->
+        match lst with
+        | [Ident(sym)] ->
+            if Symbol.eq sym sym_appl then
+              Prio(Opertab.EqualAppl)
+            else
+              Prio(Opertab.Equal(sym))
+        | _ -> assert false)
 
-  and drop () =
-    recursive
-      begin
-        symbol sym_drop +! name_list ++
-          (change_scope
-             (fun lst attrs scope ->
-               List.fold_left
-                 (fun scope x ->
-                   match x with
-                   | Ident(sym) ->
-                       begin
-                         try
-                           Scope.drop_oper scope sym
-                         with Not_found ->
-                           Error.error (Node.Attrs.get_pos attrs) "undeclared operator";
-                           scope
-                       end
-                   | _ -> assert false)
-                 scope
-                 lst))
-      end
+    and drop () =
+      recursive
+        begin
+          symbol sym_drop +! name_list ++
+            (change_scope
+               (fun lst attrs scope ->
+                 List.fold_left
+                   (fun scope x ->
+                     match x with
+                     | Ident(sym) ->
+                         begin
+                           try
+                             Scope.drop_oper scope sym
+                           with Not_found ->
+                             Error.error (Node.Attrs.get_pos attrs) "undeclared operator";
+                             scope
+                         end
+                     | _ -> assert false)
+                   scope
+                   lst))
+        end
 
-  and name_list () =
-    recursive
-      begin
-        name ++ maybe (comma +! name_list)
-      end
+    and name_list () =
+      recursive
+        begin
+          name ++ maybe (comma +! name_list)
+        end
 
-  and expr () =
-    recursive
-      begin
-        terms
-          >>
-        (fun lst attrs scope ->
-          let node = Scope.rewrite scope (List.map (function Program(x) -> x | _ -> assert false) lst)
-          in
-          match node with
-          | Node.Appl(x, y, _) -> Program(Node.Appl(x, y, attrs))
-          | _ -> Program(node))
-      end
+    and expr () =
+      recursive
+        begin
+          terms
+            >>
+          (fun lst attrs scope ->
+            let node = Scope.rewrite scope (List.map (function Program(x) -> x | _ -> assert false) lst)
+            in
+            match node with
+            | Node.Appl(x, y, _) -> Program(Node.Appl(x, y, attrs))
+            | _ -> Program(node))
+        end
 
-  and terms () =
-    recursive
-      begin
-        term ++ maybe terms
-      end
+    and terms () =
+      recursive
+        begin
+          term ++ maybe terms
+        end
 
-  and term () =
-    recursive
-      begin
-        lambda ||| cond |||
-        lparen +! new_scope (progn ++ rparen) |||
-        lparen_curl +! new_scope (progn ++ rparen_curl) |||
-        token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(get_singleton_node lst))) |||
-        token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) |||
-        token Token.True +> return (Program(Node.True)) |||
-        token Token.False +> return (Program(Node.False)) |||
-        ident_ref ||| number ||| string
-      end
+    and term () =
+      recursive
+        begin
+          lambda ||| cond |||
+          lparen +! new_scope (progn ++ rparen) |||
+          lparen_curl +! new_scope (progn ++ rparen_curl) |||
+          token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(get_singleton_node lst))) |||
+          token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) |||
+          token Token.True +> return (Program(Node.True)) |||
+          token Token.False +> return (Program(Node.False)) |||
+          ident_ref ||| number ||| string
+        end
 
-  and lambda () =
-    recursive
-      begin
-        discard (maybe attributes) ++ token Token.Lambda +!
-          (token Token.Force +> return (Bool true) |||
-             token Token.Lazy +> return (Bool false) |||
-             empty +> return (Bool true)) ++
-          new_scope
-          (new_frame
-             (ident_lambda ++ discard (maybe ret_atype) ++
-                (symbol sym_dot +! expr ||| term)))
-          >>
-        (fun lst attrs scope ->
-          match lst with
-          | [Bool(is_eager); Ident(sym); Program(body)] ->
-              if is_eager then
-                Program(Node.LambdaEager(body, Scope.frame scope + 1, ref 0, attrs))
-              else
-                Program(Node.Lambda(body, Scope.frame scope + 1, ref 0, attrs))
-          | _ -> assert false)
-      end
-
-  and cond () =
-    recursive
-      begin
-        token Token.If +! expr ++ token Token.Then ++ expr ++ token Token.Else ++ expr
-          >>
-        (fun lst attrs _ ->
-          match lst with
-          | [Program(x); Program(y); Program(z)] ->
-              Program(Node.Cond(x, y, z, attrs))
-          | _ -> assert false)
-      end
-
-  and ident_ref =
-    name
-      >>
-    (fun lst attrs scope ->
-      match lst with
-      | [Ident(sym)] ->
-          begin
-            try
-              Program(Scope.find_ident scope sym)
-            with Not_found ->
-              Error.error (Node.Attrs.get_pos attrs) "Unbound identifier";
-              Program(Node.Nil)
-          end
-      | _ -> assert false)
-
-  and ident f =
-    discard (maybe attributes) ++ decl f ++ discard (maybe atype)
-
-  and ident_let () =
-    recursive
-      begin
-        ident
-          (fun sym pos _ ->
-            (Node.Proxy(ref (Node.Error(Node.Nil, Node.Attrs.create (Some sym) (Some pos))))))
-      end
-
-  and ident_lambda () =
-    recursive
-      begin
-        ident (fun _ _ scope -> Node.Var(Scope.frame scope))
-      end
-
-  and atype () =
-    recursive
-      begin
-        (symbol sym_colon) +! term ++
-          change_attrs
-          (fun lst attrs ->
-            Node.Attrs.set_type attrs (get_singleton_node lst))
-      end
-
-  and ret_atype () =
-    recursive
-      begin
-        (symbol sym_ret_type) +! term ++
-          change_attrs
-          (fun lst attrs ->
-            Node.Attrs.set_attr attrs sym_return_type (get_singleton_node lst))
-      end
-
-  and attributes () =
-    recursive
-      begin
-        attribute ++ maybe attributes
-      end
-
-  and attribute () =
-    recursive
-      begin
-        symbol sym_at +! name ++ optional (symbol sym_eq ++ term) ++
-          change_attrs
-          (fun lst attrs ->
+    and lambda () =
+      recursive
+        begin
+          discard (maybe attributes) ++ token Token.Lambda +!
+            (token Token.Force +> return (Bool true) |||
+            token Token.Lazy +> return (Bool false) |||
+            empty +> return (Bool true)) ++
+            new_scope
+            (new_frame
+               (ident_lambda ++ discard (maybe ret_atype) ++
+                  (symbol sym_dot +! expr ||| term)))
+            >>
+          (fun lst attrs scope ->
             match lst with
-            | [Ident(aname); Sexp([])] ->
-                Node.Attrs.set_attr attrs aname Node.Nil
-            | [Ident(aname); Sexp([Program(value)])] ->
-                Node.Attrs.set_attr attrs aname value
+            | [Bool(is_eager); Ident(sym); Program(body)] ->
+                if is_eager then
+                  Program(Node.LambdaEager(body, Scope.frame scope + 1, ref 0, attrs))
+                else
+                  Program(Node.Lambda(body, Scope.frame scope + 1, ref 0, attrs))
             | _ -> assert false)
-      end
+        end
+
+    and cond () =
+      recursive
+        begin
+          token Token.If +! expr ++ token Token.Then ++ expr ++ token Token.Else ++ expr
+            >>
+          (fun lst attrs _ ->
+            match lst with
+            | [Program(x); Program(y); Program(z)] ->
+                Program(Node.Cond(x, y, z, attrs))
+            | _ -> assert false)
+        end
+
+    and ident_ref =
+      name
+        >>
+      (fun lst attrs scope ->
+        match lst with
+        | [Ident(sym)] ->
+            begin
+              try
+                Program(Scope.find_ident scope sym)
+              with Not_found ->
+                Error.error (Node.Attrs.get_pos attrs) "Unbound identifier";
+                Program(Node.Nil)
+            end
+        | _ -> assert false)
+
+    and ident f =
+      discard (maybe attributes) ++ decl f ++ discard (maybe atype)
+
+    and ident_let () =
+      recursive
+        begin
+          ident
+            (fun sym pos _ ->
+              (Node.Proxy(ref (Node.Error(Node.Nil, Node.Attrs.create (Some sym) (Some pos))))))
+        end
+
+    and ident_lambda () =
+      recursive
+        begin
+          ident (fun _ _ scope -> Node.Var(Scope.frame scope))
+        end
+
+    and atype () =
+      recursive
+        begin
+          (symbol sym_colon) +! term ++
+            change_attrs
+            (fun lst attrs ->
+              Node.Attrs.set_type attrs (get_singleton_node lst))
+        end
+
+    and ret_atype () =
+      recursive
+        begin
+          (symbol sym_ret_type) +! term ++
+            change_attrs
+            (fun lst attrs ->
+              Node.Attrs.set_attr attrs sym_return_type (get_singleton_node lst))
+        end
+
+    and attributes () =
+      recursive
+        begin
+          attribute ++ maybe attributes
+        end
+
+    and attribute () =
+      recursive
+        begin
+          symbol sym_at +! name ++ optional (symbol sym_eq ++ term) ++
+            change_attrs
+            (fun lst attrs ->
+              match lst with
+              | [Ident(aname); Sexp([])] ->
+                  Node.Attrs.set_attr attrs aname Node.Nil
+              | [Ident(aname); Sexp([Program(value)])] ->
+                  Node.Attrs.set_attr attrs aname value
+              | _ -> assert false)
+        end
+    in
+
+    (* grammar end *)
+
+    let rec loop f =
+      try
+        f ()
+      with
+      | ParseSuccess(resume) ->
+          loop resume
+      | ParseFailure(pos, msg, resume) ->
+          Error.error (Some(pos)) msg;
+          loop resume
+      | TokenStream.Eof ->
+          Error.fatal "unexpected end of file";
+          ([Program(Node.Nil)], None, TokenStream.empty, Scope.empty)
+    in
+    let (lst, _, _, scope) =
+      loop
+        (fun () -> execute program lexbuf symtab initial_scope)
+    in
+    (lst, scope)
   in
-
-  (* grammar end *)
-
-  let rec loop f =
-    try
-      f ()
-    with
-    | ParseSuccess(resume) ->
-        loop resume
-    | ParseFailure(pos, msg, resume) ->
-        Error.error (Some(pos)) msg;
-        loop resume
-    | TokenStream.Eof ->
-        Error.fatal "unexpected end of file";
-        ([Program(Node.Nil)], None, TokenStream.empty, Scope.empty)
-  and kwds = [sym_fun; sym_def]
+  let keywords = [sym_fun; sym_def]
   and builtins =
     [(fun x -> Generic_builtins.declare_builtins x symtab);
      (fun x -> Arith_builtins.declare_builtins x symtab);
      (fun x -> Bool_builtins.declare_builtins x symtab);
      (fun x -> String_builtins.declare_builtins x symtab)]
-  and scope0 = if is_repl_mode then Scope.empty_repl else Scope.empty
   in
-  let (lst, _, _, _) =
-    loop
-      (fun () -> execute program kwds builtins symtab lexbufs scope0)
+  let scope0 =
+    List.fold_left
+      (fun scope f -> f scope)
+      (List.fold_left
+         (fun scope x -> Scope.add_permanent_keyword scope x)
+         (if is_repl_mode then Scope.empty_repl else Scope.empty)
+         keywords)
+      builtins
   in
-  get_singleton_node lst
+  match runtime_lexbuf with
+  | Some(buf) ->
+      let scope1 = snd (do_parse_lexbuf false buf scope0)
+      in
+      mkprogn (fst (do_parse_lexbuf is_repl_mode lexbuf scope1)) None
+  | None ->
+      mkprogn (fst (do_parse_lexbuf is_repl_mode lexbuf scope0)) None
 
-let parse lexbufs = do_parse false lexbufs (fun _ _ -> ()) (fun _ _ -> ())
+let parse lexbuf runtime_lexbuf = do_parse false lexbuf runtime_lexbuf (fun _ _ -> ()) (fun _ _ -> ())
 let parse_repl = do_parse true

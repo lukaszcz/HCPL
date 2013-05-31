@@ -5,3 +5,4 @@
 
 val print : string -> unit
 val print_int : int -> unit
+val print_bool : bool -> unit

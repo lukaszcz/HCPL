@@ -3,10 +3,12 @@
    Copyright (C) 2013 by Łukasz Czajka
 *)
 
+Config.init ();;
+
 let f_interactive = ref false;;
 let f_vanilla = ref false;;
 let file_count = ref 0;;
-let runtime_path = ref "lib/core.ipl";;
+let runtime_path = ref (Config.stdlib_path () ^ Config.dir_sep () ^ "core.ipl");;
 
 let get_lexbuf name chan =
   let lexbuf = Lexing.from_channel chan
@@ -50,11 +52,11 @@ let run_repl name chan =
   let lexbuf = get_lexbuf name chan
   in
   if !f_vanilla then
-    ignore (Parser.parse_repl [lexbuf] evaluate declare)
+    ignore (Parser.parse_repl lexbuf None evaluate declare)
   else
     let runtime_lexbuf = get_lexbuf !runtime_path (open_in !runtime_path)
     in
-    ignore (Parser.parse_repl [runtime_lexbuf; lexbuf] evaluate declare)
+    ignore (Parser.parse_repl lexbuf (Some runtime_lexbuf) evaluate declare)
 
 let run name chan =
   let lexbuf = get_lexbuf name chan
@@ -62,26 +64,42 @@ let run name chan =
   file_count := !file_count + 1;
   let node =
     if !f_vanilla then
-      Parser.parse [lexbuf]
+      Parser.parse lexbuf None
     else
       let runtime_lexbuf = get_lexbuf !runtime_path (open_in !runtime_path)
       in
-      Parser.parse [runtime_lexbuf; lexbuf]
+      Parser.parse lexbuf (Some runtime_lexbuf)
   in
   if Error.error_count () + Error.fatal_count () = 0 then
     ignore (Eval.eval node);
+  ()
+
+let show_help spec =
+  begin
+    print_endline "usage: ipl [file.ipl]";
+    let rec loop lst =
+      match lst with
+      | (x, _, y) :: t -> print_endline (x ^ " " ^ y); loop t
+      | [] -> ()
+    in
+    loop spec
+  end
 
 ;;
 
-let argspec = [ ("-i", Arg.Set(f_interactive), "\t\t\tInteractive (repl) mode");
-                (("--interactive", Arg.Set(f_interactive), "\tInteractive (repl) mode"));
-                (("--vanilla", Arg.Set(f_vanilla), "\t\tDon't preload the standard runtime"));
-                (("-R", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\t\tSet runtime path"));
-                (("--runtime", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\tSet runtime path"))
-              ]
+let rec argspec () =
+  [ ("-i", Arg.Set(f_interactive), "\t\t\tInteractive (repl) mode");
+    (("--interactive", Arg.Set(f_interactive), "\tInteractive (repl) mode"));
+    (("-I", Arg.String(fun s -> Config.prepend_path s), "\t\t\tAdd to include path"));
+    (("--vanilla", Arg.Set(f_vanilla), "\t\tDon't preload the standard runtime"));
+    (("-R", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\t\tSet runtime path"));
+    (("--runtime", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\tSet runtime path"));
+    (("--help", Arg.Unit(fun () -> show_help (argspec ())), "\t\tDisplay this list of options"))
+  ]
 in
+Config.set_path ["."; Config.stdlib_path ()];
 try
-  Arg.parse argspec (fun filename -> run filename (open_in filename)) "usage: ipl [file.ipl]";
+  Arg.parse (argspec ()) (fun filename -> run filename (open_in filename)) "usage: ipl [file.ipl]";
   if !file_count = 0 then
     begin
       if !f_interactive then

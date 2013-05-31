@@ -2,6 +2,9 @@
  * Core IPL runtime.
  */
 
+// The core runtime should not contain any definitions that require
+// evaluation.
+
 // -------------------------------------------------------------------
 //  standard operators
 

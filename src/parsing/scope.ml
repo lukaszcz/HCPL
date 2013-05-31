@@ -102,6 +102,9 @@ let frame scope = scope.frame
 let push_frame scope =
   { scope with frame = scope.frame + 1 }
 
+let pop_frame scope =
+  { scope with frame = scope.frame - 1 }
+
 let rewrite scope lst =
   Opertab.rewrite scope.opertab lst
 
