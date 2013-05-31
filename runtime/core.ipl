@@ -17,7 +17,9 @@ syntax operator mod is left, binary, prio *;
 syntax operator + is left, binary, after *;
 syntax operator - is left, binary, prio +;
 
-syntax operator <  is left, binary, after +;
+syntax operator ^ is left, binary, after +;
+
+syntax operator <  is left, binary, after ^;
 syntax operator <= is left, binary, prio <;
 syntax operator >  is left, binary, prio <;
 syntax operator >= is left, binary, prio <;

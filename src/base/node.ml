@@ -23,6 +23,7 @@ type t =
   | Builtin of (t list -> t) * int * attrs_t option
         (* (function, args num, attrs) *)
   | Integer of Big_int.big_int
+  | String of string
   | Nil
   | True
   | False
@@ -110,7 +111,7 @@ let is_immediate = function
   | Progn(_) | Appl(_) | Cond(_) | Delay(_) | Force(_) | Var(_) | Fail(_) | Delayed(_) | Proxy(_) |
     Closure(_)
     -> false
-  | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | True | False | Cons(_) |
+  | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | True | False | Cons(_) |
     Nil | Data(_) | Error(_)
     -> true
   | ChangeStackEnv(_) | Store(_) | ReturnProgn(_) | ReturnApply(_) | ReturnCond(_)
@@ -162,6 +163,11 @@ let rec equal node1 node2 =
           True
         else
           False
+    | String(x), String(y) ->
+        if x = y then
+          True
+        else
+          False
     | True, True -> True
     | False, False -> False
     | Cons(x1, y1), Cons(x2, y2) ->
@@ -202,6 +208,7 @@ let to_string node =
         | LambdaEager(body, frm, _, attrs) -> lambda_str body frm attrs true
         | Builtin(_) -> "<builtin>"
         | Integer(i) -> Big_int.string_of_big_int i
+        | String(str) -> str
         | True -> "true"
         | False -> "false"
         | Cons(x, y) -> "(cons " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"

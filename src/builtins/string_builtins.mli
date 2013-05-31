@@ -1,4 +1,4 @@
-(* bool_builtins.ml: Basic boolean operation builtins interface.
+(* string_builtins.mli: String builtins interface.
 
    Copyright (C) 2013 by Łukasz Czajka
 *)

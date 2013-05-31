@@ -39,12 +39,13 @@ rule read_token symtab = parse
   | "let"                          { Token.LetEager }
   | "let!"                         { Token.LetEager }
   | "let&"                         { Token.LetLazy }
+  | '\"'                           { string "" lexbuf }
   | "/*"                           { comment symtab 0 lexbuf }
   | id as s                        { Token.Symbol(Symtab.find symtab s) }
   | [' ' '\t' '\r']+               { read_token symtab lexbuf }
   | "//"[^'\n']*                   { read_token symtab lexbuf }
   | '\n'                           { new_line lexbuf; Token.Newline }
-  | _ as s                         { Token.Symbol(Symtab.find symtab (Char.escaped s)) }
+  | _ as c                         { Token.Symbol(Symtab.find symtab (Char.escaped c)) }
   | eof                            { Token.Eof }
 
 and comment symtab level = parse
@@ -54,6 +55,10 @@ and comment symtab level = parse
   | _           { comment symtab level lexbuf }
   | eof         { Error.error (Some(lexeme_start_p lexbuf)) "Unterminated comment"; Token.Eof }
 
+and string acc = parse
+  | '\"'        { Token.String(acc) }
+  | '\n'        { new_line lexbuf; string (acc ^ "\n") lexbuf }
+  | _ as c      { string (acc ^ Char.escaped c) lexbuf  }
 
 {
 

@@ -27,7 +27,7 @@ let rec pop_n lst n =
 
 let close x env env_len =
   match x with
-  | Builtin(_) | Integer(_) | True | False | Cons(_) | Nil | Data(_) |
+  | Builtin(_) | Integer(_) | String(_) | True | False | Cons(_) | Nil | Data(_) |
     Closure(_)
     -> x
   | Lambda(_, frame, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
@@ -94,7 +94,7 @@ let do_eval node limit env =
     | Delay(x) ->
         return (Delayed(ref x)) stack env env_len env env_len
 
-    | Integer(_) | True | False | Cons(_, _) | Nil | Data(_, _) ->
+    | Integer(_) | String(_) | True | False | Cons(_, _) | Nil | Data(_, _) ->
         return node stack env env_len env env_len
 
     | _ -> assert false
@@ -132,7 +132,7 @@ let do_eval node limit env =
                         reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
                       else
                         shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                  | Integer(_) | True | False | Cons(_, _) | Nil | Data(_, _) ->
+                  | Integer(_) | String(_) | True | False | Cons(_, _) | Nil | Data(_, _) ->
                       reduce body t (x :: env2) (env2_len + 1) s_env s_env_len
                   | _ ->
                       shift x ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
@@ -181,7 +181,7 @@ let do_eval node limit env =
                         reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
                       else
                         shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                  | Integer(_) | True | False | Cons(_) | Nil | Data(_) ->
+                  | Integer(_) | String(_) | True | False | Cons(_) | Nil | Data(_) ->
                       reduce body t (h :: env2) (env2_len + 1) s_env s_env_len
                   | _ ->
                       shift h ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
@@ -224,7 +224,7 @@ let do_eval node limit env =
     | Proxy(rx) ->
         reduce !rx stack env env_len s_env s_env_len
 
-    | Integer(_) | True | False | Cons(_, _) | Nil | Data(_, _) ->
+    | Integer(_) | String(_) | True | False | Cons(_, _) | Nil | Data(_, _) ->
         return node stack env env_len s_env s_env_len
 
     | Error(x, attrs) ->

@@ -51,6 +51,7 @@ type sexp_t =
   | Ident of Symbol.t
   | Bool of bool
   | Number of Big_int.big_int
+  | String of string
   | Sexp of sexp_t list
   | Assoc of int
   | Arity of int
@@ -63,6 +64,7 @@ let rec sexp_to_string sexp =
   | Ident(sym) -> "Ident(" ^ Symbol.to_string sym ^ ")"
   | Bool(b) -> "Bool(" ^ (if b then "true" else "false") ^ ")"
   | Number(num) -> "Number(" ^ Big_int.string_of_big_int num ^ ")"
+  | String(str) -> "String(\"" ^ str ^ "\")"
   | Sexp(lst) -> "Sexp(" ^ sexp_list_to_string lst ^ ")"
   | Assoc(x) -> "Assoc(" ^ string_of_int x ^ ")"
   | Arity(x) -> "Arity(" ^ string_of_int x ^ ")"
@@ -206,10 +208,18 @@ let keyword sym = token (Token.Keyword(sym))
 
 let number () (lst, attrs, strm, scope) cont =
   match Scope.strm_token scope strm with
-  | Token.Number(num) -> cont ((Number(num)) :: lst, attrs, Scope.strm_next scope strm, scope)
+  | Token.Number(num) -> cont (Number(num) :: lst, attrs, Scope.strm_next scope strm, scope)
   | _ -> raise (ParseFailure(Scope.strm_position scope strm,
                              "expected expression",
                              (fun () -> cont ((Number(Big_int.zero_big_int)) :: lst,
+                                              attrs, Scope.strm_next scope strm, scope))))
+
+let string () (lst, attrs, strm, scope) cont =
+  match Scope.strm_token scope strm with
+  | Token.String(str) -> cont (String(str) :: lst, attrs, Scope.strm_next scope strm, scope)
+  | _ -> raise (ParseFailure(Scope.strm_position scope strm,
+                             "expected expression",
+                             (fun () -> cont (String("") :: lst,
                                               attrs, Scope.strm_next scope strm, scope))))
 
 let lparen = token Token.LeftParen
@@ -411,6 +421,12 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
     (fun lst _ _ ->
       match lst with
       | [Number(num)] -> Program(Node.Integer(num))
+      | _ -> assert false)
+
+  and string = string +>
+    (fun lst _ _ ->
+      match lst with
+      | [String(str)] -> Program(Node.String(str))
       | _ -> assert false)
 
   and repl_eval () ((lst, attrs, _, scope) as state) cont =
@@ -694,7 +710,7 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
         token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) |||
         token Token.True +> return (Program(Node.True)) |||
         token Token.False +> return (Program(Node.False)) |||
-        ident_ref ||| number
+        ident_ref ||| number ||| string
       end
 
   and lambda () =
@@ -820,7 +836,8 @@ let do_parse is_repl_mode lexbufs eval_handler decl_handler =
   and builtins =
     [(fun x -> Generic_builtins.declare_builtins x symtab);
      (fun x -> Arith_builtins.declare_builtins x symtab);
-     (fun x -> Bool_builtins.declare_builtins x symtab)]
+     (fun x -> Bool_builtins.declare_builtins x symtab);
+     (fun x -> String_builtins.declare_builtins x symtab)]
   and scope0 = if is_repl_mode then Scope.empty_repl else Scope.empty
   in
   let (lst, _, _, _) =

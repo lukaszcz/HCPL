@@ -7,6 +7,7 @@ type t =
   | Symbol of Symbol.t
   | Keyword of Symbol.t
   | Number of Big_int.big_int
+  | String of string
   | If
   | Then
   | Else
@@ -39,6 +40,7 @@ let to_string x =
   | Symbol(sym) -> "Token.Symbol(" ^ Symbol.to_string sym ^ ")"
   | Keyword(sym) -> "Token.Keyword(" ^ Symbol.to_string sym ^ ")"
   | Number(num) -> "Token.Number(" ^ Big_int.string_of_big_int num ^ ")"
+  | String(str) -> "Token.String(\"" ^ str ^ "\")"
   | If -> "Token.If"
   | Then -> "Token.Then"
   | Else -> "Token.Else"
