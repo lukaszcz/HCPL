@@ -1,12 +1,13 @@
 
-1. Strings (rudimentary)
-2. Import
-3. Fix runtime in repl mode
-4. Symbols
-5. Reification
-6. Matching
-7. Lists
-8. Collect operators
-9. Syntax rules
-10. Logic
-11. Improve evaluator efficiency
+* Fix ||| associativity and error reporting
+* Remove superflous progns in operator rewrting
+* Symbols
+* Reification
+* Matching
+* Lists
+* Collect operators
+* Syntax rules
+* Logic
+* Improve evaluator efficiency
+* In the parser, translate closed lets directly into Delayed nodes
+* Call by name

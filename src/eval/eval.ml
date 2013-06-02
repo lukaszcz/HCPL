@@ -25,9 +25,9 @@ let rec pop_n lst n =
   else
     lst
 
-let close x env env_len =
+let do_close x env env_len =
   match x with
-  | Builtin(_) | Integer(_) | String(_) | True | False | Cons(_) | Nil | Data(_) |
+  | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_) | Nil |
     Closure(_)
     -> x
   | Lambda(_, frame, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
@@ -70,9 +70,6 @@ let do_eval node limit env =
     | Var(n) ->
         shift (nth env n) stack env env_len
 
-    | Fail(x, attrs) ->
-        reduce (Error(close x env env_len, attrs)) stack env env_len env env_len
-
     | Delayed(rx) ->
         if is_immediate !rx then
           shift !rx stack env env_len
@@ -82,7 +79,7 @@ let do_eval node limit env =
     | Proxy(rx) ->
         shift !rx stack env env_len
 
-    | Lambda(_) | LambdaEager(_) | Builtin(_) | Error(_) ->
+    | Lambda(_) | LambdaEager(_) | Builtin(_) ->
         reduce node stack env env_len env env_len
 
     | Closure(x, env2, env2_len) ->
@@ -94,7 +91,10 @@ let do_eval node limit env =
     | Delay(x) ->
         return (Delayed(ref x)) stack env env_len env env_len
 
-    | Integer(_) | String(_) | True | False | Cons(_, _) | Nil | Data(_, _) ->
+    | MakeRecord(identtab) ->
+        return (Record(Symbol.Map.map (fun x -> do_close x env env_len) identtab)) stack env env_len env env_len
+
+    | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_, _) | Nil ->
         return node stack env env_len env env_len
 
     | _ -> assert false
@@ -113,7 +113,7 @@ let do_eval node limit env =
                 reduce node t env env_len env2 env2_len
             | Store(rx) :: t ->
                 begin
-                  rx := close node env env_len;
+                  rx := do_close node env env_len;
                   reduce node t env env_len s_env s_env_len
                 end
             | ReturnProgn(_) :: _ | ReturnApply(_) :: _ | ReturnCond(_) :: _ ->
@@ -132,7 +132,7 @@ let do_eval node limit env =
                         reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
                       else
                         shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                  | Integer(_) | String(_) | True | False | Cons(_, _) | Nil | Data(_, _) ->
+                  | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_, _) | Nil ->
                       reduce body t (x :: env2) (env2_len + 1) s_env s_env_len
                   | _ ->
                       shift x ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
@@ -142,7 +142,7 @@ let do_eval node limit env =
                 let env2 = pop_n env (env_len - frame)
                 and env2_len = frame
                 in
-                reduce body t (Delayed(ref (close h s_env s_env_len)) :: env2) (env2_len + 1) s_env s_env_len
+                reduce body t (Delayed(ref (do_close h s_env s_env_len)) :: env2) (env2_len + 1) s_env s_env_len
             | [] ->
                 assert (env_len >= frame);
                 let env2 = pop_n env (env_len - frame)
@@ -162,7 +162,7 @@ let do_eval node limit env =
                 reduce node t env env_len env2 env2_len
             | Store(rx) :: t ->
                 begin
-                  rx := close node env env_len;
+                  rx := do_close node env env_len;
                   reduce node t env env_len s_env s_env_len
                 end
             | ReturnProgn(_) :: _ | ReturnApply(_) :: _ | ReturnCond(_) :: _ ->
@@ -181,7 +181,7 @@ let do_eval node limit env =
                         reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
                       else
                         shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                  | Integer(_) | String(_) | True | False | Cons(_) | Nil | Data(_) ->
+                  | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_) | Nil ->
                       reduce body t (h :: env2) (env2_len + 1) s_env s_env_len
                   | _ ->
                       shift h ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
@@ -224,11 +224,8 @@ let do_eval node limit env =
     | Proxy(rx) ->
         reduce !rx stack env env_len s_env s_env_len
 
-    | Integer(_) | String(_) | True | False | Cons(_, _) | Nil | Data(_, _) ->
+    | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_, _) | Nil ->
         return node stack env env_len s_env s_env_len
-
-    | Error(x, attrs) ->
-        failwith "Errors not yet implemented"
 
     | _ -> shift node (change_stack_env stack s_env s_env_len) env env_len
 
@@ -238,7 +235,7 @@ let do_eval node limit env =
         return node t env env_len env2 env2_len
     | Store(rx) :: t ->
         begin
-          rx := close node env env_len;
+          rx := do_close node env env_len;
           return node t env env_len s_env s_env_len
         end
     | ReturnProgn(lst) :: t ->
@@ -249,7 +246,7 @@ let do_eval node limit env =
           | _ -> assert false
         end
     | ReturnApply(body2, env2, env2_len) :: t ->
-        reduce body2 t ((close node env env_len) :: env2) (env2_len + 1) s_env s_env_len
+        reduce body2 t ((do_close node env env_len) :: env2) (env2_len + 1) s_env s_env_len
     | ReturnCond(x, y) :: t ->
         begin
           match node with
@@ -257,16 +254,16 @@ let do_eval node limit env =
           | False -> shift y t s_env s_env_len
           | _ ->
               return
-                (Cond(node, close x s_env s_env_len, close y s_env s_env_len, None))
+                (Cond(node, do_close x s_env s_env_len, do_close y s_env s_env_len, None))
                 t env env_len s_env s_env_len
         end
     | h :: t ->
-        return (Appl(node, close h s_env s_env_len, None)) t env env_len s_env s_env_len
+        return (Appl(node, do_close h s_env s_env_len, None)) t env env_len s_env s_env_len
     | [] ->
         if env = [] then
           node
         else
-          close node env env_len
+          do_close node env env_len
   in
   shift node [] env (List.length env)
 

@@ -12,24 +12,24 @@ type t =
   | Delay of t
   | Force of t
   | Var of int
-  | Fail of t * attrs_t option
   | Proxy of t ref
+  | MakeRecord of t Symbol.Map.t
 
   (* immediate *)
   | Lambda of t * int * int ref * attrs_t option
-        (* (body, frame number, times entered, attrs) *)
+        (* (body, frame number (for the argument), times entered, attrs) *)
   | LambdaEager of t * int * int ref * attrs_t option
         (* (body, frame number, times entered, attrs) *)
   | Builtin of (t list -> t) * int * attrs_t option
         (* (function, args num, attrs) *)
   | Integer of Big_int.big_int
   | String of string
+  | Record of t Symbol.Map.t
+  | Sym of Symbol.t
   | Nil
   | True
   | False
   | Cons of t * t
-  | Data of int * t list (* (tag, list of arguments) *)
-  | Error of t * attrs_t option
 
   (* used only by the evaluator *)
   | Delayed of t ref
@@ -108,11 +108,11 @@ let alloc_data_tag =
 let is_immediate = function
   (* note: don't use "| _ -> ..." here so that the compiler warns when we
   forget one of the possibilities *)
-  | Progn(_) | Appl(_) | Cond(_) | Delay(_) | Force(_) | Var(_) | Fail(_) | Delayed(_) | Proxy(_) |
-    Closure(_)
+  | Progn(_) | Appl(_) | Cond(_) | Delay(_) | Force(_) | Var(_) | Delayed(_) | Proxy(_) |
+    MakeRecord(_) | Closure(_)
     -> false
-  | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | True | False | Cons(_) |
-    Nil | Data(_) | Error(_)
+  | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+    True | False | Cons(_) | Nil
     -> true
   | ChangeStackEnv(_) | Store(_) | ReturnProgn(_) | ReturnApply(_) | ReturnCond(_)
     -> false (* whatever... *)
@@ -122,13 +122,11 @@ let rec get_attrs node =
   | Progn(_, attrs) -> attrs
   | Appl(_, _, attrs) -> attrs
   | Cond(_, _, _, attrs) -> attrs
-  | Fail(_, attrs) -> attrs
   | Delayed(rx) -> get_attrs !rx
   | Proxy(rx) -> get_attrs !rx
   | Lambda(_, _, _, attrs) -> attrs
   | LambdaEager(_, _, _, attrs) -> attrs
   | Builtin(_, _, attrs) -> attrs
-  | Error(_, attrs) -> attrs
   | _ -> None
 
 let get_name node = Attrs.get_name (get_attrs node)
@@ -178,8 +176,6 @@ let rec equal node1 node2 =
         else
           res1
     | Nil, Nil -> True
-    | Data(_, _), Data(_, _) -> Nil (* TODO *)
-    | Error(_, _), Error(_, _) -> Nil
     | _, _ -> False
 
 let to_string node =
@@ -202,19 +198,19 @@ let to_string node =
         | Delay(x) -> "&" ^ prn x (limit - 1)
         | Force(x) -> "!" ^ prn x (limit - 1)
         | Var(i) -> "$" ^ string_of_int i
-        | Fail(_) -> "<fail>"
         | Proxy(rx) -> prn !rx limit
+        | MakeRecord(_) -> "<make-record>"
         | Lambda(body, frm, _, attrs) -> lambda_str body frm attrs false
         | LambdaEager(body, frm, _, attrs) -> lambda_str body frm attrs true
         | Builtin(_) -> "<builtin>"
         | Integer(i) -> Big_int.string_of_big_int i
-        | String(str) -> str
+        | String(str) -> "\"" ^ (String.escaped str) ^ "\""
+        | Record(_) -> "<record>"
+        | Sym(sym) -> Symbol.to_string sym
         | True -> "true"
         | False -> "false"
         | Cons(x, y) -> "(cons " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
         | Nil -> "()"
-        | Data(_) -> "<data>"
-        | Error(_) -> "<error>"
         | Delayed(_) -> "<delayed>"
         | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
         | ChangeStackEnv(_) -> "<change-stack-env>"
@@ -225,3 +221,13 @@ let to_string node =
       end
   in
   prn node 20
+
+let rec is_module_closed node =
+  match node with
+  | Progn(lst, _) ->
+      if lst = [] then
+        true
+      else
+        is_module_closed (List.hd (List.rev lst))
+  | MakeRecord(_) -> true
+  | _ -> is_immediate node

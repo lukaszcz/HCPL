@@ -10,3 +10,5 @@ val empty : t
 (* indices are zero-based *)
 val nth : t -> int -> Node.t
 val push : t -> Node.t -> t
+val pop_n : t -> int -> t
+val length : t -> int

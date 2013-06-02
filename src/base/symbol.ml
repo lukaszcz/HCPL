@@ -9,8 +9,9 @@ type symbol_t = t
 let eq = (==)
 let to_string x = x.s_str
 let hash x = x.s_hash
+let empty = { s_str = ""; s_hash = Hashtbl.hash ""; s_id = 0 }
 
-(* Note: alloc should not be called directly; use Symtab.find instead. *)
+(* Note: alloc should rarely be called directly; use Symtab.find instead. *)
 let alloc =
   (* WARNING: this will crash if there are ever more than 2^31 (2^63)
   _calls_ to Symtab.find *)

@@ -21,7 +21,7 @@ debug:
 	cp ipl.byte ipl
 
 release:
-	ocamlbuild -ocamlopt "ocamlopt.opt $(RELEASE_FLAGS) $(RELEASE_LIBS)" -Is $(IDIRS) ipl.native
+	ocamlbuild -ocamlopt "ocamlopt.opt -S $(RELEASE_FLAGS) $(RELEASE_LIBS)" -Is $(IDIRS) ipl.native
 	cp ipl.native ipl
 
 clean:

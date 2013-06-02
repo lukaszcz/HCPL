@@ -7,6 +7,7 @@
 type t
 
 exception Duplicate_ident
+exception Circular_dependency of Symbol.t list
 
 val empty : t
 val empty_repl : t
@@ -24,6 +25,16 @@ val add_ident : t -> Symbol.t -> Node.t -> t
    Var(idx) to Var(frame - idx) (de Bruijn form) *)
 val find_ident : t -> Symbol.t -> Node.t
 val replace_ident : t -> Symbol.t -> Node.t -> t
+val drop_ident : t -> Symbol.t -> t
+(* returns the indentifier table for the current scope only *)
+val identtab : t -> Node.t Symbol.Map.t
+
+(* enter_module changes current module; raises Circular_dependency if
+   the module has already been entered *)
+val enter_module : t -> Symbol.t -> t
+val leave_module : t -> t
+val current_module : t -> Symbol.t
+val is_module_mode : t -> bool
 
 val add_keyword : t -> Symbol.t -> t
 val add_permanent_keyword : t -> Symbol.t -> t

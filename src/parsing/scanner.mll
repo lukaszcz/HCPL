@@ -11,7 +11,8 @@ open Lexing
 }
 
 let oper = ['-' '+' '=' '~' '`' '@' '#' '$' '%' '^' '*' '|' '/' '?' '.' ':' '<' '>']
-let id = ['a'-'z' 'A'-'Z' '_']['-' 'a'-'z' 'A'-'Z' '_' '0'-'9']*['?' '!' '@' '#' '$' '%' '^' '~' '*']? | oper+
+let id0 = ['a'-'z' 'A'-'Z' '_']['-' 'a'-'z' 'A'-'Z' '_' '0'-'9']*['?' '!' '@' '#' '$' '%' '^' '~' '*']?
+let id = id0('.'id0)* | oper+
 let special_oper = [',' '#' '@' '|' ''']
 
 rule read_token symtab = parse
@@ -68,7 +69,7 @@ let rec scan_prepend symtab lexbuf cont =
       let token = read_token symtab lexbuf
       in
       if token = Token.Eof then
-        Lazy.force (cont ())
+        Lazy.force (TokenStream.cons token (lexeme_start_p lexbuf) (cont ()))
       else
         Lazy.force (TokenStream.cons token (lexeme_start_p lexbuf) (scan_prepend symtab lexbuf cont))
     end

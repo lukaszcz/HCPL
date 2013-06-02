@@ -1,3 +1,3 @@
 #!/bin/bash
 
-grep -n "$1" `scripts/lsfiles.sh`
+grep -n "$1" `scripts/lsfiles.sh src`

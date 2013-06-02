@@ -113,9 +113,7 @@ let (|||) (r1 : parser_rule_t) (r2 : parser_rule_t) =
     try
       r1 () state success_cont
     with
-    | ParseFailure(_, _, _) ->
-        r2 () state cont
-    | TokenStream.Eof ->
+    | ParseFailure(_) | TokenStream.Eof ->
         r2 () state cont
     | ParseSuccess(resume) ->
         success_cont_ref := cont;
@@ -203,6 +201,15 @@ let token (token : Token.t) =
                           "syntax error",
                           (fun () -> cont state2)))
 
+let peek (token : Token.t) =
+  fun () ((lst, attrs, strm, scope) as state) (cont : parser_cont_t) ->
+    if Token.eq (Scope.strm_token scope strm) token then
+      cont state
+    else
+      raise (ParseFailure(Scope.strm_position scope strm,
+                          "syntax error",
+                          (fun () -> cont state)))
+
 let symbol sym = token (Token.Symbol(sym))
 let keyword sym = token (Token.Keyword(sym))
 
@@ -210,7 +217,7 @@ let number () (lst, attrs, strm, scope) cont =
   match Scope.strm_token scope strm with
   | Token.Number(num) -> cont (Number(num) :: lst, attrs, Scope.strm_next scope strm, scope)
   | _ -> raise (ParseFailure(Scope.strm_position scope strm,
-                             "expected expression",
+                             "expected a number",
                              (fun () -> cont ((Number(Big_int.zero_big_int)) :: lst,
                                               attrs, Scope.strm_next scope strm, scope))))
 
@@ -218,7 +225,7 @@ let string () (lst, attrs, strm, scope) cont =
   match Scope.strm_token scope strm with
   | Token.String(str) -> cont (String(str) :: lst, attrs, Scope.strm_next scope strm, scope)
   | _ -> raise (ParseFailure(Scope.strm_position scope strm,
-                             "expected expression",
+                             "expected a string",
                              (fun () -> cont (String("") :: lst,
                                               attrs, Scope.strm_next scope strm, scope))))
 
@@ -265,6 +272,11 @@ let maybe r = r ||| empty
 
 let optional r = maybe r >> collect
 
+let fail msg =
+  (fun () ((lst, attrs, strm, scope) as state) cont ->
+    raise (ParseFailure(Scope.strm_position scope strm, msg,
+                        (fun () -> skip_until [Token.Sep] () state cont))))
+
 (* recognise and discard the resulting list *)
 let discard r =
   (fun () (lst, attrs, strm, scope) cont ->
@@ -272,11 +284,22 @@ let discard r =
       (fun (_, attrs2, strm2, scope2) ->
         cont (lst, attrs2, strm2, scope2)))
 
-let guard (r : parser_rule_t) =
+let rule (r : parser_rule_t) =
   (fun () (lst, attrs, strm, scope) cont ->
     r () ([], create_attrs scope strm, strm, scope)
       (fun (lst2, _, strm2, scope2) ->
-        cont (lst2, attrs, strm2, scope2)))
+        cont (lst2 @ lst, attrs, strm2, scope2)))
+
+let catch_errors r =
+  (fun () (lst, attrs, strm, scope) cont ->
+    try
+      r () (lst, attrs, strm, scope)
+        (fun (lst2, attrs2, strm2, scope2) ->
+          cont (lst2, attrs2, strm2, scope2))
+    with
+      ParseFailure(pos, msg, resume) ->
+        Error.error (Some pos) msg;
+        resume ())
 
 let change_attrs f =
   fun () (lst, attrs, strm, scope) cont ->
@@ -353,7 +376,15 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_unary = Symtab.find symtab "unary"
   and sym_appl = Symtab.find symtab "appl"
 
+  and sym_import = Symtab.find symtab "import"
+  and sym_open = Symtab.find symtab "open"
+  and sym_include = Symtab.find symtab "include"
+  and sym_module = Symtab.find symtab "module"
+
   and sym_return_type = Symtab.find symtab "return_type"
+
+  and sym_load_module = Symtab.find symtab "__ipl_load_module"
+  and sym_record_get = Symtab.find symtab "__ipl_record_get"
 
   and sym_unknown = Symtab.find symtab "??"
 
@@ -361,14 +392,31 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
 
   in
 
-  let mkprogn lst attrs =
+  let rec mkprogn lst attrs =
     match lst with
     | [] -> Node.Nil
     | _ ->
         Node.Progn(List.map (function Program(x) -> x | _ -> assert false) lst, attrs)
+
+  and mkapply scope sym lst =
+    let node = Scope.find_ident scope sym
+    in
+    List.fold_left (fun acc x -> Node.Appl(acc, x, None)) node lst
+
+  and mkmodule scope sym node frm =
+    Node.Delayed(ref (mkapply scope sym_load_module
+                        [Node.Sym(sym); node; Node.Integer(Big_int.big_int_of_int frm)]))
+
+  and join_syms sym1 sym2 =
+    Symtab.find symtab (Symbol.to_string sym1 ^ "." ^ Symbol.to_string sym2)
+
+  and unique_module_id =
+    let id = ref 0
+    in
+    fun () -> incr id; Symtab.find symtab ("__ipl__module__" ^ string_of_int !id)
   in
 
-  let do_parse_lexbuf is_repl_mode lexbuf initial_scope =
+  let rec do_parse_lexbuf is_repl_mode lexbuf initial_scope =
 
     let decl f () (lst, attrs, strm, scope) (cont : parser_cont_t) =
       begin
@@ -444,7 +492,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           | Program(stmt) :: _ ->
               eval_handler stmt (Scope.lineno scope);
               cont state
-          | [] -> cont state
+          | [] ->
+              eval_handler Node.Nil (Scope.lineno scope);
+              cont state
           | _ -> assert false
         end
       else
@@ -464,6 +514,73 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
         end
       else
         cont state
+
+    and load_module f =
+      (fun () (lst, attrs, strm, scope) cont ->
+        match lst with
+        | Ident(sym) :: _ ->
+            begin
+              let empty_module_tuple =
+                (Symbol.Map.empty, [], Node.Record(Symbol.Map.empty))
+              in
+              let (identtab, lst2, node) =
+                try
+                  let node = Scope.find_ident scope sym
+                  in
+                  match node with
+                  | Node.Record(identtab) -> (identtab, [], node)
+                  | _ ->
+                      Error.error (Node.Attrs.get_pos attrs) "expected a constant module";
+                      empty_module_tuple
+                with Not_found ->
+                  try
+                    let (identtab, node) =
+                      Loader.load_module (Symbol.to_string sym)
+                        (fun lexbuf ->
+                          let (node, scope) =
+                            do_parse_lexbuf false lexbuf (Scope.enter_module (Scope.push initial_scope) sym)
+                          in
+                          (Scope.identtab scope, node))
+                    in
+                    let module_node = mkmodule scope sym node (Scope.frame initial_scope)
+                    in
+                    if Node.is_module_closed node then
+                      (identtab, [Program(module_node)], Node.Record(identtab))
+                    else
+                      (identtab, [Program(module_node)], module_node)
+                  with
+                  | Not_found ->
+                      Error.error (Node.Attrs.get_pos attrs) "module not found";
+                      empty_module_tuple
+                  | Scope.Circular_dependency(lst) ->
+                      Error.error (Node.Attrs.get_pos attrs)
+                        ("circular module dependencies: " ^ Utils.list_to_string Symbol.to_string lst);
+                      empty_module_tuple
+              in
+              let scope2 = f sym node identtab attrs scope
+              in
+              cont (lst2, attrs, strm, scope2)
+            end
+        | _ -> assert false)
+
+    and add_idents f =
+      (fun sym module_node identtab attrs scope ->
+        Symbol.Map.fold
+          (fun k node scope ->
+            let node2 =
+              match module_node with
+              | Node.Record(_) -> node
+              | _ -> mkapply scope sym_record_get [module_node; Node.Sym(k)]
+            in
+            try
+              Scope.add_ident scope (f sym k) node2
+            with Scope.Duplicate_ident ->
+              Error.error (Node.Attrs.get_pos attrs) ("duplicate identifier: " ^ (Symbol.to_string (f sym k)));
+              scope
+          )
+          identtab
+          scope
+      )
     in
 
     (* grammar begin *)
@@ -505,7 +622,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and statement () =
       recursive
         begin
-          xlet ||| syntax ||| expr
+          xlet ||| (syntax ||| (import ||| (xopen ||| (xinclude ||| (xmodule ||| (module_end ||| expr))))))
         end
 
     and xlet () =
@@ -546,8 +663,22 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                        | _ -> Debug.print (sexp_list_to_string lst); assert false
                      end
                  | _ -> assert false)) ++
-            (symbol sym_in +! new_scope expr |||
-            token Token.Sep ++ repl_decl ++ progn) ++
+            (symbol sym_in +! new_scope expr ++
+               (change_scope
+                  (fun lst _ scope ->
+                    match lst with
+                    | [_; Ident(sym); _; _] -> Scope.drop_ident scope sym
+                    | _ -> assert false))
+           |||
+             token Token.Sep ++ repl_decl ++ progn
+           |||
+             peek Token.RightParenCurl
+               +>
+             (fun _ _ scope ->
+               if Scope.is_module_mode scope then
+                 Program(Node.MakeRecord(Scope.identtab scope))
+               else
+                 Program(Node.Nil))) ++
             (change_scope
                (fun lst _ scope ->
                  match lst with
@@ -572,13 +703,13 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and syntax () =
       recursive
         begin
-          symbol sym_syntax +! (operator ||| drop)
+          symbol sym_syntax +! catch_errors (operator ||| drop)
         end
 
     and operator () =
       recursive
         begin
-          guard
+          rule
             (discard
                (symbol sym_operator +! name ++ maybe (symbol sym_is) ++ oper_spec_list ++
                   (change_scope
@@ -669,23 +800,24 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and drop () =
       recursive
         begin
-          symbol sym_drop +! name_list ++
-            (change_scope
-               (fun lst attrs scope ->
-                 List.fold_left
-                   (fun scope x ->
-                     match x with
-                     | Ident(sym) ->
-                         begin
-                           try
-                             Scope.drop_oper scope sym
-                           with Not_found ->
-                             Error.error (Node.Attrs.get_pos attrs) "undeclared operator";
-                             scope
-                         end
-                     | _ -> assert false)
-                   scope
-                   lst))
+          rule
+            (symbol sym_drop +! name_list ++
+               (change_scope
+                  (fun lst attrs scope ->
+                    List.fold_left
+                      (fun scope x ->
+                        match x with
+                        | Ident(sym) ->
+                            begin
+                              try
+                                Scope.drop_oper scope sym
+                              with Not_found ->
+                                Error.error (Node.Attrs.get_pos attrs) "undeclared operator";
+                                scope
+                            end
+                        | _ -> assert false)
+                      scope
+                      lst)))
         end
 
     and name_list () =
@@ -693,6 +825,112 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
         begin
           name ++ maybe (comma +! name_list)
         end
+
+    and import =
+      rule (symbol sym_import +! catch_errors name ++ (load_module (add_idents join_syms)))
+
+    and xopen =
+      rule (symbol sym_open +! catch_errors name ++ (load_module (add_idents (fun _ k -> k))))
+
+    and xinclude =
+      rule
+        begin
+          symbol sym_include +! catch_errors string ++
+            (fun () (lst, attrs, strm, scope) cont ->
+              match lst with
+              | [Program(Node.String(str))] ->
+                  begin
+                    let maybe_lexbuf =
+                      try
+                        let lexbuf = Lexing.from_channel (open_in str)
+                        in
+                        lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p
+                                                    with
+                                                      Lexing.pos_fname = str
+                                                    };
+                        Some(lexbuf)
+                      with Sys_error(msg) ->
+                        Error.error (Node.Attrs.get_pos attrs) msg;
+                        None
+                    in
+                    match maybe_lexbuf with
+                    | Some(lexbuf) ->
+                        cont ([], None, Scanner.scan_prepend symtab lexbuf (fun () -> strm), scope)
+                    | None ->
+                        cont ([], None, strm, scope)
+                  end
+              | _ -> assert false)
+        end
+
+    and xmodule () =
+      recursive
+        begin
+          rule
+            begin
+              symbol sym_module +! catch_errors name ++ catch_errors (token Token.LeftParenCurl) ++
+                (fun () (lst, attrs, strm, scope) cont ->
+                  match lst with
+                  | [Ident(sym)] ->
+                      let module_name = join_syms (Scope.current_module scope) sym
+                      in
+                      progn () ([], create_attrs scope strm, strm,
+                                Scope.enter_module (Scope.push scope) (unique_module_id ()))
+                        (fun (lst2, attrs2, strm2, scope2) ->
+                          let node = get_singleton_node lst2
+                          in
+                          let m =
+                            mkmodule scope2 (unique_module_id ()) node (Scope.frame scope2)
+                          in
+                          let identtab = Scope.identtab scope2
+                          in
+                          let m2 =
+                            if Node.is_module_closed node then
+                              Node.Record(identtab)
+                            else
+                              m
+                          in
+                          let scope3 =
+                            try
+                              let scope4 = Scope.add_ident (Scope.add_ident scope module_name m2) sym m2
+                              in
+                              add_idents join_syms sym m2 identtab attrs scope4
+                            with Scope.Duplicate_ident ->
+                              Error.error (Node.Attrs.get_pos attrs) "duplicate identifier";
+                              scope
+                          in
+                          cont ([Program(m)], create_attrs scope3 strm2, strm2, scope3))
+                  | _ -> Debug.print (sexp_list_to_string lst); assert false
+                ) ++
+                catch_errors (token Token.RightParenCurl)
+            end
+        end
+
+    and module_end =
+      (token Token.Eof
+         >>
+       (fun _ _ scope ->
+         if Scope.is_module_mode scope then
+           Program(Node.MakeRecord(Scope.identtab scope))
+         else
+           Program(Node.Nil)))
+    |||
+      (peek Token.RightParenCurl ++
+         (fun () (lst, attrs, strm, scope) cont ->
+           if Scope.is_module_mode scope then
+             let sexp = Program(Node.MakeRecord(Scope.identtab scope))
+             in
+             cont (sexp :: lst, attrs, strm,
+                   Scope.leave_module scope)
+               (* This is a bit of a hack. We need to set module_mode
+               to false (by calling leave_module) so that this rule
+               does not succeed for the second time. The scope is then
+               discarded anyway, because the only way we can see a '}'
+               in module mode (on correct input) is with the `module X
+               { ... }' construction *)
+           else
+             raise (ParseFailure(TokenStream.position strm,
+                                 "internal error: module failure",
+                                 (fun () -> assert false)))))
 
     and expr () =
       recursive
@@ -723,7 +961,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) |||
           token Token.True +> return (Program(Node.True)) |||
           token Token.False +> return (Program(Node.False)) |||
-          ident_ref ||| number ||| string
+          ident_ref ||| number ||| string ||| fail "expected expression"
         end
 
     and lambda () =
@@ -783,7 +1021,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
         begin
           ident
             (fun sym pos _ ->
-              (Node.Proxy(ref (Node.Error(Node.Nil, Node.Attrs.create (Some sym) (Some pos))))))
+              (Node.Proxy(ref Node.Nil)))
         end
 
     and ident_lambda () =
@@ -850,14 +1088,15 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
       loop
         (fun () -> execute program lexbuf symtab initial_scope)
     in
-    (lst, scope)
+    (get_singleton_node lst, scope)
   in
   let keywords = [sym_fun; sym_def]
   and builtins =
     [(fun x -> Generic_builtins.declare_builtins x symtab);
      (fun x -> Arith_builtins.declare_builtins x symtab);
      (fun x -> Bool_builtins.declare_builtins x symtab);
-     (fun x -> String_builtins.declare_builtins x symtab)]
+     (fun x -> String_builtins.declare_builtins x symtab);
+     (fun x -> Record_builtins.declare_builtins x symtab)]
   in
   let scope0 =
     List.fold_left
@@ -872,9 +1111,13 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   | Some(buf) ->
       let scope1 = snd (do_parse_lexbuf false buf scope0)
       in
-      mkprogn (fst (do_parse_lexbuf is_repl_mode lexbuf scope1)) None
+      let (node, scope) = do_parse_lexbuf is_repl_mode lexbuf scope1
+      in
+      (Scope.identtab scope, node)
   | None ->
-      mkprogn (fst (do_parse_lexbuf is_repl_mode lexbuf scope0)) None
+      let (node, scope) = do_parse_lexbuf is_repl_mode lexbuf scope0
+      in
+      (Scope.identtab scope, node)
 
 let parse lexbuf runtime_lexbuf = do_parse false lexbuf runtime_lexbuf (fun _ _ -> ()) (fun _ _ -> ())
 let parse_repl = do_parse true

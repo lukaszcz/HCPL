@@ -1,0 +1,4 @@
+
+syntax operator ^^ binary, prio +;
+
+let ^^ = \x \y . x + y;

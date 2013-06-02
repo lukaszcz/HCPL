@@ -13,10 +13,7 @@ let runtime_path = ref (Config.stdlib_path () ^ Config.dir_sep () ^ "core.ipl");
 let get_lexbuf name chan =
   let lexbuf = Lexing.from_channel chan
   in
-  let pos = lexbuf.Lexing.lex_curr_p
-  in
-  lexbuf.Lexing.lex_curr_p <- { Lexing.pos_fname = name; Lexing.pos_lnum = pos.Lexing.pos_lnum;
-                                Lexing.pos_bol = pos.Lexing.pos_bol; Lexing.pos_cnum = pos.Lexing.pos_cnum };
+  lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = name };
   lexbuf
 
 let run_repl name chan =
@@ -62,7 +59,7 @@ let run name chan =
   let lexbuf = get_lexbuf name chan
   in
   file_count := !file_count + 1;
-  let node =
+  let (_, node) =
     if !f_vanilla then
       Parser.parse lexbuf None
     else
@@ -74,13 +71,17 @@ let run name chan =
     ignore (Eval.eval node);
   ()
 
+let usage_msg = "usage: ipl [options] [file.ipl]"
+
 let show_help spec =
   begin
-    print_endline "usage: ipl [file.ipl]";
+    print_endline usage_msg;
+    print_newline ();
+    print_endline "Options:";
     let rec loop lst =
       match lst with
-      | (x, _, y) :: t -> print_endline (x ^ " " ^ y); loop t
-      | [] -> ()
+      | (x, _, y) :: t -> print_endline ("\t" ^ x ^ " " ^ y); loop t
+      | [] -> exit 0
     in
     loop spec
   end
@@ -89,17 +90,17 @@ let show_help spec =
 
 let rec argspec () =
   [ ("-i", Arg.Set(f_interactive), "\t\t\tInteractive (repl) mode");
-    (("--interactive", Arg.Set(f_interactive), "\tInteractive (repl) mode"));
+    (("--interactive", Arg.Set(f_interactive), "\t\tInteractive (repl) mode"));
     (("-I", Arg.String(fun s -> Config.prepend_path s), "\t\t\tAdd to include path"));
     (("--vanilla", Arg.Set(f_vanilla), "\t\tDon't preload the standard runtime"));
     (("-R", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\t\tSet runtime path"));
     (("--runtime", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\tSet runtime path"));
-    (("--help", Arg.Unit(fun () -> show_help (argspec ())), "\t\tDisplay this list of options"))
+    (("--help", Arg.Unit(fun () -> show_help (argspec ())), "\t\t\tDisplay this list of options"))
   ]
 in
 Config.set_path ["."; Config.stdlib_path ()];
 try
-  Arg.parse (argspec ()) (fun filename -> run filename (open_in filename)) "usage: ipl [file.ipl]";
+  Arg.parse (argspec ()) (fun filename -> run filename (open_in filename)) usage_msg;
   if !file_count = 0 then
     begin
       if !f_interactive then

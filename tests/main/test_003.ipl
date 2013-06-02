@@ -1,0 +1,27 @@
+
+// modules & include test
+
+import Module01;
+
+print (Module01.f 10);
+
+import Module02;
+
+print (Module01.f 10);
+print (Module02.f 10);
+
+open Module01;
+
+print (f 10);
+print (Module01.f 10);
+print (Module02.f 10);
+
+include "tests/main/file01.ipl";
+
+print (3 ^^ 4);
+
+let g = \n {
+   include "tests/main/file02.ipl";
+};
+
+g 10
