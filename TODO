@@ -1,7 +1,8 @@
 
-* Fix ||| associativity and error reporting
 * Remove superflous progns in operator rewrting
 * Symbols
+* Lists
+* Call by name
 * Reification
 * Matching
 * Lists
@@ -10,4 +11,4 @@
 * Logic
 * Improve evaluator efficiency
 * In the parser, translate closed lets directly into Delayed nodes
-* Call by name
+* Improve Node.to_string (use pretty printing from the Format module)

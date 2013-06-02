@@ -77,13 +77,17 @@ let add (opertab, min_prio, max_prio) sym aprio assoc arity =
 let drop (opertab, min_prio, max_prio) sym =
   (Symbol.Map.remove sym opertab, min_prio, max_prio)
 
+(* -------------------------------------------------------------------------- *)
+(* operator rewriting algorithm *)
+
+(* the algorithm works in linear time *)
 let rewrite (opertab, _, _) lst =
   let build_appl lst =
     let rec build lst =
       match lst with
       | [x] -> node x
       | x :: t -> Node.Appl(build t, node x, None)
-      | _ -> assert false
+      | _ -> Node.Nil
     in
     build (List.rev lst)
   in
@@ -111,7 +115,6 @@ let rewrite (opertab, _, _) lst =
         | None -> create_from_op appl_op x)
       lst
   in
-  (* the algorithm works in linear time *)
   let rec do_rewrite lst =
     build_appl (rewrite_binary false (rewrite_appl (rewrite_binary true (rewrite_unary lst))))
 

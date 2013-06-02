@@ -9,7 +9,7 @@ Copyright (C) 2013 by Łukasz Czajka
 
 (* The parser rules return lists of nodes (plus actually a state, but
    this is an implementation detail). The parser rules may be built up
-   from basic parser rules using ++, ||| and >>.
+   from basic parser rules using ++, ^|| and >>.
 
    rule1 ++ rule2
 
@@ -17,7 +17,7 @@ Copyright (C) 2013 by Łukasz Czajka
    retaining changes to scope (table of identifiers) made inside rule1
    and rule2
 
-   rule1 ||| rule2
+   rule1 ^|| rule2
 
    means: try performing rule1; if successful, return the result of
    rule1; if rule1 fails then return the result of rule2
@@ -31,13 +31,13 @@ Copyright (C) 2013 by Łukasz Czajka
    rule
 
    Note that the priority of the operators from most tightly binding
-   to least tightly binding is: ++, |||, >>. Hence e.g.
+   to least tightly binding is: ++, ^||, >>. Hence e.g.
 
-   rule1 ++ rule2 ||| rule3 >> action
+   rule1 ++ rule2 ^|| rule3 >> action
 
    is equivalent to
 
-   ((rule1 ++ rule2) ||| rule3) >> action
+   ((rule1 ++ rule2) ^|| rule3) >> action
 
    You may also use +> which is equivalent to >>, but has the priority
    of ++.
@@ -104,7 +104,7 @@ let (++) (r1 : parser_rule_t) (r2 : parser_rule_t) =
   fun () (state : State.t) (cont : parser_cont_t) ->
     r1 () state (fun state2 -> r2 () state2 cont)
 
-let (|||) (r1 : parser_rule_t) (r2 : parser_rule_t) =
+let (^||) (r1 : parser_rule_t) (r2 : parser_rule_t) =
   fun () (state : State.t) (cont : parser_cont_t) ->
     let success_cont_ref = ref (fun x -> raise (ParseSuccess(fun () -> cont x)))
     in
@@ -132,16 +132,16 @@ let (>>) (rule : parser_rule_t) (action : parser_action_t) =
 let (+>) = (>>)
 
 (* +! may be used instead of ++ to indicate that the current rule
-   succeeded, thus cancelling the surrounding ||| and allowing the gc
+   succeeded, thus cancelling the surrounding ^|| and allowing the gc
    to free the old states; note that the rule may still fail later.
 
    Example:
 
-   rule1 ++ rule2 +! rule3 ||| rule4
+   rule1 ++ rule2 +! rule3 ^|| rule4
 
    This has the same effect as
 
-   rule1 ++ rule2 ++ rule3 ||| rule4
+   rule1 ++ rule2 ++ rule3 ^|| rule4
 
    except that after rule2 succeeds there is no longer a possibility
    of backtracking to rule4, i.e. if rule3 fails, then the whole rule
@@ -167,12 +167,12 @@ let (+!) (r1 : parser_rule_t) (r2 : parser_rule_t) =
    let rec rule () =
       recursive
          begin
-            rule1 ++ rule ||| rule2
+            rule1 ++ rule ^|| rule2
          end
 
    In constrast, normal rules should be specified like this:
 
-   let rule = rule1 ++ rule2 ||| rule3
+   let rule = rule1 ++ rule2 ^|| rule3
  *)
 
 let recursive (r : parser_rule_t) = r ()
@@ -268,14 +268,17 @@ let eof () ((lst, attrs, strm, scope) as state) cont =
 
 (* Additional operations on parser rules *)
 
-let maybe r = r ||| empty
+let maybe r = r ^|| empty
 
 let optional r = maybe r >> collect
 
-let fail msg =
+let fail msg lst0 =
   (fun () ((lst, attrs, strm, scope) as state) cont ->
     raise (ParseFailure(Scope.strm_position scope strm, msg,
-                        (fun () -> skip_until [Token.Sep] () state cont))))
+                        (fun () ->
+                          skip () state
+                            (fun (lst, attrs, strm, scope) ->
+                              cont (lst0 @ lst, attrs, strm, scope))))))
 
 (* recognise and discard the resulting list *)
 let discard r =
@@ -594,7 +597,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and progn () =
       recursive
         begin
-          (if is_repl_mode then repl_statements else statements) ||| empty
+          (if is_repl_mode then repl_statements else statements) ^|| empty
             >>
           (fun lst attrs _ -> Program(mkprogn lst attrs))
         end
@@ -602,7 +605,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and statements () =
       recursive
         begin
-          (token Token.Sep +> return (Program(Node.Nil)) |||
+          (token Token.Sep +> return (Program(Node.Nil)) ^||
           statement ++ maybe (token Token.Sep)) +!
             maybe statements
         end
@@ -610,9 +613,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and repl_statements () =
       recursive
         begin
-          xlet |||
+          xlet ^||
           begin
-            (token Token.Sep +> return (Program(Node.Nil)) |||
+            (token Token.Sep +> return (Program(Node.Nil)) ^||
             statement ++ maybe (token Token.Sep)) +!
               repl_eval ++
               maybe repl_statements
@@ -622,16 +625,16 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and statement () =
       recursive
         begin
-          xlet ||| (syntax ||| (import ||| (xopen ||| (xinclude ||| (xmodule ||| (module_end ||| expr))))))
+          xlet ^|| syntax ^|| import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^|| expr
         end
 
     and xlet () =
       recursive
         begin
-          (token Token.LetEager +> return (Bool true) ||| token Token.LetLazy +> return (Bool false)) +!
+          (token Token.LetEager +> return (Bool true) ^|| token Token.LetLazy +> return (Bool false)) +!
             ident_let ++
             symbol sym_eq ++
-            new_keyword sym_in (expr) ++
+            new_keyword sym_in (catch_errors expr) ++
             (change_scope
                (fun lst _ scope ->
                  match lst with
@@ -669,10 +672,10 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                     match lst with
                     | [_; Ident(sym); _; _] -> Scope.drop_ident scope sym
                     | _ -> assert false))
-           |||
+           ^||
              token Token.Sep ++ repl_decl ++ progn
-           |||
-             peek Token.RightParenCurl
+           ^||
+             (peek Token.RightParenCurl ^|| token Token.Eof)
                +>
              (fun _ _ scope ->
                if Scope.is_module_mode scope then
@@ -703,7 +706,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and syntax () =
       recursive
         begin
-          symbol sym_syntax +! catch_errors (operator ||| drop)
+          symbol sym_syntax +! catch_errors (operator ^|| drop)
         end
 
     and operator () =
@@ -752,10 +755,10 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
         end
 
     and oper_spec =
-      symbol sym_left +> return (Assoc Opertab.assoc_left) |||
-      symbol sym_right +> return (Assoc Opertab.assoc_right) |||
-      symbol sym_binary +> return (Arity 2) |||
-      symbol sym_unary +> return (Arity 1) |||
+      symbol sym_left +> return (Assoc Opertab.assoc_left) ^||
+      symbol sym_right +> return (Assoc Opertab.assoc_right) ^||
+      symbol sym_binary +> return (Arity 2) ^||
+      symbol sym_unary +> return (Arity 1) ^||
       maybe (symbol sym_prio) ++ symbol sym_after ++ name
         +>
       (fun lst attrs scope ->
@@ -766,7 +769,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             else
               Prio(Opertab.After(sym))
         | _ -> assert false)
-    |||
+    ^||
       maybe (symbol sym_prio) ++ symbol sym_before ++ name
         +>
       (fun lst attrs scope ->
@@ -777,15 +780,15 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             else
               Prio(Opertab.Before(sym))
         | _ -> assert false)
-    |||
+    ^||
       maybe (symbol sym_prio) ++ symbol sym_last
         +>
       return (Prio(Opertab.Last))
-    |||
+    ^||
       maybe (symbol sym_prio) ++ symbol sym_first
         +>
       return (Prio(Opertab.First))
-    |||
+    ^||
       symbol sym_prio ++ name
         +>
       (fun lst attrs scope ->
@@ -913,7 +916,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
            Program(Node.MakeRecord(Scope.identtab scope))
          else
            Program(Node.Nil)))
-    |||
+    ^||
       (peek Token.RightParenCurl ++
          (fun () (lst, attrs, strm, scope) cont ->
            if Scope.is_module_mode scope then
@@ -954,27 +957,29 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and term () =
       recursive
         begin
-          lambda ||| cond |||
-          lparen +! new_scope (progn ++ rparen) |||
-          lparen_curl +! new_scope (progn ++ rparen_curl) |||
-          token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(get_singleton_node lst))) |||
-          token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) |||
-          token Token.True +> return (Program(Node.True)) |||
-          token Token.False +> return (Program(Node.False)) |||
-          ident_ref ||| number ||| string ||| fail "expected expression"
+          lambda ^|| cond ^||
+          lparen +! new_scope (catch_errors (progn ++ rparen)) ^||
+          lparen_curl +! new_scope (catch_errors (progn ++ rparen_curl)) ^||
+          token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(get_singleton_node lst))) ^||
+          token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) ^||
+          token Token.True +> return (Program(Node.True)) ^||
+          token Token.False +> return (Program(Node.False)) ^||
+          ident_ref ^|| number ^|| string ^||
+          fail "expected expression" [Program(Node.Nil)]
         end
 
     and lambda () =
       recursive
         begin
           discard (maybe attributes) ++ token Token.Lambda +!
-            (token Token.Force +> return (Bool true) |||
-            token Token.Lazy +> return (Bool false) |||
-            empty +> return (Bool true)) ++
-            new_scope
-            (new_frame
-               (ident_lambda ++ discard (maybe ret_atype) ++
-                  (symbol sym_dot +! expr ||| term)))
+            (catch_errors
+               (token Token.Force +> return (Bool true) ^||
+               token Token.Lazy +> return (Bool false) ^||
+               empty +> return (Bool true)) ++
+               new_scope
+               (new_frame
+                  (ident_lambda ++ discard (maybe ret_atype) ++
+                     (symbol sym_dot +! expr ^|| term))))
             >>
           (fun lst attrs scope ->
             match lst with
@@ -989,7 +994,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and cond () =
       recursive
         begin
-          token Token.If +! expr ++ token Token.Then ++ expr ++ token Token.Else ++ expr
+          token Token.If +! catch_errors expr ++ token Token.Then ++
+            catch_errors expr ++ token Token.Else ++ catch_errors expr
             >>
           (fun lst attrs _ ->
             match lst with
