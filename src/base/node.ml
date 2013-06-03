@@ -166,6 +166,13 @@ let rec equal node1 node2 =
           True
         else
           False
+    | Record(x), Record(y) ->
+        Nil (* TODO *)
+    | Sym(x), Sym(y) ->
+        if Symbol.eq x y then
+          True
+        else
+          False
     | True, True -> True
     | False, False -> False
     | Cons(x1, y1), Cons(x2, y2) ->

@@ -91,7 +91,7 @@ type parser_rule_t = unit -> State.t -> parser_cont_t -> State.t
 type parser_action_t = sexp_t list -> Node.Attrs.t -> Scope.t -> sexp_t
 type parser_resume_t = unit -> State.t
 
-exception ParseFailure of Lexing.position * string * parser_resume_t
+exception ParseFailure of Lexing.position option * string * parser_resume_t
 (* (position, message, resume continuation) *)
 exception ParseSuccess of parser_resume_t
 
@@ -197,7 +197,7 @@ let token (token : Token.t) =
     if Token.eq (Scope.strm_token scope strm) token then
       cont state2
     else
-      raise (ParseFailure(Scope.strm_position scope strm,
+      raise (ParseFailure(Some(Scope.strm_position scope strm),
                           "syntax error",
                           (fun () -> cont state2)))
 
@@ -206,7 +206,7 @@ let peek (token : Token.t) =
     if Token.eq (Scope.strm_token scope strm) token then
       cont state
     else
-      raise (ParseFailure(Scope.strm_position scope strm,
+      raise (ParseFailure(Some(Scope.strm_position scope strm),
                           "syntax error",
                           (fun () -> cont state)))
 
@@ -216,7 +216,7 @@ let keyword sym = token (Token.Keyword(sym))
 let number () (lst, attrs, strm, scope) cont =
   match Scope.strm_token scope strm with
   | Token.Number(num) -> cont (Number(num) :: lst, attrs, Scope.strm_next scope strm, scope)
-  | _ -> raise (ParseFailure(Scope.strm_position scope strm,
+  | _ -> raise (ParseFailure(Some(Scope.strm_position scope strm),
                              "expected a number",
                              (fun () -> cont ((Number(Big_int.zero_big_int)) :: lst,
                                               attrs, Scope.strm_next scope strm, scope))))
@@ -224,9 +224,9 @@ let number () (lst, attrs, strm, scope) cont =
 let string () (lst, attrs, strm, scope) cont =
   match Scope.strm_token scope strm with
   | Token.String(str) -> cont (String(str) :: lst, attrs, Scope.strm_next scope strm, scope)
-  | _ -> raise (ParseFailure(Scope.strm_position scope strm,
+  | _ -> raise (ParseFailure(Some(Scope.strm_position scope strm),
                              "expected a string",
-                             (fun () -> cont (String("") :: lst,
+                             (fun () -> cont (String("??") :: lst,
                                               attrs, Scope.strm_next scope strm, scope))))
 
 let lparen = token Token.LeftParen
@@ -262,7 +262,7 @@ let eof () ((lst, attrs, strm, scope) as state) cont =
   if Scope.is_strm_empty scope strm then
     cont state
   else
-    raise (ParseFailure(Scope.strm_position scope strm,
+    raise (ParseFailure(Some(Scope.strm_position scope strm),
                         "syntax error",
                         (fun () -> skip_until [Token.Sep] () state cont)))
 
@@ -274,7 +274,7 @@ let optional r = maybe r >> collect
 
 let fail msg lst0 =
   (fun () ((lst, attrs, strm, scope) as state) cont ->
-    raise (ParseFailure(Scope.strm_position scope strm, msg,
+    raise (ParseFailure(Some(Scope.strm_position scope strm), msg,
                         (fun () ->
                           skip () state
                             (fun (lst, attrs, strm, scope) ->
@@ -301,7 +301,7 @@ let catch_errors r =
           cont (lst2, attrs2, strm2, scope2))
     with
       ParseFailure(pos, msg, resume) ->
-        Error.error (Some pos) msg;
+        Error.error pos msg;
         resume ())
 
 let change_attrs f =
@@ -360,6 +360,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_in = Symtab.find symtab "in"
   and sym_is = Symtab.find symtab "is"
   and sym_at = Symtab.find symtab "@"
+  and sym_quote = Symtab.find symtab "'"
   and sym_ret_type = Symtab.find symtab ":>"
 
   and sym_fun = Symtab.find symtab "fun"
@@ -378,6 +379,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_binary = Symtab.find symtab "binary"
   and sym_unary = Symtab.find symtab "unary"
   and sym_appl = Symtab.find symtab "appl"
+
+  and sym_symbol = Symtab.find symtab "symbol"
 
   and sym_import = Symtab.find symtab "import"
   and sym_open = Symtab.find symtab "open"
@@ -464,7 +467,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and name () (lst, attrs, strm, scope) cont =
       match Scope.strm_token scope strm with
       | Token.Symbol(sym) -> cont ((Ident(sym)) :: lst, attrs, Scope.strm_next scope strm, scope)
-      | _ -> raise (ParseFailure(Scope.strm_position scope strm,
+      | _ -> raise (ParseFailure(Some(Scope.strm_position scope strm),
                                  "expected identifier",
                                  (fun () ->
                                    cont ((Ident(sym_unknown)) :: lst, attrs, Scope.strm_next scope strm, scope))))
@@ -625,7 +628,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and statement () =
       recursive
         begin
-          xlet ^|| syntax ^|| import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^|| expr
+          xlet ^|| symdef ^|| syntax ^|| import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^|| expr
         end
 
     and xlet () =
@@ -829,6 +832,25 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           name ++ maybe (comma +! name_list)
         end
 
+    and symdef =
+      symbol sym_symbol +! catch_errors name ++
+        (change_scope
+           (fun lst attrs scope ->
+             match lst with
+             | [Ident(sym)] ->
+                 begin
+                   try
+                     let sym2 = Symbol.alloc (Symbol.to_string sym)
+                     in
+                     Scope.add_ident scope sym (Node.Sym(sym2))
+                   with Scope.Duplicate_ident ->
+                     Error.error (Node.Attrs.get_pos attrs) "duplicate identifier";
+                     scope
+                 end
+             | _ -> assert false))
+        >>
+      return (Program(Node.Nil))
+
     and import =
       rule (symbol sym_import +! catch_errors name ++ (load_module (add_idents join_syms)))
 
@@ -931,7 +953,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                in module mode (on correct input) is with the `module X
                { ... }' construction *)
            else
-             raise (ParseFailure(TokenStream.position strm,
+             raise (ParseFailure(Some(TokenStream.position strm),
                                  "internal error: module failure",
                                  (fun () -> assert false)))))
 
@@ -964,7 +986,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) ^||
           token Token.True +> return (Program(Node.True)) ^||
           token Token.False +> return (Program(Node.False)) ^||
-          ident_ref ^|| number ^|| string ^||
+          sym ^|| number ^|| string ^||
+          ident_ref ^||
           fail "expected expression" [Program(Node.Nil)]
         end
 
@@ -1003,6 +1026,14 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                 Program(Node.Cond(x, y, z, attrs))
             | _ -> assert false)
         end
+
+    and sym =
+      symbol sym_quote ++ name
+        >>
+      (fun lst _ _ ->
+        match lst with
+        | [Ident(sym)] -> Program(Node.Sym(Symtab.find symtab ("'" ^ Symbol.to_string sym)))
+        | _ -> assert false)
 
     and ident_ref =
       name
@@ -1084,7 +1115,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
       | ParseSuccess(resume) ->
           loop resume
       | ParseFailure(pos, msg, resume) ->
-          Error.error (Some(pos)) msg;
+          Error.error pos msg;
           loop resume
       | TokenStream.Eof ->
           Error.fatal "unexpected end of file";

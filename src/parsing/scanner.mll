@@ -21,7 +21,7 @@ rule read_token symtab = parse
   | '!'                            { Token.Force }
   | '&'                            { Token.Lazy }
   | '$'                            { Token.Var }
-  | special_oper as oper           { Token.Symbol(Symtab.find symtab (Char.escaped oper)) }
+  | special_oper as oper           { Token.Symbol(Symtab.find symtab (String.make 1 oper)) }
   | '-'?['1'-'9']['0'-'9']* as num { Token.Number(big_int_of_string num) }
   | "0x"['0'-'9']+ as num          { Token.Number(big_int_of_int (int_of_string num)) }
   | '0'['0'-'9']+ as num           { Token.Number(big_int_of_int (int_of_string num)) }
