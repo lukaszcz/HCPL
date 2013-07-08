@@ -1150,13 +1150,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     in
     (get_singleton_node lst, scope)
   in
+
   let keywords = [sym_fun; sym_def]
-  and builtins =
-    [(fun x -> Generic_builtins.declare_builtins x symtab);
-     (fun x -> Arith_builtins.declare_builtins x symtab);
-     (fun x -> Bool_builtins.declare_builtins x symtab);
-     (fun x -> String_builtins.declare_builtins x symtab);
-     (fun x -> Record_builtins.declare_builtins x symtab)]
+  and builtins = [(fun x -> Core_builtins.declare_builtins x symtab)]
   in
   let scope0 =
     List.fold_left
@@ -1167,6 +1163,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
          keywords)
       builtins
   in
+
   match runtime_lexbuf with
   | Some(buf) ->
       let scope1 = snd (do_parse_lexbuf false buf scope0)
@@ -1178,6 +1175,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
       let (node, scope) = do_parse_lexbuf is_repl_mode lexbuf scope0
       in
       (Scope.identtab scope, node)
+
+
+(* public *)
 
 let parse lexbuf runtime_lexbuf = do_parse false lexbuf runtime_lexbuf (fun _ _ -> ()) (fun _ _ -> ())
 let parse_repl = do_parse true
