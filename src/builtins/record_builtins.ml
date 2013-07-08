@@ -7,7 +7,7 @@ open Node
 
 let record_get lst =
   match lst with
-  | Sym(sym) :: Record(tab) :: _ -> Debug.print "zonk"; Symbol.Map.find sym tab
+  | Sym(sym) :: Record(tab) :: _ -> Symbol.Map.find sym tab
   | _ -> Debug.print (Utils.list_to_string Node.to_string lst); assert false
 
 let declare_builtins scope symtab =

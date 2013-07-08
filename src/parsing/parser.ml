@@ -359,6 +359,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_eq = Symtab.find symtab "="
   and sym_in = Symtab.find symtab "in"
   and sym_is = Symtab.find symtab "is"
+  and sym_cons = Symtab.find symtab "cons"
   and sym_at = Symtab.find symtab "@"
   and sym_quote = Symtab.find symtab "'"
   and sym_ret_type = Symtab.find symtab ":>"
@@ -986,7 +987,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) ^||
           token Token.True +> return (Program(Node.True)) ^||
           token Token.False +> return (Program(Node.False)) ^||
-          sym ^|| number ^|| string ^||
+          list ^|| sym ^|| number ^|| string ^||
           ident_ref ^||
           fail "expected expression" [Program(Node.Nil)]
         end
@@ -1025,6 +1026,28 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             | [Program(x); Program(y); Program(z)] ->
                 Program(Node.Cond(x, y, z, attrs))
             | _ -> assert false)
+        end
+
+    and list () =
+      recursive
+        begin
+          lparen_sqr +! new_scope (maybe list_elems) ++ rparen_sqr
+            >>
+          (fun lst _ scope ->
+            let cons = Scope.find_ident scope sym_cons
+            in
+            Program(List.fold_right
+                      (fun x y ->
+                        match x with
+                        | Program(node) -> Node.Appl(Node.Appl(cons, node, None), y, None)
+                        | _ -> assert false)
+                      lst Node.Nil))
+        end
+
+    and list_elems () =
+      recursive
+        begin
+          new_keyword sym_comma (catch_errors expr) ++ maybe (comma ++ list_elems)
         end
 
     and sym =

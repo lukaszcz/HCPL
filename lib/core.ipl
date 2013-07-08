@@ -34,6 +34,11 @@ syntax operator and is left, binary, after =;
 syntax operator xor is left, binary, after and;
 syntax operator or  is left, binary, after xor;
 
+syntax operator , is right, binary, after or;
+
+let , = cons;
 let neg = \!x . 0 - x;
 let /=  = \!x \!y . not (x = y);
 let when = \&x \&y . if x then y else ();
+let hd = fst;
+let tl = snd;

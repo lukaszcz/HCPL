@@ -1,0 +1,30 @@
+
+let lst = [1, 2, 3, 4, 5];
+
+let len = \x {
+   if x = () then
+      0
+   else
+      1 + len (tl x)
+};
+
+print lst;
+print (len lst);
+
+let mklst = \n if n = 0 then () else (n, mklst (n - 1));
+let mklst& = \n (cons& n (mklst& (n + 1)));
+let take = \x \n if n = 0 then () else (hd x, take (tl x) (n - 1));
+
+print (mklst 10);
+print (len (mklst 10));
+print (take (mklst& 0) 10);
+print (len (take (mklst& 0) 10));
+
+let mklst2 = \n if n = 0 then () else (mklst n, mklst2 (n - 1));
+
+print (mklst2 4);
+
+let append = \x \y if x = () then y else (hd x, append (tl x) y);
+let flatten = \x if x = () then () else append (hd x) (flatten (tl x));
+
+print (flatten (mklst2 4));

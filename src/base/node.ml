@@ -7,7 +7,7 @@
 type t =
   (* not immediate *)
   | Progn of t list * attrs_t option
-  | Appl of t * t * attrs_t option (* a b ~> Appl(a, b, attrs) *)
+  | Appl of t * t * attrs_t option (* a b -> Appl(a, b, attrs) *)
   | Cond of t * t * t * attrs_t option
   | Delay of t
   | Force of t
@@ -196,6 +196,26 @@ let to_string node =
           | Some(name) -> Symbol.to_string name
           | None -> "\\" ^ (if is_eager then "!" else "&") ^ string_of_int frm ^ " " ^ prn body (limit - 1)
         in
+        let rec is_list node =
+          match node with
+          | Cons(x, y) -> is_list y
+          | Nil -> true
+          | _ -> false
+        in
+        let prn_list node limit =
+          let rec loop node limit2 =
+            if limit2 > 0 then
+              match node with
+              | Cons(x, y) -> ", " ^ prn x (limit - 1) ^ loop y (limit2 - 1)
+              | Nil -> ""
+              | _ -> assert false
+            else
+              "..."
+          in
+          match node with
+          | Cons(x, y) -> "[" ^ prn x (limit - 1) ^ loop y limit ^ "]"
+          | _ -> assert false
+        in
         match node with
         | Progn(lst, _) -> "{" ^ (List.fold_left (fun acc x -> acc ^ prn x (limit - 1) ^ "; ") "" lst) ^ "}"
         | Appl(a, b, _) -> "(" ^ (prn a (limit - 1)) ^ " " ^ (prn b (limit - 1)) ^ ")"
@@ -216,7 +236,11 @@ let to_string node =
         | Sym(sym) -> Symbol.to_string sym
         | True -> "true"
         | False -> "false"
-        | Cons(x, y) -> "(cons " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
+        | Cons(x, y) ->
+            if is_list y then
+              prn_list node limit
+            else
+              "(" ^ prn x (limit - 1) ^ ", " ^ prn y (limit - 1) ^ ")"
         | Nil -> "()"
         | Delayed(_) -> "<delayed>"
         | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"

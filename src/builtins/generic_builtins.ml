@@ -48,11 +48,30 @@ let load_module lst =
       end
   | _ -> Debug.print (Utils.list_to_string Node.to_string lst); assert false
 
+let cons lst =
+  match lst with
+  | y :: x :: _ -> Node.Cons(x, y)
+  | _ -> assert false
+
+let lst_fst lst =
+  match lst with
+  | Node.Cons(x, y) :: _ -> x
+  | _ -> failwith "not a cons"
+
+let lst_snd lst =
+  match lst with
+  | Node.Cons(x, y) :: _ -> y
+  | _ -> failwith "not a cons"
+
 let declare_builtins scope symtab =
   begin
     let scope = Builtin.declare scope (Symtab.find symtab "=") (eq, 2, true) in
     let scope = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, true) in
     let scope = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, true) in
     let scope = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, false) in
+    let scope = Builtin.declare scope (Symtab.find symtab "cons") (cons, 2, true) in
+    let scope = Builtin.declare scope (Symtab.find symtab "cons&") (cons, 2, false) in
+    let scope = Builtin.declare scope (Symtab.find symtab "fst") (lst_fst, 1, true) in
+    let scope = Builtin.declare scope (Symtab.find symtab "snd") (lst_snd, 1, true) in
     scope
   end
