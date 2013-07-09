@@ -53,14 +53,6 @@ let do_eval node limit env =
   let rec shift node stack env env_len =
     (* env is the environment both for node and for the values on the stack *)
     match node with
-    | Progn(lst, _) ->
-        begin
-          match lst with
-          | [h] -> shift h stack env env_len
-          | h :: t -> shift h (ReturnProgn(t) :: stack) env env_len
-          | [] -> return Nil stack env env_len env env_len
-        end
-
     | Appl(x, y, _) ->
         shift x (y :: stack) env env_len
 
@@ -116,7 +108,7 @@ let do_eval node limit env =
                   rx := do_close node env env_len;
                   reduce node t env env_len s_env s_env_len
                 end
-            | ReturnProgn(_) :: _ | ReturnApply(_) :: _ | ReturnCond(_) :: _ ->
+            | ReturnApply(_) :: _ | ReturnCond(_) :: _ ->
                 return node stack env env_len s_env s_env_len
             | (Force(x)) :: t ->
                 begin
@@ -165,7 +157,7 @@ let do_eval node limit env =
                   rx := do_close node env env_len;
                   reduce node t env env_len s_env s_env_len
                 end
-            | ReturnProgn(_) :: _ | ReturnApply(_) :: _ | ReturnCond(_) :: _ ->
+            | ReturnApply(_) :: _ | ReturnCond(_) :: _ ->
                 return node stack env env_len s_env s_env_len
             | h :: t ->
                 begin
@@ -207,14 +199,6 @@ let do_eval node limit env =
     | Closure(x, env2, env2_len) ->
         reduce x stack env2 env2_len s_env s_env_len
 
-    | Progn(lst, _) ->
-        begin
-          match lst with
-          | [h] -> shift h (change_stack_env stack s_env s_env_len) env env_len
-          | h :: t -> shift h (ReturnProgn(t) :: (change_stack_env stack s_env s_env_len)) env env_len
-          | [] -> return Nil stack env env_len s_env s_env_len
-        end
-
     | Appl(x, y, _) ->
         shift x (y :: (change_stack_env stack s_env s_env_len)) env env_len
 
@@ -237,13 +221,6 @@ let do_eval node limit env =
         begin
           rx := do_close node env env_len;
           return node t env env_len s_env s_env_len
-        end
-    | ReturnProgn(lst) :: t ->
-        begin
-          match lst with
-          | [h] -> shift h t s_env s_env_len
-          | h :: rest -> shift h (ReturnProgn(rest) :: t) s_env s_env_len
-          | _ -> assert false
         end
     | ReturnApply(body2, env2, env2_len) :: t ->
         reduce body2 t ((do_close node env env_len) :: env2) (env2_len + 1) s_env s_env_len

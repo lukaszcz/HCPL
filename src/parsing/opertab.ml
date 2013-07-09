@@ -82,17 +82,11 @@ let drop (opertab, min_prio, max_prio) sym =
 
 (* the algorithm works in linear time *)
 let rewrite (opertab, _, _) lst =
-  let rec prune node =
-    match node with
-    | Node.Progn([x], _) -> prune x
-    | Node.Progn([], _) -> Node.Nil
-    | _ -> node
-  in
   let build_appl lst =
     let rec build lst =
       match lst with
       | [x] -> node x
-      | x :: t -> Node.Appl(prune (build t), prune (node x), None)
+      | x :: t -> Node.Appl(Node.prune (build t), Node.prune (node x), None)
       | [] -> Node.Nil
     in
     build (List.rev lst)

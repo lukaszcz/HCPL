@@ -6,7 +6,6 @@
 
 type t =
   (* not immediate *)
-  | Progn of t list * attrs_t option
   | Appl of t * t * attrs_t option (* a b -> Appl(a, b, attrs) *)
   | Cond of t * t * t * attrs_t option
   | Delay of t
@@ -36,11 +35,13 @@ type t =
   | Closure of t * t list * int
   | ChangeStackEnv of t list * int
   | Store of t ref
-  | ReturnProgn of t list
   | ReturnApply of t * t list * int
   | ReturnCond of t * t
 and attrs_t = { name : Symbol.t option; pos : Lexing.position option;
                 attr_map : (t Symbol.Map.t) option; node_type : t option }
+
+let id = Lambda(Var(0), 0, ref 0, None)
+let progn = LambdaEager(id, 0, ref 0, None)
 
 module Attrs =
   struct
@@ -108,18 +109,17 @@ let alloc_data_tag =
 let is_immediate = function
   (* note: don't use "| _ -> ..." here so that the compiler warns when we
   forget one of the possibilities *)
-  | Progn(_) | Appl(_) | Cond(_) | Delay(_) | Force(_) | Var(_) | Delayed(_) | Proxy(_) |
+  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Var(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Closure(_)
     -> false
   | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Cons(_) | Nil
     -> true
-  | ChangeStackEnv(_) | Store(_) | ReturnProgn(_) | ReturnApply(_) | ReturnCond(_)
+  | ChangeStackEnv(_) | Store(_) | ReturnApply(_) | ReturnCond(_)
     -> false (* whatever... *)
 
 let rec get_attrs node =
   match node with
-  | Progn(_, attrs) -> attrs
   | Appl(_, _, attrs) -> attrs
   | Cond(_, _, _, attrs) -> attrs
   | Delayed(rx) -> get_attrs !rx
@@ -185,6 +185,11 @@ let rec equal node1 node2 =
     | Nil, Nil -> True
     | _, _ -> False
 
+let rec prune node =
+  match node with
+  | Appl(f, x, _) when f == id -> prune x
+  | _ -> node
+
 let to_string node =
   let rec prn node limit =
     if limit = 0 then
@@ -216,9 +221,20 @@ let to_string node =
           | Cons(x, y) -> "[" ^ prn x (limit - 1) ^ loop y limit ^ "]"
           | _ -> assert false
         in
+        let rec prn_progn node =
+          match node with
+          | Appl(Appl(f, x, _), y, _) when f == progn ->
+              prn x (limit - 1) ^ "; " ^ prn_progn y
+          | _ -> prn node (limit - 1)
+        in
         match node with
-        | Progn(lst, _) -> "{" ^ (List.fold_left (fun acc x -> acc ^ prn x (limit - 1) ^ "; ") "" lst) ^ "}"
-        | Appl(a, b, _) -> "(" ^ (prn a (limit - 1)) ^ " " ^ (prn b (limit - 1)) ^ ")"
+        | Appl(Appl(f, x, _), y, _) when f == progn ->
+            "{" ^ prn x (limit - 1) ^ "; " ^ prn_progn y ^ "}"
+        | Appl(a, b, _) ->
+            if a == id then
+              "id(" ^ prn b (limit - 1) ^ ")"
+            else
+              "(" ^ (prn a (limit - 1)) ^ " " ^ (prn b (limit - 1)) ^ ")"
         | Cond(x, y, z, _) ->
             "(if " ^ (prn x (limit - 1)) ^ " then " ^ (prn y (limit - 1)) ^
             " else " ^ (prn z (limit - 1)) ^ ")"
@@ -246,7 +262,6 @@ let to_string node =
         | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
         | ChangeStackEnv(_) -> "<change-stack-env>"
         | Store(_) -> "<store>"
-        | ReturnProgn(_) -> "<return-progn>"
         | ReturnApply(_) -> "<return-apply>"
         | ReturnCond(_) -> "<return-cond>"
       end
@@ -255,10 +270,11 @@ let to_string node =
 
 let rec is_module_closed node =
   match node with
-  | Progn(lst, _) ->
-      if lst = [] then
-        true
+  | Appl(Appl(f, x, _), y, _) when f == progn -> is_module_closed y
+  | Appl(f, x, _) ->
+      if f == id then
+        is_module_closed x
       else
-        is_module_closed (List.hd (List.rev lst))
+        false
   | MakeRecord(_) -> true
   | _ -> is_immediate node

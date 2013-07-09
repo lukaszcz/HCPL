@@ -400,10 +400,19 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   in
 
   let rec mkprogn lst attrs =
+    let rec build_progn lst attrs =
+      match lst with
+      | [Program(x)] -> x
+      | Program(h) :: t -> Node.Appl(Node.Appl(Node.progn, h, None), build_progn t None, attrs)
+      | _ -> assert false
+    in
     match lst with
     | [] -> Node.Nil
-    | _ ->
-        Node.Progn(List.map (function Program(x) -> x | _ -> assert false) lst, attrs)
+    | [Program(x)] -> Node.Appl(Node.id, x, attrs)
+        (* we can't just return x here if things like "map2 (+) lst1 lst2" are to work
+           as expected (this superflous application is later removed
+           by a call to Node.prune) *)
+    | _ -> build_progn lst attrs
 
   and mkapply scope sym lst =
     let node = Scope.find_ident scope sym
@@ -595,7 +604,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     let rec program () =
       recursive
         begin
-          progn ++ eof
+          progn ++ eof >> (fun lst _ _ -> match lst with [Program(x)] -> Program(Node.prune x) | _ -> assert false)
         end
 
     and progn () =
@@ -700,9 +709,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             match lst with
             | [Bool(is_eager); Ident(sym); Program(value); Program(body)] ->
                 if Node.is_immediate value then
-                  Program(body)
+                  Program(Node.prune body)
                 else
-                  Program(Node.Appl(Node.Lambda(body, Scope.frame scope + 1, ref 0, attrs),
+                  Program(Node.Appl(Node.Lambda(Node.prune body, Scope.frame scope + 1, ref 0, attrs),
                                     (if is_eager then Node.Force(value) else value), None))
             | _ -> assert false)
         end
@@ -983,8 +992,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           lambda ^|| cond ^||
           lparen +! new_scope (catch_errors (progn ++ rparen)) ^||
           lparen_curl +! new_scope (catch_errors (progn ++ rparen_curl)) ^||
-          token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(get_singleton_node lst))) ^||
-          token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(get_singleton_node lst))) ^||
+          token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(Node.prune (get_singleton_node lst)))) ^||
+          token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(Node.prune (get_singleton_node lst)))) ^||
           token Token.True +> return (Program(Node.True)) ^||
           token Token.False +> return (Program(Node.False)) ^||
           list ^|| sym ^|| number ^|| string ^||
