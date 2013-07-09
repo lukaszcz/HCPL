@@ -15,6 +15,8 @@ val empty_repl : t
    override their definitions in previous scopes; non-permanent
    keywords are erased *)
 val push : t -> t
+(* the same as above, but does not erase non-permanent keywords *)
+val push_ident_scope : t -> t
 (* return current scope nesting *)
 val nesting : t -> int
 

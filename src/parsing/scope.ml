@@ -29,6 +29,8 @@ let empty_repl = { empty with is_repl_mode = true }
 
 let push scope = { scope with scopenum = scope.scopenum + 1; module_mode = false; keywords = Symbol.Set.empty }
 
+let push_ident_scope scope = { scope with scopenum = scope.scopenum + 1; module_mode = false }
+
 let nesting scope = scope.scopenum
 
 let add_ident scope sym node =

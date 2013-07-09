@@ -320,6 +320,12 @@ let new_scope (r : parser_rule_t) =
       (fun (lst2, attrs2, strm2, _) ->
         cont (lst2, attrs2, strm2, scope))
 
+let new_ident_scope (r : parser_rule_t) =
+  fun () (lst, attrs, strm, scope) cont ->
+    r () (lst, attrs, strm, Scope.push_ident_scope scope)
+      (fun (lst2, attrs2, strm2, _) ->
+        cont (lst2, attrs2, strm2, scope))
+
 let save_scope (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->
     r () (lst, attrs, strm, scope)
@@ -681,7 +687,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                        | _ -> Debug.print (sexp_list_to_string lst); assert false
                      end
                  | _ -> assert false)) ++
-            (symbol sym_in +! new_scope expr ++
+            (symbol sym_in +! new_scope progn ++
                (change_scope
                   (fun lst _ scope ->
                     match lst with
@@ -696,7 +702,11 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                if Scope.is_module_mode scope then
                  Program(Node.MakeRecord(Scope.identtab scope))
                else
-                 Program(Node.Nil))) ++
+                 Program(Node.Nil))
+           ^||
+             repl_decl ++ progn
+            )
+            ++
             (change_scope
                (fun lst _ scope ->
                  match lst with
@@ -721,7 +731,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and syntax () =
       recursive
         begin
-          symbol sym_syntax +! catch_errors (operator ^|| drop)
+          keyword sym_syntax +! catch_errors (operator ^|| drop)
         end
 
     and operator () =
@@ -845,7 +855,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
         end
 
     and symdef =
-      symbol sym_symbol +! catch_errors name ++
+      keyword sym_symbol +! catch_errors name ++
         (change_scope
            (fun lst attrs scope ->
              match lst with
@@ -864,15 +874,15 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
       return (Program(Node.Nil))
 
     and import =
-      rule (symbol sym_import +! catch_errors name ++ (load_module (add_idents join_syms)))
+      rule (keyword sym_import +! catch_errors name ++ (load_module (add_idents join_syms)))
 
     and xopen =
-      rule (symbol sym_open +! catch_errors name ++ (load_module (add_idents (fun _ k -> k))))
+      rule (keyword sym_open +! catch_errors name ++ (load_module (add_idents (fun _ k -> k))))
 
     and xinclude =
       rule
         begin
-          symbol sym_include +! catch_errors string ++
+          keyword sym_include +! catch_errors string ++
             (fun () (lst, attrs, strm, scope) cont ->
               match lst with
               | [Program(Node.String(str))] ->
@@ -1013,7 +1023,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                token Token.Lazy +> return (CallType Node.CallByNeed) ^||
                token Token.Leave +> return (CallType Node.CallByName) ^||
                empty +> return (CallType Node.CallByValue)) ++
-               new_scope
+               new_ident_scope
                (new_frame
                   (ident_lambda ++ discard (maybe ret_atype) ++
                      (symbol sym_dot +! expr ^|| term))))
@@ -1161,7 +1171,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     (get_singleton_node lst, scope)
   in
 
-  let keywords = [sym_fun; sym_def]
+  let keywords = [sym_fun; sym_def; sym_syntax; sym_symbol; sym_import; sym_open; sym_include]
   and builtins = [(fun x -> Core_builtins.declare_builtins x symtab)]
   in
   let scope0 =

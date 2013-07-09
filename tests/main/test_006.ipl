@@ -1,0 +1,26 @@
+
+// test optionality of separators
+
+let x = 5
+let y = 7
+
+let a = x + y;
+
+print a;
+
+let z = x * y
+
+syntax operator aaa is left, binary, after or
+syntax operator bbb is left, binary, prio aaa
+syntax operator ccc is left, binary, prio bbb
+
+let aaa = \x \y . x + y
+let bbb = \x \y . x * y
+let ccc = \x \y . x - y
+in
+print (3 aaa 4);
+print (z bbb 2);
+print (z ccc 2);
+let ccc = \x \y . x div y
+in
+print (z ccc 5);
