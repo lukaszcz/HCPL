@@ -11,15 +11,16 @@ open Lexing
 }
 
 let oper = ['-' '+' '=' '~' '`' '@' '#' '$' '%' '^' '*' '|' '/' '?' '.' ':' '<' '>']
-let id0 = ['a'-'z' 'A'-'Z' '_']['-' 'a'-'z' 'A'-'Z' '_' '0'-'9']*['?' '!' '@' '#' '$' '&' '%' '^' '~' '*']?
+let id0 = ['a'-'z' 'A'-'Z' '_']['-' 'a'-'z' 'A'-'Z' '_' '0'-'9']*['?' '!' '@' '#' '$' '&' '%' '^' '~' '*' ''']?
 let id = id0('.'id0)* | oper+
-let special_oper = [',' '#' '@' '|' ''']
+let special_oper = [',' '@' ''']
 
 rule read_token symtab = parse
   | ';'                            { Token.Sep }
   | '\\'                           { Token.Lambda }
   | '!'                            { Token.Force }
   | '&'                            { Token.Lazy }
+  | '#'                            { Token.Leave }
   | '$'                            { Token.Var }
   | special_oper as oper           { Token.Symbol(Symtab.find symtab (String.make 1 oper)) }
   | '-'?['1'-'9']['0'-'9']* as num { Token.Number(big_int_of_string num) }
@@ -40,6 +41,7 @@ rule read_token symtab = parse
   | "let"                          { Token.LetEager }
   | "let!"                         { Token.LetEager }
   | "let&"                         { Token.LetLazy }
+  | "let#"                         { Token.LetCBN }
   | '\"'                           { string "" lexbuf }
   | "/*"                           { comment symtab 0 lexbuf }
   | id as s                        { Token.Symbol(Symtab.find symtab s) }

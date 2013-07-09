@@ -21,10 +21,12 @@ type t =
   | RightParenCurl
   | LetEager
   | LetLazy
+  | LetCBN
   | Sep
   | Lambda
   | Force
   | Lazy
+  | Leave
   | Var
   | Newline
   | Eof
@@ -54,10 +56,12 @@ let to_string x =
   | RightParenCurl -> "Token.RightParenCurl"
   | LetEager -> "Token.LetEager"
   | LetLazy -> "Token.LetLazy"
+  | LetCBN -> "Token.LetCBN"
   | Sep -> "Token.Sep"
   | Lambda -> "Token.Lambda"
   | Force -> "Token.Force"
   | Lazy -> "Token.Lazy"
+  | Leave -> "Token.Leave"
   | Var -> "Token.Var"
   | Newline -> "Token.Newline"
   | Eof -> "Token.Eof"

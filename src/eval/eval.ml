@@ -30,8 +30,7 @@ let do_close x env env_len =
   | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_) | Nil |
     Closure(_)
     -> x
-  | Lambda(_, frame, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
-  | LambdaEager(_, frame, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
+  | Lambda(_, frame, _, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
   | _ -> Closure(x, env, env_len)
 
 let change_stack_env stack env env_len =
@@ -71,7 +70,7 @@ let do_eval node limit env =
     | Proxy(rx) ->
         shift !rx stack env env_len
 
-    | Lambda(_) | LambdaEager(_) | Builtin(_) ->
+    | Lambda(_) | Builtin(_) ->
         reduce node stack env env_len env env_len
 
     | Closure(x, env2, env2_len) ->
@@ -82,6 +81,9 @@ let do_eval node limit env =
 
     | Delay(x) ->
         return (Delayed(ref x)) stack env env_len env env_len
+
+    | Leave(x) ->
+        return x stack env env_len env env_len
 
     | MakeRecord(identtab) ->
         return (Record(Symbol.Map.map (fun x -> do_close x env env_len) identtab)) stack env env_len env env_len
@@ -97,56 +99,7 @@ let do_eval node limit env =
     (* env is the environment for node and s_env is the environment
        for the values on the stack *)
     match node with
-    | Lambda(body, frame, num_entered, _) ->
-        if limit = -1 then
-          begin
-            match stack with
-            | ChangeStackEnv(env2, env2_len) :: t ->
-                reduce node t env env_len env2 env2_len
-            | Store(rx) :: t ->
-                begin
-                  rx := do_close node env env_len;
-                  reduce node t env env_len s_env s_env_len
-                end
-            | ReturnApply(_) :: _ | ReturnCond(_) :: _ ->
-                return node stack env env_len s_env s_env_len
-            | (Force(x)) :: t ->
-                begin
-                  assert (env_len >= frame);
-                  let env2 = pop_n env (env_len - frame)
-                  and env2_len = frame
-                  in
-                  match x with
-                  | Var(n) ->
-                      let arg = nth s_env n
-                      in
-                      if is_immediate arg then
-                        reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
-                      else
-                        shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                  | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_, _) | Nil ->
-                      reduce body t (x :: env2) (env2_len + 1) s_env s_env_len
-                  | _ ->
-                      shift x ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
-                end
-            | h :: t ->
-                assert (env_len >= frame);
-                let env2 = pop_n env (env_len - frame)
-                and env2_len = frame
-                in
-                reduce body t (Delayed(ref (do_close h s_env s_env_len)) :: env2) (env2_len + 1) s_env s_env_len
-            | [] ->
-                assert (env_len >= frame);
-                let env2 = pop_n env (env_len - frame)
-                in
-                Closure(node, env2, frame)
-          end
-        else
-          begin
-            failwith "Not yet implemented"
-          end
-
-    | LambdaEager(body, frame, num_entered, _) ->
+    | Lambda(body, frame, call_type, num_entered, _) ->
         if limit = -1 then
           begin
             match stack with
@@ -165,18 +118,54 @@ let do_eval node limit env =
                   let env2 = pop_n env (env_len - frame)
                   and env2_len = frame
                   in
-                  match h with
-                  | Var(n) ->
-                      let arg = nth s_env n
+                  if call_type = CallByValue then
+                    begin
+                      assert (env_len >= frame);
+                      let env2 = pop_n env (env_len - frame)
+                      and env2_len = frame
                       in
-                      if is_immediate arg then
-                        reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
-                      else
-                        shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                  | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_) | Nil ->
-                      reduce body t (h :: env2) (env2_len + 1) s_env s_env_len
-                  | _ ->
-                      shift h ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
+                      match h with
+                      | Var(n) ->
+                          let arg = nth s_env n
+                          in
+                          if is_immediate arg then
+                            reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
+                          else
+                            shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
+                      | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_) | Nil ->
+                          reduce body t (h :: env2) (env2_len + 1) s_env s_env_len
+                      | _ ->
+                          shift h ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
+                    end
+                  else
+                    begin
+                      match h with
+                      | Force(x) ->
+                          begin
+                            match x with
+                            | Var(n) ->
+                                let arg = nth s_env n
+                                in
+                                if is_immediate arg then
+                                  reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
+                                else
+                                  shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
+                            | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_, _) | Nil ->
+                                reduce body t (x :: env2) (env2_len + 1) s_env s_env_len
+                            | _ ->
+                                shift x ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
+                          end
+                      | Leave(x) ->
+                          reduce body t ((do_close x s_env s_env_len) :: env2) (env2_len + 1) s_env s_env_len
+                      | _ ->
+                          let x =
+                            if call_type = CallByNeed then
+                              Delayed(ref (do_close h s_env s_env_len))
+                            else
+                              do_close h s_env s_env_len
+                          in
+                          reduce body t (x :: env2) (env2_len + 1) s_env s_env_len
+                    end
                 end
             | [] ->
                 assert (env_len >= frame);

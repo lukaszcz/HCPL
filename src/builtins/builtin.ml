@@ -3,9 +3,9 @@
    Copyright (C) 2013 by Łukasz Czajka
 *)
 
-type t = (Node.t list -> Node.t) * int * bool
+type t = (Node.t list -> Node.t) * int * Node.call_t
 
-let declare scope sym (func, args_num, is_eager) =
+let declare scope sym (func, args_num, ct) =
   let rec expand node n frm attrs =
     assert (n >= 0);
     if n = 0 then
@@ -13,10 +13,7 @@ let declare scope sym (func, args_num, is_eager) =
     else
       let node2 = expand node (n - 1) (frm + 1) None
       in
-      if is_eager then
-        Node.LambdaEager(node2, frm, ref 0, attrs)
-      else
-        Node.Lambda(node2, frm, ref 0, attrs)
+      Node.Lambda(node2, frm, ct, ref 0, attrs)
   in
   let node = Node.Builtin(func, args_num, None)
   and attrs = Node.Attrs.create (Some(sym)) None

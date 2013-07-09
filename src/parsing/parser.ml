@@ -50,6 +50,7 @@ type sexp_t =
   | Program of Node.t
   | Ident of Symbol.t
   | Bool of bool
+  | CallType of Node.call_t
   | Number of Big_int.big_int
   | String of string
   | Sexp of sexp_t list
@@ -63,6 +64,7 @@ let rec sexp_to_string sexp =
   | Program(node) -> "Program(" ^ Node.to_string node ^ ")"
   | Ident(sym) -> "Ident(" ^ Symbol.to_string sym ^ ")"
   | Bool(b) -> "Bool(" ^ (if b then "true" else "false") ^ ")"
+  | CallType(ct) -> "CallType(" ^ Node.call_type_to_string ct ^ ")"
   | Number(num) -> "Number(" ^ Big_int.string_of_big_int num ^ ")"
   | String(str) -> "String(\"" ^ str ^ "\")"
   | Sexp(lst) -> "Sexp(" ^ sexp_list_to_string lst ^ ")"
@@ -644,7 +646,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and xlet () =
       recursive
         begin
-          (token Token.LetEager +> return (Bool true) ^|| token Token.LetLazy +> return (Bool false)) +!
+          (token Token.LetEager +> return (CallType Node.CallByValue)
+           ^|| token Token.LetLazy +> return (CallType Node.CallByNeed)
+           ^|| token Token.LetCBN +> return (CallType Node.CallByName)) +!
             ident_let ++
             symbol sym_eq ++
             new_keyword sym_in (catch_errors expr) ++
@@ -657,10 +661,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                        | Node.Proxy(r) ->
                            let value2 =
                              match value with
-                             | Node.Lambda(body, frm, seen, attrs) ->
-                                 Node.Lambda(body, frm, seen, Node.Attrs.set_name attrs sym)
-                             | Node.LambdaEager(body, frm, seen, attrs) ->
-                                 Node.LambdaEager(body, frm, seen, Node.Attrs.set_name attrs sym)
+                             | Node.Lambda(body, frm, call_type, seen, attrs) ->
+                                 Node.Lambda(body, frm, call_type, seen, Node.Attrs.set_name attrs sym)
                              | _ -> value
                            in
                            r := value2;
@@ -707,12 +709,12 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             >>
           (fun lst attrs scope ->
             match lst with
-            | [Bool(is_eager); Ident(sym); Program(value); Program(body)] ->
+            | [CallType(ct); Ident(sym); Program(value); Program(body)] ->
                 if Node.is_immediate value then
                   Program(Node.prune body)
                 else
-                  Program(Node.Appl(Node.Lambda(Node.prune body, Scope.frame scope + 1, ref 0, attrs),
-                                    (if is_eager then Node.Force(value) else value), None))
+                  Program(Node.Appl(Node.Lambda(Node.prune body, Scope.frame scope + 1, ct, ref 0, attrs),
+                                    value, None))
             | _ -> assert false)
         end
 
@@ -994,6 +996,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           lparen_curl +! new_scope (catch_errors (progn ++ rparen_curl)) ^||
           token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(Node.prune (get_singleton_node lst)))) ^||
           token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(Node.prune (get_singleton_node lst)))) ^||
+          token Token.Leave +! term +> (fun lst _ _ -> Program(Node.Leave(Node.prune (get_singleton_node lst)))) ^||
           token Token.True +> return (Program(Node.True)) ^||
           token Token.False +> return (Program(Node.False)) ^||
           list ^|| sym ^|| number ^|| string ^||
@@ -1006,9 +1009,10 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
         begin
           discard (maybe attributes) ++ token Token.Lambda +!
             (catch_errors
-               (token Token.Force +> return (Bool true) ^||
-               token Token.Lazy +> return (Bool false) ^||
-               empty +> return (Bool true)) ++
+               (token Token.Force +> return (CallType Node.CallByValue) ^||
+               token Token.Lazy +> return (CallType Node.CallByNeed) ^||
+               token Token.Leave +> return (CallType Node.CallByName) ^||
+               empty +> return (CallType Node.CallByValue)) ++
                new_scope
                (new_frame
                   (ident_lambda ++ discard (maybe ret_atype) ++
@@ -1016,11 +1020,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             >>
           (fun lst attrs scope ->
             match lst with
-            | [Bool(is_eager); Ident(sym); Program(body)] ->
-                if is_eager then
-                  Program(Node.LambdaEager(body, Scope.frame scope + 1, ref 0, attrs))
-                else
-                  Program(Node.Lambda(body, Scope.frame scope + 1, ref 0, attrs))
+            | [CallType(ct); Ident(sym); Program(body)] ->
+                Program(Node.Lambda(body, Scope.frame scope + 1, ct, ref 0, attrs))
             | _ -> assert false)
         end
 

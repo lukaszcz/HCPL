@@ -4,21 +4,22 @@
    Copyright (C) 2013 by Łukasz Czajka
 *)
 
+type call_t = CallByValue | CallByNeed | CallByName
+
 type t =
   (* not immediate *)
   | Appl of t * t * attrs_t option (* a b -> Appl(a, b, attrs) *)
   | Cond of t * t * t * attrs_t option
   | Delay of t
+  | Leave of t
   | Force of t
   | Var of int
   | Proxy of t ref
   | MakeRecord of t Symbol.Map.t
 
   (* immediate *)
-  | Lambda of t * int * int ref * attrs_t option
-        (* (body, frame number (for the argument), times entered, attrs) *)
-  | LambdaEager of t * int * int ref * attrs_t option
-        (* (body, frame number, times entered, attrs) *)
+  | Lambda of t * int * call_t * int ref * attrs_t option
+        (* (body, frame number (for the argument), call type, times entered, attrs) *)
   | Builtin of (t list -> t) * int * attrs_t option
         (* (function, args num, attrs) *)
   | Integer of Big_int.big_int
@@ -40,8 +41,8 @@ type t =
 and attrs_t = { name : Symbol.t option; pos : Lexing.position option;
                 attr_map : (t Symbol.Map.t) option; node_type : t option }
 
-let id = Lambda(Var(0), 0, ref 0, None)
-let progn = LambdaEager(id, 0, ref 0, None)
+let id = Lambda(Var(0), 0, CallByName, ref 0, None)
+let progn = Lambda(id, 0, CallByValue, ref 0, None)
 
 module Attrs =
   struct
@@ -112,7 +113,7 @@ let is_immediate = function
   | Appl(_) | Cond(_) | Delay(_) | Force(_) | Var(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Closure(_)
     -> false
-  | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+  | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Cons(_) | Nil
     -> true
   | ChangeStackEnv(_) | Store(_) | ReturnApply(_) | ReturnCond(_)
@@ -124,8 +125,7 @@ let rec get_attrs node =
   | Cond(_, _, _, attrs) -> attrs
   | Delayed(rx) -> get_attrs !rx
   | Proxy(rx) -> get_attrs !rx
-  | Lambda(_, _, _, attrs) -> attrs
-  | LambdaEager(_, _, _, attrs) -> attrs
+  | Lambda(_, _, _, _, attrs) -> attrs
   | Builtin(_, _, attrs) -> attrs
   | _ -> None
 
@@ -141,17 +141,12 @@ let rec equal node1 node2 =
     Nil
   else
     match node1, node2 with
-    | Lambda(_, _, _, _), Lambda(_, _, _, _) ->
+    | Lambda(_), Lambda(_) ->
         if node1 == node2 then
           True
         else
           Nil
-    | LambdaEager(_, _, _, _), LambdaEager(_, _, _, _) ->
-        if node1 == node2 then
-          True
-        else
-          Nil
-    | Builtin(_, _, _), Builtin(_, _, _) ->
+    | Builtin(_), Builtin(_) ->
         if node1 == node2 then
           True
         else
@@ -190,16 +185,22 @@ let rec prune node =
   | Appl(f, x, _) when f == id -> prune x
   | _ -> node
 
+let call_type_to_string call_type =
+  match call_type with
+  | CallByValue -> "!"
+  | CallByNeed -> "&"
+  | CallByName -> "#"
+
 let to_string node =
   let rec prn node limit =
     if limit = 0 then
       "..."
     else
       begin
-        let lambda_str body frm attrs is_eager =
+        let lambda_str body frm attrs call_type =
           match Attrs.get_name attrs with
           | Some(name) -> Symbol.to_string name
-          | None -> "\\" ^ (if is_eager then "!" else "&") ^ string_of_int frm ^ " " ^ prn body (limit - 1)
+          | None -> "\\" ^ (call_type_to_string call_type) ^ string_of_int frm ^ " " ^ prn body (limit - 1)
         in
         let rec is_list node =
           match node with
@@ -243,8 +244,7 @@ let to_string node =
         | Var(i) -> "$" ^ string_of_int i
         | Proxy(rx) -> prn !rx limit
         | MakeRecord(_) -> "<make-record>"
-        | Lambda(body, frm, _, attrs) -> lambda_str body frm attrs false
-        | LambdaEager(body, frm, _, attrs) -> lambda_str body frm attrs true
+        | Lambda(body, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
         | Builtin(_) -> "<builtin>"
         | Integer(i) -> Big_int.string_of_big_int i
         | String(str) -> "\"" ^ (String.escaped str) ^ "\""
