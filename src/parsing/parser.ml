@@ -687,7 +687,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                        | _ -> Debug.print (sexp_list_to_string lst); assert false
                      end
                  | _ -> assert false)) ++
-            (symbol sym_in +! new_scope progn ++
+            (symbol sym_in +! new_ident_scope progn ++
                (change_scope
                   (fun lst _ scope ->
                     match lst with
