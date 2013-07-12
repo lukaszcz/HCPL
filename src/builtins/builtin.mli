@@ -3,7 +3,7 @@
    Copyright (C) 2013 by Łukasz Czajka
 *)
 
-type t = (Node.t list -> Node.t) * int * Node.call_t
-(* (func, args_num, is_eager (false if lazy)) *)
+val make : Symbol.t -> (Env.t -> Node.t) -> int -> Node.call_t -> Node.t
+(* (name, func, args_num, call_type) *)
 
-val declare : Scope.t -> Symbol.t -> t -> Scope.t
+val declare : Scope.t -> Symbol.t -> ((Node.t list -> Node.t) * int * Node.call_t) -> Scope.t * Node.t

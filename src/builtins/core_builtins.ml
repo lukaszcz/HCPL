@@ -6,9 +6,16 @@
 open Node
 open Big_int
 
+let eq_builtin = ref Nil
 let eq lst =
   match lst with
-  | x :: y :: _ -> Node.equal x y
+  | y :: x :: _ ->
+      let ret = Node.equal x y
+      in
+      if ret = Nil then
+        Node.Leave(Node.mkappl [!eq_builtin; x; y] None)
+      else
+        ret
   | _ -> assert false
 
 let prn lst =
@@ -21,7 +28,7 @@ let myexit lst =
   match lst with
   | Nil :: _ -> exit 0
   | Integer(num) :: _ -> exit (Big_int.int_of_big_int num)
-  | _ -> assert false
+  | _ -> failwith "exit: type error"
 
 (* modules *)
 
@@ -53,6 +60,7 @@ let load_module lst =
 
 (* records *)
 
+let record_get_builtin = ref Nil
 let record_get lst =
   match lst with
   | Sym(sym) :: Record(tab) :: _ -> Symbol.Map.find sym tab
@@ -124,25 +132,31 @@ let le lst =
 
 (* booleans *)
 
+let not_builtin = ref Nil
 let bool_not lst =
   match lst with
   | True :: _ -> False
   | False :: _ -> True
-  | _ -> failwith "not: type error"
+  | h :: _ -> Node.Leave(mkappl [!not_builtin; h] None)
+  | _ -> assert false
 
+let and_builtin = ref Nil
 let bool_and lst =
   match lst with
   | True :: True :: _ -> True
   | False :: _ :: _ -> False
   | _ :: False :: _ -> False
-  | _ -> failwith "and: type error"
+  | y :: x :: _ -> Node.Leave(mkappl [!and_builtin; x; y] None)
+  | _ -> assert false
 
+let or_builtin = ref Nil
 let bool_or lst =
   match lst with
   | False :: False :: _ -> False
   | True :: _ :: _ -> True
   | _ :: True :: _ -> True
-  | _ -> failwith "or: type error"
+  | y :: x :: _ -> Node.Leave(mkappl [!or_builtin; x; y] None)
+  | _ -> assert false
 
 (* strings *)
 
@@ -161,28 +175,32 @@ let to_string lst =
 
 let declare_builtins scope symtab =
   begin
-    let scope = Builtin.declare scope (Symtab.find symtab "=") (eq, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
-    let scope = Builtin.declare scope (Symtab.find symtab "__ipl_record_get") (record_get, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "cons") (cons, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "cons&") (cons, 2, CallByNeed) in
-    let scope = Builtin.declare scope (Symtab.find symtab "fst") (lst_fst, 1, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "snd") (lst_snd, 1, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "+") (add, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "-") (sub, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "*") (mul, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "div") (div, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "mod") (xmod, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab ">") (gt, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "<") (lt, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab ">=") (ge, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "<=") (le, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "not") (bool_not, 1, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "and") (bool_and, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "or") (bool_or, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "^") (concat, 2, CallByValue) in
-    let scope = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in
+    let (scope, builtin) = Builtin.declare scope (Symtab.find symtab "=") (eq, 2, CallByValue) in
+    eq_builtin := builtin;
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_record_get") (record_get, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "cons") (cons, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "cons&") (cons, 2, CallByNeed) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "fst") (lst_fst, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "snd") (lst_snd, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "+") (add, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "-") (sub, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "*") (mul, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "div") (div, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "mod") (xmod, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab ">") (gt, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "<") (lt, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab ">=") (ge, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "<=") (le, 2, CallByValue) in
+    let (scope, builtin) = Builtin.declare scope (Symtab.find symtab "not") (bool_not, 1, CallByValue) in
+    not_builtin := builtin;
+    let (scope, builtin) = Builtin.declare scope (Symtab.find symtab "and") (bool_and, 2, CallByValue) in
+    and_builtin := builtin;
+    let (scope, builtin) = Builtin.declare scope (Symtab.find symtab "or") (bool_or, 2, CallByValue) in
+    or_builtin := builtin;
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "^") (concat, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in
     scope
   end

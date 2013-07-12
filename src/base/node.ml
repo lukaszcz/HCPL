@@ -135,6 +135,26 @@ let get_pos node = Attrs.get_pos (get_attrs node)
 
 let get_attr node name = Attrs.get_attr (get_attrs node)
 
+let rec is_module_closed node =
+  match node with
+  | Appl(Appl(f, x, _), y, _) when f == progn -> is_module_closed y
+  | Appl(f, x, _) ->
+      if f == id then
+        is_module_closed x
+      else
+        false
+  | MakeRecord(_) -> true
+  | _ -> is_immediate node
+
+let mkappl lst attrs =
+  let rec loop lst attrs =
+    match lst with
+    | [x] -> x
+    | h :: t -> Appl(loop t None, h, attrs)
+    | [] -> assert false
+  in
+  loop (List.rev lst) attrs
+
 (* Returns Nil for "don't know" *)
 let rec equal node1 node2 =
   if not (is_immediate node1) || not (is_immediate node2) then
@@ -268,13 +288,3 @@ let to_string node =
   in
   prn node 20
 
-let rec is_module_closed node =
-  match node with
-  | Appl(Appl(f, x, _), y, _) when f == progn -> is_module_closed y
-  | Appl(f, x, _) ->
-      if f == id then
-        is_module_closed x
-      else
-        false
-  | MakeRecord(_) -> true
-  | _ -> is_immediate node

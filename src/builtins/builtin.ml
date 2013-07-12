@@ -3,9 +3,7 @@
    Copyright (C) 2013 by Łukasz Czajka
 *)
 
-type t = (Node.t list -> Node.t) * int * Node.call_t
-
-let declare scope sym (func, args_num, ct) =
+let make sym func args_num ct =
   let rec expand node n frm attrs =
     assert (n >= 0);
     if n = 0 then
@@ -15,8 +13,14 @@ let declare scope sym (func, args_num, ct) =
       in
       Node.Lambda(node2, frm, ct, ref 0, attrs)
   in
-  let node = Node.Builtin(func, args_num, None)
-  and attrs = Node.Attrs.create (Some(sym)) None
+  let attrs = Node.Attrs.create (Some(sym)) None
+  in
+  let node = Node.Builtin(func, args_num, attrs)
   in
   assert (args_num >= 0);
-  Scope.add_ident scope sym (expand node args_num 0 attrs)
+  expand node args_num 0 attrs
+
+let declare scope sym (func, args_num, ct) =
+  let b = make sym func args_num ct
+  in
+  (Scope.add_ident scope sym b, b)
