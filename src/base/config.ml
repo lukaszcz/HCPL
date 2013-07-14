@@ -5,6 +5,8 @@
 
 let rpath = ref []
 
+let rtiming = ref false
+
 let init () = ()
 
 let path () = !rpath
@@ -18,3 +20,9 @@ let append_path str = rpath := !rpath @ [str]
 let stdlib_path () = "./lib"
 
 let dir_sep () = "/"
+
+let timing_enabled () = !rtiming
+
+let enable_timing () = rtiming := true
+
+let disable_timing () = rtiming := false

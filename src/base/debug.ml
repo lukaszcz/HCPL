@@ -11,3 +11,12 @@ let print_int i =
 
 let print_bool b =
   prerr_endline (if b then "true" else "false")
+
+let print_newline () =
+  prerr_newline ()
+
+let rtimer = ref (int_of_float (Sys.time () *. 1000.))
+
+let reset_timer () = rtimer := int_of_float (Sys.time () *. 1000.)
+
+let timer_value () = int_of_float (Sys.time () *. 1000.) - !rtimer

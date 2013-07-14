@@ -10,6 +10,10 @@ let f_vanilla = ref false;;
 let file_count = ref 0;;
 let runtime_path = ref (Config.stdlib_path () ^ Config.dir_sep () ^ "core.ipl");;
 
+let parse_time = ref 0;;
+let gc_time = ref 0;;
+let run_time = ref 0;;
+
 let get_lexbuf name chan =
   let lexbuf = Lexing.from_channel chan
   in
@@ -59,6 +63,7 @@ let run name chan =
   let lexbuf = get_lexbuf name chan
   in
   file_count := !file_count + 1;
+  Debug.reset_timer ();
   let (_, node) =
     if !f_vanilla then
       Parser.parse lexbuf None
@@ -67,8 +72,23 @@ let run name chan =
       in
       Parser.parse lexbuf (Some runtime_lexbuf)
   in
+  parse_time := Debug.timer_value ();
+  Debug.reset_timer ();
+  Gc.compact ();
+  gc_time := Debug.timer_value ();
   if Error.error_count () + Error.fatal_count () = 0 then
-    ignore (Eval.eval node);
+    begin
+      Debug.reset_timer ();
+      ignore (Eval.eval node);
+      run_time := Debug.timer_value ();
+    end;
+  if Config.timing_enabled () then
+    begin
+      Debug.print_newline ();
+      Debug.print ("Parsing time: " ^ string_of_int !parse_time ^ "ms");
+      Debug.print ("Parser cleanup time: " ^ string_of_int !gc_time ^ "ms");
+      Debug.print ("Program time: " ^ string_of_int !run_time ^ "ms");
+    end;
   ()
 
 let usage_msg = "usage: ipl [options] [file.ipl]"
@@ -90,12 +110,14 @@ let show_help spec =
 
 let rec argspec () =
   [ ("-i", Arg.Set(f_interactive), "\t\t\tInteractive (repl) mode");
-    (("--interactive", Arg.Set(f_interactive), "\t\tInteractive (repl) mode"));
-    (("-I", Arg.String(fun s -> Config.prepend_path s), "\t\t\tAdd to include path"));
-    (("--vanilla", Arg.Set(f_vanilla), "\t\tDon't preload the standard runtime"));
-    (("-R", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\t\tSet runtime path"));
-    (("--runtime", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\tSet runtime path"));
-    (("--help", Arg.Unit(fun () -> show_help (argspec ())), "\t\t\tDisplay this list of options"))
+    ("--interactive", Arg.Set(f_interactive), "\t\tInteractive (repl) mode");
+    ("-I", Arg.String(fun s -> Config.prepend_path s), "\t\t\tAdd to include path");
+    ("--vanilla", Arg.Set(f_vanilla), "\t\tDon't preload the standard runtime");
+    ("-R", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\t\tSet runtime path");
+    ("--runtime", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\tSet runtime path");
+    ("-t", Arg.Unit(Config.enable_timing), "\t\tDisplay time usage");
+    ("--time", Arg.Unit(Config.enable_timing), "\t\tDisplay time usage");
+    ("--help", Arg.Unit(fun () -> show_help (argspec ())), "\t\t\tDisplay this list of options")
   ]
 in
 Config.set_path ["."; Config.stdlib_path ()];

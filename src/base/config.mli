@@ -12,3 +12,7 @@ val append_path : string -> unit
 
 val stdlib_path : unit -> string
 val dir_sep : unit -> string
+
+val timing_enabled : unit -> bool
+val enable_timing : unit -> unit
+val disable_timing : unit -> unit
