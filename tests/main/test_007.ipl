@@ -1,0 +1,23 @@
+
+let lst = [1, 2, 3, 4]
+
+let head = \x match x with (%h, %_) -> h | %_ -> ()
+let tail = \x match x with (%_, %t) -> t | %_ -> []
+
+;;;
+
+print << head lst;
+print << tail lst;
+
+let f = \x \y {
+   match x with
+   | y -> 0
+   | tail lst -> 1
+   | cons %h %t -> h + f t (tail (tail y))
+};
+
+print << f [2, 3, 4] (tail lst);
+print << f [2, 3, 4] [];
+print << f [2, 3, 4, 5, 6, 7] [0, 0, 0, 0, 0, 0, 5, 6, 7];
+print << f [2, 3, 4, 5, 6, 7, 2, 3, 4] [0, 0, 0, 0, 0, 0, 5, 6, 7];
+print << f [1, 2, 3, 4, 2, 3, 4] [];

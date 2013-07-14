@@ -38,6 +38,11 @@ val leave_module : t -> t
 val current_module : t -> Symbol.t
 val is_module_mode : t -> bool
 
+val enter_match : t -> t
+val add_placeholder : t -> Symbol.t -> t
+val placeholders : t -> Symbol.t list
+val is_match_mode : t -> bool
+
 val add_keyword : t -> Symbol.t -> t
 val add_permanent_keyword : t -> Symbol.t -> t
 

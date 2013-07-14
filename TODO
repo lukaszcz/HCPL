@@ -1,9 +1,6 @@
 
-* Reification
-* Matching
 * Collect operators
-* Syntax rules
 * Logic
 * Improve evaluator efficiency
-* In the parser, translate closed lets directly into Delayed nodes
+* In the parser, translate closed lets directly into Delayed nodes (or just do this for lemmas)
 * Improve Node.to_string (use pretty printing from the Format module)

@@ -1,5 +1,6 @@
 
 let lst = [1, 2, 3, 4, 5];
+let p = (1, 2, 3);
 
 let len = \x {
    if x = () then
@@ -10,6 +11,8 @@ let len = \x {
 
 print lst;
 print (len lst);
+
+print p;
 
 let mklst = \n if n = 0 then () else (n, mklst (n - 1));
 let mklst& = \n (cons& n (mklst& (n + 1)));

@@ -17,11 +17,15 @@ let special_oper = [',' '@' ''']
 
 rule read_token symtab = parse
   | ';'                            { Token.Sep }
+  | ';'[' ' '\t' '\r']*'\n'        { new_line lexbuf; Token.NewlineSep }
   | '\\'                           { Token.Lambda }
   | '!'                            { Token.Force }
   | '&'                            { Token.Lazy }
   | '#'                            { Token.Leave }
   | '$'                            { Token.Var }
+  | "%%"                           { Token.Placeholder_generic }
+  | "%_"                           { Token.Placeholder_ignore }
+  | '%'                            { Token.Placeholder }
   | special_oper as oper           { Token.Symbol(Symtab.find symtab (String.make 1 oper)) }
   | '-'?['1'-'9']['0'-'9']* as num { Token.Number(big_int_of_string num) }
   | "0x"['0'-'9']+ as num          { Token.Number(big_int_of_int (int_of_string num)) }

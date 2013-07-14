@@ -27,8 +27,8 @@ let rec pop_n lst n =
 
 let do_close x env env_len =
   match x with
-  | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_) | Nil |
-    Closure(_)
+  | Integer(_) | String(_) | Record(_) | Sym(_) | True | False |
+    Placeholder | Ignore | Cons(_) | Nil | Quoted(_) | Closure(_) | Lambda(_, 0, _, _, _)
     -> x
   | Lambda(_, frame, _, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
   | _ -> Closure(x, env, env_len)
@@ -88,7 +88,7 @@ let do_eval node limit env =
     | MakeRecord(identtab) ->
         return (Record(Symbol.Map.map (fun x -> do_close x env env_len) identtab)) stack env env_len env env_len
 
-    | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_, _) | Nil ->
+    | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
         return node stack env env_len env env_len
 
     | _ -> assert false
@@ -132,7 +132,7 @@ let do_eval node limit env =
                             reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
                           else
                             shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                      | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_) | Nil ->
+                      | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
                           reduce body t (h :: env2) (env2_len + 1) s_env s_env_len
                       | _ ->
                           shift h ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
@@ -150,7 +150,7 @@ let do_eval node limit env =
                                   reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
                                 else
                                   shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                            | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_, _) | Nil ->
+                            | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
                                 reduce body t (x :: env2) (env2_len + 1) s_env s_env_len
                             | _ ->
                                 shift x ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
@@ -197,7 +197,7 @@ let do_eval node limit env =
     | Proxy(rx) ->
         reduce !rx stack env env_len s_env s_env_len
 
-    | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Cons(_, _) | Nil ->
+    | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
         return node stack env env_len s_env s_env_len
 
     | _ -> shift node (change_stack_env stack s_env s_env_len) env env_len

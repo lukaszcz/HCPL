@@ -60,7 +60,6 @@ let load_module lst =
 
 (* records *)
 
-let record_get_builtin = ref Nil
 let record_get lst =
   match lst with
   | Sym(sym) :: Record(tab) :: _ -> Symbol.Map.find sym tab
@@ -170,6 +169,30 @@ let to_string lst =
   | x :: _ -> String(Node.to_string x)
   | _ -> failwith "to_string"
 
+(* matching *)
+
+let match1 lst =
+  match lst with
+  | z2 :: z1 :: y :: x :: t ->
+      let eval x =
+        match x with
+        | Integer(_) | String(_) | Record(_) | Sym(_) | True | False |
+          Placeholder | Ignore | Cons(_) | Nil | Quoted(_) -> x
+        | _ -> (Eval.eval_in x t)
+      in
+      let node = eval x
+      and pat = eval y
+      in
+      let (m, args) = Node.matches node pat
+      in
+      if m then
+        if args = [] then
+          z1
+        else
+          Node.mkappl (z1 :: args) None
+      else
+        z2
+  | _ -> assert false
 
 (* public interface *)
 
@@ -202,5 +225,6 @@ let declare_builtins scope symtab =
     or_builtin := builtin;
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "^") (concat, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "match1") (match1, 4, CallByName) in
     scope
   end

@@ -36,9 +36,19 @@ syntax operator or  is left, binary, after xor;
 
 syntax operator , is right, binary, after or;
 
+syntax operator >> is left, binary, after ,;
+syntax operator << is left, binary, prio >>;
+
+syntax operator $> is right, binary, after ,;
+syntax operator $< is right, binary, prio $>;
+
 let , = cons;
 let neg = \!x . 0 - x;
 let /=  = \!x \!y . not (x = y);
-let when = \&x \&y . if x then y else ();
+let when = \#x \#y . if x then y else ();
 let hd = fst;
 let tl = snd;
+let >> = \x \f . f x;
+let << = \#f . f;
+let $> = >>;
+let $< = <<;

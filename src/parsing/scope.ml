@@ -10,6 +10,7 @@ type t = { identtab : identtab_t; frame : int; scopenum : int;
            keywords : Symbol.Set.t; permanent_keywords : Symbol.Set.t;
            is_repl_mode : bool; opertab : Opertab.t;
            modules : Symbol.t list; module_mode : bool;
+           placeholders : Symbol.t list ref; match_mode : bool;
            mutable line_num : int }
 
 exception Duplicate_ident
@@ -23,6 +24,8 @@ let empty = { identtab = Symbol.Map.empty;
               opertab = Opertab.empty;
               modules = [];
               module_mode = false;
+              placeholders = ref [];
+              match_mode = false;
               line_num = 0 }
 
 let empty_repl = { empty with is_repl_mode = true }
@@ -102,6 +105,19 @@ let current_module scope =
 let is_module_mode scope =
   scope.module_mode
 
+let enter_match scope =
+  { scope with placeholders = ref []; match_mode = true }
+
+let add_placeholder scope sym =
+  scope.placeholders := sym :: !(scope.placeholders);
+  scope
+
+let placeholders scope =
+  List.rev !(scope.placeholders)
+
+let is_match_mode scope =
+  scope.match_mode
+
 let add_keyword scope sym =
   let kwds = Symbol.Set.add sym scope.keywords
   in
@@ -133,7 +149,7 @@ let strm_token scope strm =
         Token.Keyword(sym)
       else
         token
-  | Token.Newline -> scope.line_num <- scope.line_num + 1; Token.Sep
+  | Token.Newline | Token.NewlineSep -> scope.line_num <- scope.line_num + 1; Token.Sep
   | _ -> token
 
 let strm_position scope strm =

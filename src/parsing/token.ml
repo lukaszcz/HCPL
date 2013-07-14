@@ -8,6 +8,9 @@ type t =
   | Keyword of Symbol.t
   | Number of Big_int.big_int
   | String of string
+  | Placeholder
+  | Placeholder_generic
+  | Placeholder_ignore
   | If
   | Then
   | Else
@@ -29,6 +32,7 @@ type t =
   | Leave
   | Var
   | Newline
+  | NewlineSep
   | Eof
 
 let eq x y =
@@ -43,6 +47,9 @@ let to_string x =
   | Keyword(sym) -> "Token.Keyword(" ^ Symbol.to_string sym ^ ")"
   | Number(num) -> "Token.Number(" ^ Big_int.string_of_big_int num ^ ")"
   | String(str) -> "Token.String(\"" ^ str ^ "\")"
+  | Placeholder -> "Token.Placeholder"
+  | Placeholder_generic -> "Token.Placeholder_generic"
+  | Placeholder_ignore -> "Token.Placeholder_ignore"
   | If -> "Token.If"
   | Then -> "Token.Then"
   | Else -> "Token.Else"
@@ -64,4 +71,5 @@ let to_string x =
   | Leave -> "Token.Leave"
   | Var -> "Token.Var"
   | Newline -> "Token.Newline"
+  | NewlineSep -> "Token.NewlineSep"
   | Eof -> "Token.Eof"

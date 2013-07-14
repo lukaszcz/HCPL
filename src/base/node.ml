@@ -29,7 +29,10 @@ type t =
   | Nil
   | True
   | False
+  | Placeholder
+  | Ignore
   | Cons of t * t
+  | Quoted of t
 
   (* used only by the evaluator *)
   | Delayed of t ref
@@ -110,11 +113,11 @@ let alloc_data_tag =
 let is_immediate = function
   (* note: don't use "| _ -> ..." here so that the compiler warns when we
   forget one of the possibilities *)
-  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Var(_) | Delayed(_) | Proxy(_) |
+  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Closure(_)
     -> false
   | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-    True | False | Cons(_) | Nil
+    True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_)
     -> true
   | ChangeStackEnv(_) | Store(_) | ReturnApply(_) | ReturnCond(_)
     -> false (* whatever... *)
@@ -189,7 +192,9 @@ let rec equal node1 node2 =
         else
           False
     | True, True -> True
-    | False, False -> False
+    | False, False -> True
+    | Placeholder, Placeholder -> True
+    | Ignore, Ignore -> True
     | Cons(x1, y1), Cons(x2, y2) ->
         let res1 = equal x1 x2
         in
@@ -197,6 +202,8 @@ let rec equal node1 node2 =
           equal y1 y2
         else
           res1
+    | Quoted(x), Quoted(y) ->
+        equal x y
     | Nil, Nil -> True
     | _, _ -> False
 
@@ -261,6 +268,7 @@ let to_string node =
             " else " ^ (prn z (limit - 1)) ^ ")"
         | Delay(x) -> "&" ^ prn x (limit - 1)
         | Force(x) -> "!" ^ prn x (limit - 1)
+        | Leave(x) -> "#" ^ prn x (limit - 1)
         | Var(i) -> "$" ^ string_of_int i
         | Proxy(rx) -> prn !rx limit
         | MakeRecord(_) -> "<make-record>"
@@ -272,6 +280,9 @@ let to_string node =
         | Sym(sym) -> Symbol.to_string sym
         | True -> "true"
         | False -> "false"
+        | Quoted(x) -> "(quote " ^ prn x (limit - 1) ^ ")"
+        | Placeholder -> "%%"
+        | Ignore -> "%_"
         | Cons(x, y) ->
             if is_list y then
               prn_list node limit
@@ -288,3 +299,121 @@ let to_string node =
   in
   prn node 20
 
+let matches node pat =
+  (* TODO: change (false, []) to raise Exit *)
+  let rec aux node pat lst =
+    match node with
+    | Proxy(rn) -> aux !rn pat lst
+    | _ -> if pat == node then (true, lst) else
+      begin
+        match pat with
+        | Appl(x, y, _) ->
+            begin
+              match node with
+              | Appl(a, b, _) ->
+                  let (mb, lstb) = aux b y lst
+                  in
+                  if mb then
+                    aux a x lstb
+                  else
+                    (false, [])
+              | _ ->
+                  (false, [])
+            end
+        | Cond(x, y, z, _) ->
+            begin
+              match node with
+              | Cond(a, b, c, _) ->
+                  let (mc, lstc) = aux c z lst
+                  in
+                  if mc then
+                    let (mb, lstb) = aux b y lstc
+                    in
+                    if mb then
+                      aux a x lstb
+                    else
+                      (false, [])
+                  else
+                    (false, [])
+              | _ ->
+                  (false, [])
+            end
+        | Delay(x) ->
+            begin
+              match node with
+              | Delay(a) ->
+                  aux a x lst
+              | _ ->
+                  (false, [])
+            end
+        | Leave(x) ->
+            begin
+              match node with
+              | Leave(a) ->
+                  aux a x lst
+              | _ ->
+                  (false, [])
+            end
+        | Force(x) ->
+            begin
+              match node with
+              | Force(a) ->
+                  aux a x lst
+              | _ ->
+                  (false, [])
+            end
+        | Integer(x) ->
+            begin
+              match node with
+              | Integer(y) ->
+                  if Big_int.eq_big_int x y then
+                    (true, lst)
+                  else
+                    (false, [])
+              | _ -> (false, [])
+            end
+        | Var(_) | MakeRecord(_) | String(_) | Record(_) | Sym(_) | Nil | True | False ->
+            if node = pat then
+              (true, lst)
+            else
+              (false, [])
+        | Proxy(rx) ->
+            aux node !rx lst
+        | Lambda(body, frame, _, _, _) ->
+            begin
+              match node with
+              | Lambda(body2, frame2, _, _, _) when frame = frame2 ->
+                  aux body2 body lst
+              | _ ->
+                  (false, [])
+            end
+        | Placeholder ->
+            (true, node :: lst)
+        | Ignore ->
+            (true, lst)
+        | Cons(x, y) ->
+            begin
+              match node with
+              | Cons(a, b) ->
+                  let (mb, lstb) = aux b y lst
+                  in
+                  if mb then
+                    aux a x lstb
+                  else
+                    (false, [])
+              | _ ->
+                  (false, [])
+            end
+        | Quoted(x) ->
+            begin
+              match node with
+              | Quoted(a) ->
+                  aux a x lst
+              | _ ->
+                  (false, [])
+            end
+        | _ ->
+            failwith "bad pattern"
+      end
+  in
+  aux node pat []

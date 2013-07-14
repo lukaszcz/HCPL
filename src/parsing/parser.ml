@@ -268,6 +268,15 @@ let eof () ((lst, attrs, strm, scope) as state) cont =
                         "syntax error",
                         (fun () -> skip_until [Token.Sep] () state cont)))
 
+let check pred error_msg () ((lst, attrs, strm, scope) as state) cont =
+  if pred scope then
+    cont state
+  else
+    raise (ParseFailure(Some(Scope.strm_position scope strm),
+                        error_msg,
+                        (fun () -> skip_until [Token.Sep] () state cont)))
+
+
 (* Additional operations on parser rules *)
 
 let maybe r = r ^|| empty
@@ -326,6 +335,12 @@ let new_ident_scope (r : parser_rule_t) =
       (fun (lst2, attrs2, strm2, _) ->
         cont (lst2, attrs2, strm2, scope))
 
+let enter_match (r : parser_rule_t) =
+  fun () (lst, attrs, strm, scope) cont ->
+    r () (lst, attrs, strm, Scope.enter_match scope)
+      (fun (lst2, attrs2, strm2, _) ->
+        cont (lst2, attrs2, strm2, scope))
+
 let save_scope (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->
     r () (lst, attrs, strm, scope)
@@ -371,6 +386,11 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_at = Symtab.find symtab "@"
   and sym_quote = Symtab.find symtab "'"
   and sym_ret_type = Symtab.find symtab ":>"
+  and sym_arrow = Symtab.find symtab "->"
+  and sym_match_sep = Symtab.find symtab "|"
+  and sym_match = Symtab.find symtab "match"
+  and sym_match1 = Symtab.find symtab "match1"
+  and sym_with = Symtab.find symtab "with"
 
   and sym_fun = Symtab.find symtab "fun"
   and sym_def = Symtab.find symtab "def"
@@ -528,11 +548,19 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
       if is_repl_mode && Scope.nesting scope = 0 then
         begin
           match lst with
-          | [Program(value); Ident(_); Bool(is_eager)] ->
+          | [Program(value); Ident(_); CallType(ct)] ->
               if Node.is_immediate value then
                 eval_handler value (Scope.lineno scope)
               else
-                decl_handler (if is_eager then value else Node.Delay(value)) (Scope.lineno scope);
+                begin
+                  let v =
+                    match ct with
+                    | Node.CallByValue -> value
+                    | Node.CallByNeed -> Node.Leave(value)
+                    | Node.CallByName -> Node.Delay(value)
+                  in
+                  decl_handler v (Scope.lineno scope)
+                end;
               cont state
           | _ -> assert false
         end
@@ -694,7 +722,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                     | [_; Ident(sym); _; _] -> Scope.drop_ident scope sym
                     | _ -> assert false))
            ^||
-             token Token.Sep ++ repl_decl ++ progn
+             token Token.Sep +! repl_decl ++ progn
            ^||
              (peek Token.RightParenCurl ^|| token Token.Eof)
                +>
@@ -971,7 +999,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                (* This is a bit of a hack. We need to set module_mode
                to false (by calling leave_module) so that this rule
                does not succeed for the second time. The scope is then
-               discarded anyway, because the only way we can see a '}'
+               discarded anyway, because the only way we can see a '\}'
                in module mode (on correct input) is with the `module X
                { ... }' construction *)
            else
@@ -985,7 +1013,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           terms
             >>
           (fun lst attrs scope ->
-            let node = Scope.rewrite scope (List.map (function Program(x) -> x | _ -> assert false) lst)
+            let node = Node.prune (Scope.rewrite scope (List.map (function Program(x) -> x | _ -> assert false) lst))
             in
             match node with
             | Node.Appl(x, y, _) -> Program(Node.Appl(x, y, attrs))
@@ -1009,6 +1037,12 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           token Token.Leave +! term +> (fun lst _ _ -> Program(Node.Leave(Node.prune (get_singleton_node lst)))) ^||
           token Token.True +> return (Program(Node.True)) ^||
           token Token.False +> return (Program(Node.False)) ^||
+          token Token.Placeholder_generic ++
+            check (fun scope -> not (Scope.is_match_mode scope)) "syntax error: generic placeholder in match pattern"
+            +> return (Program(Node.Placeholder)) ^||
+          token Token.Placeholder_ignore +> return (Program(Node.Ignore)) ^||
+          placeholder ^||
+          match_with ^||
           list ^|| sym ^|| number ^|| string ^||
           ident_ref ^||
           fail "expected expression" [Program(Node.Nil)]
@@ -1026,7 +1060,11 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                new_ident_scope
                (new_frame
                   (ident_lambda ++ discard (maybe ret_atype) ++
-                     (symbol sym_dot +! expr ^|| term))))
+                     (symbol sym_dot +! expr
+                     ^||
+                     token Token.LeftParenCurl +! new_scope (catch_errors (progn ++ token Token.RightParenCurl))
+                     ^||
+                     term))))
             >>
           (fun lst attrs scope ->
             match lst with
@@ -1048,6 +1086,83 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             | _ -> assert false)
         end
 
+    and placeholder = (* TODO: resumptions don't work well with placeholders *)
+      token Token.Placeholder ++ name ++
+        change_scope
+        (fun lst _ scope ->
+          match lst with
+          | [Ident(sym)] ->
+              Scope.add_placeholder scope sym
+          | _ -> assert false)
+        >>
+      return (Program(Node.Placeholder))
+
+    and match_with () =
+      recursive
+        begin
+          symbol sym_match +! new_keyword sym_with (catch_errors expr) ++ symbol sym_with ++
+            new_ident_scope (maybe (symbol sym_match_sep) ++ (new_frame match_branches))
+            >>
+          (fun lst attrs scope ->
+            let match1 = Scope.find_ident scope sym_match1
+            in
+            let mkmatchappl pat value =
+              Node.Appl(Node.Appl(Node.Appl(match1, Node.Var(0), None), pat, None), value, None)
+            in
+            let rec mkmatch lst =
+              match lst with
+              | [Program(pat); Program(value)] ->
+                  Node.Appl(mkmatchappl pat value, Node.Nil, None) (* TODO: match failure *)
+              | Program(pat) :: Program(value) :: t ->
+                  Node.Appl(mkmatchappl pat value, mkmatch t, None)
+              | _ -> assert false
+            in
+            match lst with
+            | Program(value) :: lst2 ->
+                Program(Node.Appl(Node.Lambda(mkmatch lst2, Scope.frame scope + 1, Node.CallByValue, ref 0, None), value, attrs))
+            | _ -> assert false)
+        end
+
+    and match_branches () =
+      recursive
+        begin
+          match_branch ++ maybe (symbol sym_match_sep ++ match_branches)
+        end
+
+    and match_branch () =
+      recursive
+        begin
+          new_ident_scope
+            (enter_match
+               (new_keyword sym_arrow (catch_errors expr) ++
+                  symbol sym_arrow ++
+                  (fun () ((lst, attrs, strm, scope) as state) cont ->
+                    let rec mkparse placeholders =
+                      match placeholders with
+                      | h :: t ->
+                          new_frame (change_scope
+                                       (fun _ _ scope2 -> Scope.add_ident scope2 h (Node.Var(Scope.frame scope2))) ++
+                                       mkparse t)
+                      | _ -> new_keyword sym_match_sep (catch_errors expr)
+                    and placeholders = Scope.placeholders scope
+                    in
+                    let n = List.length placeholders
+                    in
+                    (mkparse placeholders >>
+                     (fun lst attrs _ ->
+                       match lst with
+                       | [Program(node)] ->
+                           let rec loop m =
+                             if m > n then
+                               node
+                             else
+                               Node.Lambda(loop (m + 1), Scope.frame scope + m, Node.CallByName, ref 0, attrs)
+                           in
+                           Program(loop 1)
+                       | _ -> assert false))
+                      () state cont)))
+        end
+
     and list () =
       recursive
         begin
@@ -1067,7 +1182,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and list_elems () =
       recursive
         begin
-          new_keyword sym_comma (catch_errors expr) ++ maybe (comma ++ list_elems)
+          new_keyword sym_comma expr ++ maybe (comma ++ list_elems)
         end
 
     and sym =
