@@ -39,7 +39,7 @@ syntax operator , is right, binary, after or;
 syntax operator >> is left, binary, after ,;
 syntax operator << is left, binary, prio >>;
 
-syntax operator $> is right, binary, after ,;
+syntax operator $> is right, binary, after <<;
 syntax operator $< is right, binary, prio $>;
 
 let , = cons;
