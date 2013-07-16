@@ -6,3 +6,4 @@ ipl
 ipl.byte
 ipl.native
 test.out
+benchmarks.log
