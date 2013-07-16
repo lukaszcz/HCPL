@@ -54,10 +54,11 @@ let merge = {
 };
 
 let sort = \lst {
-   if lst = [] then
-      []
+   let n = length lst;
+   if n < 2 then
+      lst
    else
-      match split lst (length lst div 2) with (%left, %right) ->
+      match split lst (n div 2) with (%left, %right) ->
       merge (sort left) (sort right)
 };
 
@@ -73,15 +74,15 @@ let uniq = \lst {
    if lst = [] then [] else aux (tl lst) (hd lst) [hd lst]
 };
 
-let take = \lst \n . if n = 0 or lst = [] then [] else cons (hd lst) (take (n - 1) (tl lst));
+let take = \n \lst . if n = 0 or lst = [] then [] else cons (hd lst) (take (n - 1) (tl lst));
 
 let gen = \n \f \acc . if n = 0 then acc else gen (n - 1) f (cons (f n) acc);
 let gen1 = \m \n \acc . if n = 0 then acc else gen1 m (n - 1) (cons (gen m \x (random x) []) acc);
-let gen2 = \m \n \acc . if n = 0 then acc else gen1 m (n - 1) (cons (gen m \x n []) acc);
+let gen2 = \m \n \acc . if n = 0 then acc else gen2 m (n - 1) (cons (gen m \x n []) acc);
 
 gen1 5 10000 [] >> flatten >> sort >> uniq >> print;
 gen1 10 100000 [] >> flatten >> sort >> uniq >> print;
-gen1 5 1000000 [] >> flatten >> sort >> uniq >> print;
+gen1 5 100000 [] >> flatten >> sort >> uniq >> print;
 
 gen2 6 10000 [] >> flatten >> sort >> uniq >> take 10 >> print;
 gen2 9 100000 [] >> flatten >> sort >> uniq >> take 10 >> print;
