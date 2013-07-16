@@ -1,5 +1,5 @@
 
-MODE=debug
+MODE=release
 # debug or release
 
 DEBUG_LIBS=nums.cma

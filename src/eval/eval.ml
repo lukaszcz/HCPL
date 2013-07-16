@@ -31,212 +31,103 @@ let do_close x env env_len =
     Placeholder | Ignore | Cons(_) | Nil | Quoted(_) | Closure(_) | Lambda(_, 0, _, _, _)
     -> x
   | Lambda(_, frame, _, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
+  | Var(n) -> nth env n
   | _ -> Closure(x, env, env_len)
 
-let change_stack_env stack env env_len =
-  match stack with
-  | ChangeStackEnv(_) :: _ -> stack
-  | _ -> ChangeStackEnv(env, env_len) :: stack
-
-let do_eval node limit env =
-
-  (* The evaluator is essentially a variant of the ZINC machine. *)
-
-  (* Invariant: Values in environments are closed. Values on the stack
-     need not be. *)
-
-  (* TODO: stack should be changed to a mutable stack to avoid
-     unnecessary list allocation *)
-
-  (* In the shift state the arguments are shifted onto the stack. *)
-  let rec shift node stack env env_len =
-    (* env is the environment both for node and for the values on the stack *)
-    match node with
-    | Appl(x, y, _) ->
-        shift x (y :: stack) env env_len
-
-    | Cond(x, y, z, _) ->
-        shift x ((ReturnCond(y, z)) :: stack) env env_len
-
-    | Var(n) ->
-        shift (nth env n) stack env env_len
-
-    | Delayed(rx) ->
-        if is_immediate !rx then
-          shift !rx stack env env_len
-        else
-          shift !rx ((Store(rx)) :: stack) env env_len
-
-    | Proxy(rx) ->
-        shift !rx stack env env_len
-
-    | Lambda(_) | Builtin(_) ->
-        reduce node stack env env_len env env_len
-
-    | Closure(x, env2, env2_len) ->
-        reduce x stack env2 env2_len env env_len
-
-    | Force(x) ->
-        shift x stack env env_len
-
-    | Delay(x) ->
-        return (Delayed(ref x)) stack env env_len env env_len
-
-    | Leave(x) ->
-        return x stack env env_len env env_len
-
-    | MakeRecord(identtab) ->
-        return (Record(Symbol.Map.map (fun x -> do_close x env env_len) identtab)) stack env env_len env env_len
-
-    | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
-        return node stack env env_len env env_len
-
-    | _ -> assert false
-
-  (* In the reduce state the stack is examined and its contents is
-     evaluated and/or placed in the environment. *)
-  and reduce node stack env env_len s_env s_env_len =
-    (* env is the environment for node and s_env is the environment
-       for the values on the stack *)
-    match node with
-    | Lambda(body, frame, call_type, num_entered, _) ->
-        if limit = -1 then
-          begin
-            match stack with
-            | ChangeStackEnv(env2, env2_len) :: t ->
-                reduce node t env env_len env2 env2_len
-            | Store(rx) :: t ->
-                begin
-                  rx := do_close node env env_len;
-                  reduce node t env env_len s_env s_env_len
-                end
-            | ReturnApply(_) :: _ | ReturnCond(_) :: _ ->
-                return node stack env env_len s_env s_env_len
-            | h :: t ->
-                begin
-                  assert (env_len >= frame);
-                  let env2 = pop_n env (env_len - frame)
-                  and env2_len = frame
-                  in
-                  if call_type = CallByValue then
-                    begin
-                      assert (env_len >= frame);
-                      let env2 = pop_n env (env_len - frame)
-                      and env2_len = frame
-                      in
-                      match h with
-                      | Var(n) ->
-                          let arg = nth s_env n
-                          in
-                          if is_immediate arg then
-                            reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
-                          else
-                            shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                      | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
-                          reduce body t (h :: env2) (env2_len + 1) s_env s_env_len
-                      | _ ->
-                          shift h ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
-                    end
-                  else
-                    begin
-                      match h with
-                      | Force(x) ->
-                          begin
-                            match x with
-                            | Var(n) ->
-                                let arg = nth s_env n
-                                in
-                                if is_immediate arg then
-                                  reduce body t (arg :: env2) (env2_len + 1) s_env s_env_len
-                                else
-                                  shift arg (ReturnApply(body, env2, env2_len) :: t) s_env s_env_len
-                            | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
-                                reduce body t (x :: env2) (env2_len + 1) s_env s_env_len
-                            | _ ->
-                                shift x ((ReturnApply(body, env2, env2_len)) :: t) s_env s_env_len
-                          end
-                      | Leave(x) ->
-                          reduce body t ((do_close x s_env s_env_len) :: env2) (env2_len + 1) s_env s_env_len
-                      | _ ->
-                          let x =
-                            if call_type = CallByNeed then
-                              Delayed(ref (do_close h s_env s_env_len))
-                            else
-                              do_close h s_env s_env_len
-                          in
-                          reduce body t (x :: env2) (env2_len + 1) s_env s_env_len
-                    end
-                end
-            | [] ->
-                assert (env_len >= frame);
-                let env2 = pop_n env (env_len - frame)
-                in
-                Closure(node, env2, frame)
-          end
-        else
-          begin
-            failwith "Not yet implemented"
-          end
-
-    | Builtin(func, args_num, _) ->
-        assert (args_num >= env_len);
-        if limit != 0 then
-          reduce (func env) stack (pop_n env args_num) (env_len - args_num) s_env s_env_len
-        else
-          return node stack env env_len s_env s_env_len
-
-    | Closure(x, env2, env2_len) ->
-        reduce x stack env2 env2_len s_env s_env_len
-
-    | Appl(x, y, _) ->
-        shift x (y :: (change_stack_env stack s_env s_env_len)) env env_len
-
-    | Var(n) ->
-        reduce (nth env n) stack env env_len s_env s_env_len
-
-    | Proxy(rx) ->
-        reduce !rx stack env env_len s_env s_env_len
-
-    | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
-        return node stack env env_len s_env s_env_len
-
-    | _ -> shift node (change_stack_env stack s_env s_env_len) env env_len
-
-  and return node stack env env_len s_env s_env_len =
-    match stack with
-    | ChangeStackEnv(env2, env2_len) :: t ->
-        return node t env env_len env2 env2_len
-    | Store(rx) :: t ->
-        begin
-          rx := do_close node env env_len;
-          return node t env env_len s_env s_env_len
-        end
-    | ReturnApply(body2, env2, env2_len) :: t ->
-        reduce body2 t ((do_close node env env_len) :: env2) (env2_len + 1) s_env s_env_len
-    | ReturnCond(x, y) :: t ->
-        begin
-          match node with
-          | True -> shift x t s_env s_env_len
-          | False -> shift y t s_env s_env_len
-          | _ ->
-              return
-                (Cond(node, do_close x s_env s_env_len, do_close y s_env s_env_len, None))
-                t env env_len s_env s_env_len
-        end
-    | h :: t ->
-        return (Appl(node, do_close h s_env s_env_len, None)) t env env_len s_env s_env_len
-    | [] ->
-        if env = [] then
-          node
-        else
-          do_close node env env_len
+let rec apply_lambda body frame call_type y a_env a_env_len env env_len =
+  assert (env_len >= frame);
+  let env2 = pop_n env (env_len - frame)
+  and env2_len = frame
   in
-  shift node [] env (List.length env)
+  if call_type = CallByValue then
+    begin
+      assert (env_len >= frame);
+      let arg = do_eval y a_env a_env_len
+      in
+      do_eval body (arg :: env2) (env2_len + 1)
+    end
+  else
+    begin
+      match y with
+      | Force(arg) ->
+          do_eval body ((do_eval arg a_env a_env_len) :: env2) (env2_len + 1)
+      | Leave(arg) ->
+          do_eval body ((do_close arg a_env a_env_len) :: env2) (env2_len + 1)
+      | _ ->
+          let arg =
+            if call_type = CallByNeed then
+              Delayed(ref (do_close y a_env a_env_len))
+            else
+              do_close y a_env a_env_len
+          in
+          do_eval body (arg :: env2) (env2_len + 1)
+    end
 
-let reduce node = do_eval node 1 []
+and do_eval node env env_len =
+  match node with
+  | Appl(x, y, attrs) ->
+      begin
+        let x = do_eval x env env_len
+        in
+        match x with
+        | Lambda(body, frame, call_type, _, _) ->
+            apply_lambda body frame call_type y env env_len env env_len
+        | Closure(Lambda(body, frame, call_type, _, _), env2, env2_len) ->
+            apply_lambda body frame call_type y env env_len env2 env2_len
+        | _ -> Appl(x, do_close y env env_len, attrs)
+      end
 
-let eval node = do_eval node (-1) []
+  | Cond(x, y, z, attrs) ->
+      begin
+        let x1 = do_eval x env env_len
+        in
+        match x1 with
+        | True -> do_eval y env env_len
+        | False -> do_eval z env env_len
+        | _ -> Cond(x1, do_close y env env_len, do_close z env env_len, attrs)
+      end
 
-let eval_limited node limit = do_eval node limit []
+  | Var(n) ->
+      do_eval (nth env n) env env_len
 
-let eval_in node env = do_eval node (-1) env
+  | Delayed(rx) ->
+      rx := do_eval !rx env env_len;
+      !rx
+
+  | Proxy(rx) ->
+      do_eval !rx env env_len
+
+  | Closure(x, env2, env2_len) ->
+      do_eval x env2 env2_len
+
+  | Force(x) ->
+      do_eval x env env_len
+
+  | Delay(x) ->
+      Delayed(ref (do_close x env env_len))
+
+  | Leave(x) ->
+      do_close x env env_len
+
+  | MakeRecord(identtab) ->
+      Record(Symbol.Map.map (fun x -> do_close x env env_len) identtab)
+
+  | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
+      node
+
+  | Lambda(_) ->
+      do_close node env env_len
+
+  | Builtin(func, args_num, _) ->
+      assert (args_num >= env_len);
+      do_eval (func env) (pop_n env args_num) (env_len - args_num)
+
+  | _ -> Debug.print (Node.to_string node); assert false
+
+let reduce node = do_eval node [] 0
+
+let eval node = do_eval node [] 0
+
+let eval_limited node limit = do_eval node [] 0
+
+let eval_in node env = do_eval node env (Env.length env)
