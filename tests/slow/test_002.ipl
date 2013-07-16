@@ -31,12 +31,13 @@ let length = \lst {
 };
 
 let split = \lst \n {
-   if n = 0 or lst = [] then
-      ([], lst)
-   else
-      let p = split (tl lst) (n - 1)
-      in
-      (cons (hd lst) (fst p), snd p)
+   let aux = \lst \n \acc {
+      if n = 0 or lst = [] then
+         (reverse acc, lst)
+      else
+         aux (tl lst) (n - 1) (cons (hd lst) acc)
+   };
+   aux lst n []
 };
 
 let merge = {
