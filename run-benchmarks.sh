@@ -15,6 +15,7 @@ do
     echo "Running $t..." | tee -a benchmarks.log
     echo | tee -a benchmarks.log
     /usr/bin/time -v ./a.out 2>&1 | tee -a benchmarks.log
+    rm a.out
     echo | tee -a benchmarks.log
 done
 

@@ -1,9 +1,11 @@
 *~
 _build
 attic
+benchmarks
 scratch.ipl
 ipl
 ipl.byte
 ipl.native
 test.out
+a.out
 benchmarks.log
