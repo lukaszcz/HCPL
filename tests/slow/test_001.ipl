@@ -15,11 +15,11 @@ let fe = \x \a \b {
       fe (- x 1) (+ a b) b
 };
 
-print (fe 1000000 0 4);
-print (fe 1000000 0 2);
+print (fe 100000 0 4);
+print (fe 100000 0 2);
 
-print (f 1000000 0 4);
-print (f 1000000 0 2);
+print (f 100000 0 4);
+print (f 100000 0 2);
 
 print (fe 10000000 0 4);
 print (fe 10000000 0 2);
