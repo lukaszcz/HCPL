@@ -129,6 +129,13 @@ let le lst =
   | (Integer(b)) :: (Integer(a)) :: _ -> if le_big_int a b then True else False
   | _ -> failwith "(<=): type error"
 
+(* random *)
+
+let xrandom lst =
+  match lst with
+  | (Integer(x)) :: _ -> Integer(big_int_of_int (Random.int (int_of_big_int x)))
+  | _ -> failwith "random: type error"
+
 (* booleans *)
 
 let not_builtin = ref Nil
@@ -198,6 +205,7 @@ let match1 lst =
 
 let declare_builtins scope symtab =
   begin
+    Random.self_init ();
     let (scope, builtin) = Builtin.declare scope (Symtab.find symtab "=") (eq, 2, CallByValue) in
     eq_builtin := builtin;
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, CallByValue) in
@@ -213,6 +221,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "*") (mul, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "div") (div, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "mod") (xmod, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "random") (xrandom, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab ">") (gt, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "<") (lt, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab ">=") (ge, 2, CallByValue) in

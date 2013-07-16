@@ -1010,6 +1010,12 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and expr () =
       recursive
         begin
+          xlet ^|| appl
+        end
+
+    and appl () =
+      recursive
+        begin
           terms
             >>
           (fun lst attrs scope ->
