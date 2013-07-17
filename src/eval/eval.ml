@@ -33,7 +33,7 @@ let do_close x env env_len =
   | Var(n) -> Env.nth env n
   | _ -> Closure(x, env, env_len)
 
-and do_eval node env env_len =
+let rec do_eval node env env_len =
   match node with
   | Appl(x, y, attrs) ->
       begin
