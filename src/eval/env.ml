@@ -7,8 +7,19 @@ Copyright (C) 2013 by Łukasz Czajka
 type t = Node.t list
 
 let empty = []
-let nth = List.nth
+
+let rec nth env n =
+  assert (n >= 0);
+  match env with
+  | h :: t ->
+      if n > 0 then
+        nth t (n - 1)
+      else
+        h
+  | [] -> assert false
+
 let push env x = x :: env
+
 let rec pop_n env n =
   assert (n >= 0);
   if n > 0 then
@@ -17,4 +28,5 @@ let rec pop_n env n =
     | [] -> assert false
   else
     env
+
 let length = List.length

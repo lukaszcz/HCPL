@@ -1075,7 +1075,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           (fun lst attrs scope ->
             match lst with
             | [CallType(ct); Ident(sym); Program(body)] ->
-                Program(Node.Lambda(body, Scope.frame scope + 1, ct, ref 0, attrs))
+                Program(Node.Lambda(Node.prune body, Scope.frame scope + 1, ct, ref 0, attrs))
             | _ -> assert false)
         end
 

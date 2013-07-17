@@ -91,9 +91,9 @@ let print_list lst = print_endline (list_to_string (fun n -> string_of_int n) ls
 Random.self_init ();
 
 print_list (uniq (sort (flatten (gen1 5 10000 []))));
-print_list (uniq (sort (flatten (gen1 10 100000 []))));
-print_list (uniq (sort (flatten (gen1 5 100000 []))));
+print_list (uniq (sort (flatten (gen1 10 20000 []))));
+print_list (uniq (sort (flatten (gen1 5 20000 []))));
 
 print_list (take 10 (uniq (sort (flatten (gen2 6 10000 [])))));
-print_list (take 10 (uniq (sort (flatten (gen2 9 100000 [])))));
-print_list (take 10 (uniq (sort (flatten (gen2 6 100000 [])))));
+print_list (take 10 (uniq (sort (flatten (gen2 9 20000 [])))));
+print_list (take 10 (uniq (sort (flatten (gen2 6 20000 [])))));

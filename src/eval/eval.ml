@@ -6,37 +6,31 @@ Copyright (C) 2013 by Łukasz Czajka
 
 open Node
 
-let rec nth lst n =
-  assert (n >= 0);
-  match lst with
-  | h :: t ->
-      if n > 0 then
-        nth t (n - 1)
-      else
-        h
-  | [] -> assert false
-
-let rec pop_n lst n =
-  assert (n >= 0);
-  if n > 0 then
-    match lst with
-    | h :: t -> pop_n t (n - 1)
-    | [] -> assert false
+let pop_to env env_len frm =
+  if frm = 0 then
+    []
   else
-    lst
+    let n = env_len - frm
+    in
+    if n > 0 then
+      match env with
+      | h :: t -> Env.pop_n t (n - 1)
+      | [] -> assert false
+    else
+      env
 
 let do_close x env env_len =
   match x with
   | Integer(_) | String(_) | Record(_) | Sym(_) | True | False |
     Placeholder | Ignore | Cons(_) | Nil | Quoted(_) | Closure(_) | Lambda(_, 0, _, _, _)
     -> x
-  | Lambda(_, frame, _, _, _) -> Closure(x, pop_n env (env_len - frame), frame)
-  | Var(n) -> nth env n
+  | Lambda(_, frame, _, _, _) -> Closure(x, Env.pop_n env (env_len - frame), frame)
+  | Var(n) -> Env.nth env n
   | _ -> Closure(x, env, env_len)
 
 let rec apply_lambda body frame call_type y a_env a_env_len env env_len =
   assert (env_len >= frame);
-  let env2 = pop_n env (env_len - frame)
+  let env2 = pop_to env env_len frame
   and env2_len = frame
   in
   if call_type = CallByValue then
@@ -88,7 +82,7 @@ and do_eval node env env_len =
       end
 
   | Var(n) ->
-      do_eval (nth env n) env env_len
+      do_eval (Env.nth env n) env env_len
 
   | Delayed(rx) ->
       rx := do_eval !rx env env_len;
@@ -120,9 +114,7 @@ and do_eval node env env_len =
 
   | Builtin(func, args_num, _) ->
       assert (args_num >= env_len);
-      do_eval (func env) (pop_n env args_num) (env_len - args_num)
-
-  | _ -> Debug.print (Node.to_string node); assert false
+      do_eval (func env) (Env.pop_n env args_num) (env_len - args_num)
 
 let reduce node = do_eval node [] 0
 

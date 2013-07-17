@@ -26,21 +26,19 @@ type t =
   | String of string
   | Record of t Symbol.Map.t
   | Sym of Symbol.t
+  | Cons of t * t
+  | Quoted of t
   | Nil
   | True
   | False
   | Placeholder
   | Ignore
-  | Cons of t * t
-  | Quoted of t
 
   (* used only by the evaluator *)
   | Delayed of t ref
   | Closure of t * t list * int
-  | ChangeStackEnv of t list * int
-  | Store of t ref
-  | ReturnApply of t * t list * int
-  | ReturnCond of t * t
+(*  | LambdaClosure of t * t list * int * call_t * int ref * attrs_t option *)
+        (* (body, argument env, env_len, call type, times entered, attrs) *)
 and attrs_t = { name : Symbol.t option; pos : Lexing.position option;
                 attr_map : (t Symbol.Map.t) option; node_type : t option }
 
@@ -119,8 +117,6 @@ let is_immediate = function
   | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_)
     -> true
-  | ChangeStackEnv(_) | Store(_) | ReturnApply(_) | ReturnCond(_)
-    -> false (* whatever... *)
 
 let rec get_attrs node =
   match node with
@@ -291,10 +287,6 @@ let to_string node =
         | Nil -> "()"
         | Delayed(_) -> "<delayed>"
         | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
-        | ChangeStackEnv(_) -> "<change-stack-env>"
-        | Store(_) -> "<store>"
-        | ReturnApply(_) -> "<return-apply>"
-        | ReturnCond(_) -> "<return-cond>"
       end
   in
   prn node 20
