@@ -697,6 +697,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                              match value with
                              | Node.Lambda(body, frm, call_type, seen, attrs) ->
                                  Node.Lambda(body, frm, call_type, seen, Node.Attrs.set_name attrs sym)
+                             | Node.LambdaEager(body, frm, seen, attrs) ->
+                                 Node.LambdaEager(body, frm, seen, Node.Attrs.set_name attrs sym)
                              | _ -> value
                            in
                            r := value2;
@@ -751,8 +753,13 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                 if Node.is_immediate value then
                   Program(Node.prune body)
                 else
-                  Program(Node.Appl(Node.Lambda(Node.prune body, Scope.frame scope + 1, ct, ref 0, attrs),
-                                    value, None))
+                  let lam =
+                    if ct = Node.CallByValue then
+                      Node.LambdaEager(Node.prune body, Scope.frame scope + 1, ref 0, attrs)
+                    else
+                      Node.Lambda(Node.prune body, Scope.frame scope + 1, ct, ref 0, attrs)
+                  in
+                  Program(Node.Appl(lam, value, None))
             | _ -> assert false)
         end
 
@@ -1075,7 +1082,10 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           (fun lst attrs scope ->
             match lst with
             | [CallType(ct); Ident(sym); Program(body)] ->
-                Program(Node.Lambda(Node.prune body, Scope.frame scope + 1, ct, ref 0, attrs))
+                if ct = Node.CallByValue then
+                  Program(Node.LambdaEager(Node.prune body, Scope.frame scope + 1, ref 0, attrs))
+                else
+                  Program(Node.Lambda(Node.prune body, Scope.frame scope + 1, ct, ref 0, attrs))
             | _ -> assert false)
         end
 
@@ -1125,7 +1135,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             in
             match lst with
             | Program(value) :: lst2 ->
-                Program(Node.Appl(Node.Lambda(mkmatch lst2, Scope.frame scope + 1, Node.CallByValue, ref 0, None), value, attrs))
+                Program(Node.Appl(Node.LambdaEager(mkmatch lst2, Scope.frame scope + 1, ref 0, None), value, attrs))
             | _ -> assert false)
         end
 

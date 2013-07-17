@@ -15,16 +15,21 @@ let pop_to env env_len frm =
     if n > 0 then
       match env with
       | h :: t -> Env.pop_n t (n - 1)
-      | [] -> assert false
+      | [] -> assert (env <> []); []
     else
       env
 
 let do_close x env env_len =
   match x with
   | Integer(_) | String(_) | Record(_) | Sym(_) | True | False |
-    Placeholder | Ignore | Cons(_) | Nil | Quoted(_) | Closure(_) | Lambda(_, 0, _, _, _)
+    Placeholder | Ignore | Cons(_) | Nil | Quoted(_) | Closure(_) |
+    Lambda(_, 0, _, _, _) | LambdaEager(_, 0, _, _) |
+    LambdaClosure(_) | LambdaEagerClosure(_)
     -> x
-  | Lambda(_, frame, _, _, _) -> Closure(x, Env.pop_n env (env_len - frame), frame)
+  | Lambda(body, frame, call_type, times_entered, attrs) ->
+      LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
+  | LambdaEager(body, frame, times_entered, attrs) ->
+      LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
   | Var(n) -> Env.nth env n
   | _ -> Closure(x, env, env_len)
 
@@ -65,9 +70,65 @@ and do_eval node env env_len =
         in
         match x with
         | Lambda(body, frame, call_type, _, _) ->
-            apply_lambda body frame call_type y env env_len env env_len
-        | Closure(Lambda(body, frame, call_type, _, _), env2, env2_len) ->
-            apply_lambda body frame call_type y env env_len env2 env2_len
+            begin
+              match y with
+              | Force(arg) ->
+                  let arg = do_eval arg env env_len
+                  and env2 = pop_to env env_len frame
+                  and env2_len = frame
+                  in
+                  do_eval body (arg :: env2) (env2_len + 1)
+              | Leave(arg) ->
+                  let arg = do_close arg env env_len
+                  and env2 = pop_to env env_len frame
+                  and env2_len = frame
+                  in
+                  do_eval body (arg :: env2) (env2_len + 1)
+              | _ ->
+                  let arg =
+                    if call_type = CallByNeed then
+                      Delayed(ref (do_close y env env_len))
+                    else
+                      do_close y env env_len
+                  and env2 = pop_to env env_len frame
+                  and env2_len = frame
+                  in
+                  do_eval body (arg :: env2) (env2_len + 1)
+            end
+
+        | LambdaEager(body, frame, _, _) ->
+            let arg = do_eval y env env_len
+            and env2 = pop_to env env_len frame
+            and env2_len = frame
+            in
+            do_eval body (arg :: env2) (env2_len + 1)
+
+        | LambdaClosure(body, env2, env2_len, call_type, _, _) ->
+            begin
+              match y with
+              | Force(arg) ->
+                  let arg = do_eval arg env env_len
+                  in
+                  do_eval body (arg :: env2) (env2_len + 1)
+              | Leave(arg) ->
+                  let arg = do_close arg env env_len
+                  in
+                  do_eval body (arg :: env2) (env2_len + 1)
+              | _ ->
+                  let arg =
+                    if call_type = CallByNeed then
+                      Delayed(ref (do_close y env env_len))
+                    else
+                      do_close y env env_len
+                  in
+                  do_eval body (arg :: env2) (env2_len + 1)
+            end
+
+        | LambdaEagerClosure(body, env2, env2_len, _, _) ->
+            let arg = do_eval y env env_len
+            in
+            do_eval body (arg :: env2) (env2_len + 1)
+
         | _ -> Appl(x, do_close y env env_len, attrs)
       end
 
@@ -109,8 +170,13 @@ and do_eval node env env_len =
   | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
       node
 
-  | Lambda(_) ->
-      do_close node env env_len
+  | Lambda(_, 0, _, _, _) | LambdaEager(_, 0, _, _) | LambdaClosure(_) | LambdaEagerClosure(_) -> node
+
+  | Lambda(body, frame, call_type, times_entered, attrs) ->
+      LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
+
+  | LambdaEager(body, frame, times_entered, attrs) ->
+      LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
 
   | Builtin(func, args_num, _) ->
       assert (args_num >= env_len);

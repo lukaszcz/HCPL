@@ -2,7 +2,7 @@
 MODE=release
 # debug or release
 
-DEBUG_LIBS=nums.cma
+DEBUG_LIBS=nums.cmxa
 RELEASE_LIBS=nums.cmxa
 
 DEBUG_FLAGS=-inline 0 -g
@@ -17,8 +17,8 @@ IDIRS=$(subst $(SPACE),$(COMMA),$(DIRS))
 all: $(MODE)
 
 debug:
-	ocamlbuild -ocamlc "ocamlopt.opt -S $(DEBUG_FLAGS) $(DEBUG_LIBS)" -Is $(IDIRS) ipl.byte
-	cp ipl.byte ipl
+	ocamlbuild -ocamlopt "ocamlopt.opt -S $(DEBUG_FLAGS) $(DEBUG_LIBS)" -Is $(IDIRS) ipl.native
+	cp ipl.native ipl
 
 release:
 	ocamlbuild -ocamlopt "ocamlopt.opt -S $(RELEASE_FLAGS) $(RELEASE_LIBS)" -Is $(IDIRS) ipl.native

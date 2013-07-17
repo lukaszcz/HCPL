@@ -11,7 +11,10 @@ let make sym func args_num ct =
     else
       let node2 = expand node (n - 1) (frm + 1) None
       in
-      Node.Lambda(node2, frm, ct, ref 0, attrs)
+      if ct = Node.CallByValue then
+        Node.LambdaEager(node2, frm, ref 0, attrs)
+      else
+        Node.Lambda(node2, frm, ct, ref 0, attrs)
   in
   let attrs = Node.Attrs.create (Some(sym)) None
   in

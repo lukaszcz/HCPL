@@ -20,6 +20,7 @@ type t =
   (* immediate *)
   | Lambda of t * int * call_t * int ref * attrs_t option
         (* (body, frame number (for the argument), call type, times entered, attrs) *)
+  | LambdaEager of t * int * int ref * attrs_t option
   | Builtin of (t list -> t) * int * attrs_t option
         (* (function, args num, attrs) *)
   | Integer of Big_int.big_int
@@ -37,13 +38,15 @@ type t =
   (* used only by the evaluator *)
   | Delayed of t ref
   | Closure of t * t list * int
-(*  | LambdaClosure of t * t list * int * call_t * int ref * attrs_t option *)
+  | LambdaClosure of t * t list * int * call_t * int ref * attrs_t option
         (* (body, argument env, env_len, call type, times entered, attrs) *)
+  | LambdaEagerClosure of t * t list * int * int ref * attrs_t option
+        (* (body, argument env, env_len, times entered, attrs) *)
 and attrs_t = { name : Symbol.t option; pos : Lexing.position option;
                 attr_map : (t Symbol.Map.t) option; node_type : t option }
 
 let id = Lambda(Var(0), 0, CallByName, ref 0, None)
-let progn = Lambda(id, 0, CallByValue, ref 0, None)
+let progn = LambdaEager(id, 0, ref 0, None)
 
 module Attrs =
   struct
@@ -103,19 +106,15 @@ module Attrs =
                        node_type = None })
   end
 
-let alloc_data_tag =
-  let tag = ref 100
-  in
-  (fun () -> incr tag; !tag)
-
 let is_immediate = function
   (* note: don't use "| _ -> ..." here so that the compiler warns when we
   forget one of the possibilities *)
   | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Closure(_)
     -> false
-  | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-    True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_)
+  | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+    True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
+    LambdaClosure(_) | LambdaEagerClosure(_)
     -> true
 
 let rec get_attrs node =
@@ -125,6 +124,10 @@ let rec get_attrs node =
   | Delayed(rx) -> get_attrs !rx
   | Proxy(rx) -> get_attrs !rx
   | Lambda(_, _, _, _, attrs) -> attrs
+  | LambdaEager(_, _, _, attrs) -> attrs
+  | LambdaClosure(_, _, _, _, _, attrs) -> attrs
+  | LambdaEagerClosure(_, _, _, _, attrs) -> attrs
+  | Closure(x, _, _) -> get_attrs x
   | Builtin(_, _, attrs) -> attrs
   | _ -> None
 
@@ -161,6 +164,21 @@ let rec equal node1 node2 =
   else
     match node1, node2 with
     | Lambda(_), Lambda(_) ->
+        if node1 == node2 then
+          True
+        else
+          Nil
+    | LambdaEager(_), LambdaEager(_) ->
+        if node1 == node2 then
+          True
+        else
+          Nil
+    | LambdaClosure(_), LambdaClosure(_) ->
+        if node1 == node2 then
+          True
+        else
+          Nil
+    | LambdaEagerClosure(_), LambdaEagerClosure(_) ->
         if node1 == node2 then
           True
         else
@@ -269,6 +287,7 @@ let to_string node =
         | Proxy(rx) -> prn !rx limit
         | MakeRecord(_) -> "<make-record>"
         | Lambda(body, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
+        | LambdaEager(body, frm, _, attrs) -> lambda_str body frm attrs CallByValue
         | Builtin(_) -> "<builtin>"
         | Integer(i) -> Big_int.string_of_big_int i
         | String(str) -> "\"" ^ (String.escaped str) ^ "\""
@@ -287,6 +306,8 @@ let to_string node =
         | Nil -> "()"
         | Delayed(_) -> "<delayed>"
         | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
+        | LambdaClosure(body, _, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
+        | LambdaEagerClosure(body, _, frm, _, attrs) -> lambda_str body frm attrs CallByValue
       end
   in
   prn node 20

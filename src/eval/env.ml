@@ -16,7 +16,7 @@ let rec nth env n =
         nth t (n - 1)
       else
         h
-  | [] -> assert false
+  | [] -> assert (env <> []); Node.Nil
 
 let push env x = x :: env
 
@@ -25,7 +25,7 @@ let rec pop_n env n =
   if n > 0 then
     match env with
     | h :: t -> pop_n t (n - 1)
-    | [] -> assert false
+    | [] -> assert (env <> []); []
   else
     env
 
