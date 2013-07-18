@@ -35,25 +35,29 @@ let do_close x env env_len =
     | Var(n) -> assert (n < env_len); Env.nth env n
     | _ -> Closure(x, env, env_len)
 
-let rec do_match_quoted node pat acc =
+exception Unknown
+
+let rec do_match_quoted node pat acc eq_mode =
   let node = Node.normalize node in
   let pat = Node.normalize pat in
   begin
     if pat == node then
       acc
+    else if eq_mode && not (is_immediate node && is_immediate pat) then
+      raise Unknown
     else
       match pat with
       | Appl(x, y, _) ->
           begin
             match node with
-            | Appl(a, b, _) -> do_match_quoted b y (do_match_quoted a x acc)
+            | Appl(a, b, _) -> do_match_quoted b y (do_match_quoted a x acc eq_mode) eq_mode
             | _ -> raise Exit
           end
       | Cond(x, y, z, _) ->
           begin
             match node with
             | Cond(a, b, c, _) ->
-                do_match_quoted c z (do_match_quoted b y (do_match_quoted a x acc))
+                do_match_quoted c z (do_match_quoted b y (do_match_quoted a x acc eq_mode) eq_mode) eq_mode
             | _ ->
                 raise Exit
           end
@@ -61,7 +65,7 @@ let rec do_match_quoted node pat acc =
           begin
             match node with
             | Delay(a) ->
-                do_match_quoted a x acc
+                do_match_quoted a x acc eq_mode
             | _ ->
                 raise Exit
           end
@@ -69,7 +73,7 @@ let rec do_match_quoted node pat acc =
           begin
             match node with
             | Leave(a) ->
-                do_match_quoted a x acc
+                do_match_quoted a x acc eq_mode
             | _ ->
                 raise Exit
           end
@@ -77,7 +81,7 @@ let rec do_match_quoted node pat acc =
           begin
             match node with
             | Force(a) ->
-                do_match_quoted a x acc
+                do_match_quoted a x acc eq_mode
             | _ ->
                 raise Exit
           end
@@ -85,7 +89,7 @@ let rec do_match_quoted node pat acc =
           begin
             match node with
             | Lambda(body2, frame2, _, _, _) when frame = frame2 ->
-                do_match_quoted body2 body acc
+                do_match_quoted body2 body acc eq_mode
             | _ ->
                 raise Exit
           end
@@ -111,20 +115,30 @@ let rec do_match_quoted node pat acc =
           else
             raise Exit
       | Placeholder ->
-          node :: acc
+          if eq_mode then
+            begin
+              if node == pat then acc else raise Exit
+            end
+          else
+            node :: acc
       | Ignore ->
-          acc
+          if eq_mode then
+            begin
+              if node == pat then acc else raise Exit
+            end
+          else
+            acc
       | Cons(x, y) ->
           begin
             match node with
-            | Cons(a, b) -> do_match_quoted b y (do_match_quoted a x acc)
+            | Cons(a, b) -> do_match_quoted b y (do_match_quoted a x acc eq_mode) eq_mode
             | _ -> raise Exit
           end
       | Quoted(x) ->
           begin
             match node with
             | Quoted(a) ->
-                do_match_quoted a x acc
+                do_match_quoted a x acc eq_mode
             | _ ->
                 raise Exit
           end
@@ -178,7 +192,7 @@ let rec do_match node pat acc =
           begin
             match node with
             | Quoted(a) ->
-                do_match_quoted a x acc
+                do_match_quoted a x acc false
             | _ ->
                 raise Exit
           end
@@ -187,6 +201,33 @@ let rec do_match node pat acc =
             raise Exit
           else
             failwith "bad pattern"
+    end
+
+let do_equal node1 node2 =
+  if is_const node1 then
+    begin
+      if is_const node2 && node1 == node2 then
+        True
+      else
+        False
+    end
+  else if is_const node2 then
+    begin
+      if is_const node1 && node1 == node2 then
+        True
+      else
+        False
+    end
+  else
+    begin
+      try
+        List.hd
+          (try
+            do_match_quoted node1 node2 [True] true
+          with Exit ->
+            [False])
+      with Unknown ->
+        BEq(node1, node2)
     end
 
 let rec do_eval node env env_len =
@@ -312,12 +353,7 @@ let rec do_eval node env env_len =
   | BEq(x, y) ->
       let x = do_eval x env env_len in
       let y = do_eval y env env_len in
-      let ret = Node.equal x y
-      in
-      if ret <> Nil then
-        ret
-      else
-        BEq(x, y)
+      do_equal x y
 
   | BGt(x, y) ->
       begin
