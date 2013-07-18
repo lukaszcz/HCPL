@@ -89,7 +89,7 @@ let rewrite (opertab, _, _) lst =
       | x :: t -> Node.Appl(Node.prune (build t), Node.prune (node x), None)
       | [] -> Node.Nil
     in
-    build (List.rev lst)
+    Node.optimize (build (List.rev lst))
   in
   let appl_op =
     { f_prio = 0; f_assoc = assoc_left; f_arity = 0; f_node = Node.Nil }

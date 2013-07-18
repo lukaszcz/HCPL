@@ -1,0 +1,90 @@
+
+// tail recursion & lists & match
+
+let revappend = \lst1 \lst2 {
+   match lst1 with
+   | cons %h %t -> revappend t (cons h lst2)
+   | [] -> lst2
+};
+
+let reverse = \lst {
+   let aux = \lst \acc . if lst = [] then acc else aux (tl lst) (cons (hd lst) acc)
+   in
+   aux lst []
+};
+
+let append = \lst1 \lst2 . revappend (reverse lst1) lst2;
+
+let flatten = \lst {
+   let aux = \lst \acc
+      match lst with
+      | cons %h %t -> aux t (revappend h acc)
+      | [] -> acc
+   in
+   reverse (aux lst [])
+};
+
+let length = \lst {
+   let aux = \lst \acc . if lst = [] then acc else aux (tl lst) (acc + 1)
+   in
+   aux lst 0
+};
+
+let split = \lst \n {
+   let aux = \lst \n \acc {
+      if n = 0 or lst = [] then
+         (reverse acc, lst)
+      else
+         aux (tl lst) (n - 1) (cons (hd lst) acc)
+   };
+   aux lst n []
+};
+
+let merge = {
+   let aux = \acc \lst1 \lst2 {
+      if lst1 = [] then
+         revappend lst2 acc
+      else if lst2 = [] then
+         revappend lst1 acc
+      else if hd lst1 < hd lst2 then
+         aux (cons (hd lst1) acc) (tl lst1) lst2
+      else
+         aux (cons (hd lst2) acc) lst1 (tl lst2)
+   };
+   \lst1 \lst2 . reverse (aux [] lst1 lst2)
+};
+
+let sort = \lst {
+   let n = length lst;
+   if n < 2 then
+      lst
+   else
+      match split lst (n div 2) with (%left, %right) ->
+      merge (sort left) (sort right)
+};
+
+let uniq = \lst {
+   let aux = \lst \prev \acc {
+      if lst = [] then
+         reverse acc
+      else if hd lst = prev then
+         aux (tl lst) prev acc
+      else
+         aux (tl lst) (hd lst) (cons (hd lst) acc)
+   };
+   if lst = [] then [] else aux (tl lst) (hd lst) [hd lst]
+};
+
+let take = \n \lst . if n = 0 or lst = [] then [] else cons (hd lst) (take (n - 1) (tl lst));
+
+let gen = \n \f \acc . if n = 0 then acc else gen (n - 1) f (cons (f n) acc);
+let gen1 = \m \n \acc . if n = 0 then acc else gen1 m (n - 1) (cons (gen m \x (random x) []) acc);
+let gen2 = \m \n \acc . if n = 0 then acc else gen2 m (n - 1) (cons (gen m \x n []) acc);
+
+gen1 5 40 [] >> flatten >> sort >> uniq >> print;
+gen1 10 80 [] >> flatten >> sort >> uniq >> print;
+gen1 5 40 [] >> flatten >> sort >> uniq >> print;
+
+gen2 6 40 [] >> flatten >> sort >> uniq >> take 10 >> print;
+gen2 9 80 [] >> flatten >> sort >> uniq >> take 10 >> print;
+gen2 6 80 [] >> flatten >> sort >> uniq >> take 10 >> print;

@@ -6,18 +6,6 @@
 open Node
 open Big_int
 
-let eq_builtin = ref Nil
-let eq lst =
-  match lst with
-  | y :: x :: _ ->
-      let ret = Node.equal x y
-      in
-      if ret = Nil then
-        Node.Leave(Node.mkappl [!eq_builtin; x; y] None)
-      else
-        ret
-  | _ -> assert false
-
 let prn lst =
   match lst with
   | String(str) :: _ -> print_endline str; Nil
@@ -58,111 +46,12 @@ let load_module lst =
       end
   | _ -> Debug.print (Utils.list_to_string Node.to_string lst); assert false
 
-(* records *)
-
-let record_get lst =
-  match lst with
-  | Sym(sym) :: Record(tab) :: _ -> Symbol.Map.find sym tab
-  | _ -> Debug.print (Utils.list_to_string Node.to_string lst); assert false
-
-(* conses *)
-
-let cons lst =
-  match lst with
-  | y :: x :: _ -> Node.Cons(x, y)
-  | _ -> assert false
-
-let lst_fst lst =
-  match lst with
-  | Node.Cons(x, y) :: _ -> x
-  | _ -> failwith "not a cons"
-
-let lst_snd lst =
-  match lst with
-  | Node.Cons(x, y) :: _ -> y
-  | _ -> failwith "not a cons"
-
-(* arithmetic *)
-
-let add lst =
-  match lst with
-  | (Integer(b)) :: (Integer(a)) :: _ -> Integer(add_big_int a b)
-  | _ -> failwith "(+): type error"
-
-let sub lst =
-  match lst with
-  | (Integer(b)) :: (Integer(a)) :: _ -> Integer(sub_big_int a b)
-  | _ -> failwith "(-): type error"
-
-let mul lst =
-  match lst with
-  | (Integer(b)) :: (Integer(a)) :: _ -> Integer(mult_big_int a b)
-  | _ -> failwith "(*): type error"
-
-let div lst =
-  match lst with
-  | (Integer(b)) :: (Integer(a)) :: _ -> Integer(div_big_int a b)
-  | _ -> failwith "div: type error"
-
-let xmod lst =
-  match lst with
-  | (Integer(b)) :: (Integer(a)) :: _ -> Integer(mod_big_int a b)
-  | _ -> failwith "div: type error"
-
-let gt lst =
-  match lst with
-  | (Integer(b)) :: (Integer(a)) :: _ -> if gt_big_int a b then True else False
-  | _ -> failwith "(>): type error"
-
-let lt lst =
-  match lst with
-  | (Integer(b)) :: (Integer(a)) :: _ -> if lt_big_int a b then True else False
-  | _ -> failwith "(<): type error"
-
-let ge lst =
-  match lst with
-  | (Integer(b)) :: (Integer(a)) :: _ -> if ge_big_int a b then True else False
-  | _ -> failwith "(>=): type error"
-
-let le lst =
-  match lst with
-  | (Integer(b)) :: (Integer(a)) :: _ -> if le_big_int a b then True else False
-  | _ -> failwith "(<=): type error"
-
 (* random *)
 
 let xrandom lst =
   match lst with
   | (Integer(x)) :: _ -> Integer(big_int_of_int (Random.int (int_of_big_int x)))
   | _ -> failwith "random: type error"
-
-(* booleans *)
-
-let not_builtin = ref Nil
-let bool_not lst =
-  match lst with
-  | True :: _ -> False
-  | False :: _ -> True
-  | h :: _ -> Node.Leave(mkappl [!not_builtin; h] None)
-  | _ -> assert false
-
-let and_builtin = ref Nil
-let bool_and lst =
-  match lst with
-  | True :: True :: _ -> True
-  | False :: _ :: _ -> False
-  | _ :: False :: _ -> False
-  | y :: x :: _ -> Node.Leave(mkappl [!and_builtin; x; y] None)
-  | _ -> assert false
-
-let or_builtin = ref Nil
-let bool_or lst =
-  match lst with
-  | False :: False :: _ -> False
-  | True :: _ :: _ -> True
-  | _ :: True :: _ -> True
-  | y :: x :: _ -> Node.Leave(mkappl [!or_builtin; x; y] None)
-  | _ -> assert false
 
 (* strings *)
 
@@ -176,64 +65,68 @@ let to_string lst =
   | x :: _ -> String(Node.to_string x)
   | _ -> failwith "to_string"
 
-(* matching *)
-
-let match1 lst =
-  match lst with
-  | z2 :: z1 :: y :: x :: t ->
-      let eval x =
-        match x with
-        | Integer(_) | String(_) | Record(_) | Sym(_) | True | False |
-          Placeholder | Ignore | Cons(_) | Nil | Quoted(_) -> x
-        | _ -> (Eval.eval_in x t)
-      in
-      let node = eval x
-      and pat = eval y
-      in
-      let (m, args) = Node.matches node pat
-      in
-      if m then
-        if args = [] then
-          z1
-        else
-          Node.mkappl (z1 :: args) None
-      else
-        z2
-  | _ -> assert false
-
 (* public interface *)
 
 let declare_builtins scope symtab =
   begin
     Random.self_init ();
-    let (scope, builtin) = Builtin.declare scope (Symtab.find symtab "=") (eq, 2, CallByValue) in
-    eq_builtin := builtin;
+
+    (* set inline builtins names *)
+
+    Node.change_name Node.eq (Symtab.find symtab "=");
+    Node.change_name Node.gt (Symtab.find symtab ">");
+    Node.change_name Node.lt (Symtab.find symtab "<");
+    Node.change_name Node.ge (Symtab.find symtab ">=");
+    Node.change_name Node.le (Symtab.find symtab "<=");
+    Node.change_name Node.add (Symtab.find symtab "+");
+    Node.change_name Node.sub (Symtab.find symtab "-");
+    Node.change_name Node.mul (Symtab.find symtab "*");
+    Node.change_name Node.idiv (Symtab.find symtab "div");
+    Node.change_name Node.xmod (Symtab.find symtab "mod");
+    Node.change_name Node.cons (Symtab.find symtab "cons");
+    Node.change_name Node.cons_comma (Symtab.find symtab ",");
+    Node.change_name Node.cons_lazy (Symtab.find symtab "cons&");
+    Node.change_name Node.fst (Symtab.find symtab "fst");
+    Node.change_name Node.snd (Symtab.find symtab "snd");
+    Node.change_name Node.hd (Symtab.find symtab "hd");
+    Node.change_name Node.tl (Symtab.find symtab "tl");
+    Node.change_name Node.xnot (Symtab.find symtab "not");
+    Node.change_name Node.xand (Symtab.find symtab "and");
+    Node.change_name Node.xor (Symtab.find symtab "or");
+    Node.change_name Node.match1 (Symtab.find symtab "match1");
+
+    (* declare inline builtins *)
+
+    let scope = Scope.add_ident scope (Symtab.find symtab "=") Node.eq in
+    let scope = Scope.add_ident scope (Symtab.find symtab ">") Node.gt in
+    let scope = Scope.add_ident scope (Symtab.find symtab "<") Node.lt in
+    let scope = Scope.add_ident scope (Symtab.find symtab ">=") Node.ge in
+    let scope = Scope.add_ident scope (Symtab.find symtab "<=") Node.le in
+    let scope = Scope.add_ident scope (Symtab.find symtab "+") Node.add in
+    let scope = Scope.add_ident scope (Symtab.find symtab "-") Node.sub in
+    let scope = Scope.add_ident scope (Symtab.find symtab "*") Node.mul in
+    let scope = Scope.add_ident scope (Symtab.find symtab "div") Node.idiv in
+    let scope = Scope.add_ident scope (Symtab.find symtab "mod") Node.xmod in
+    let scope = Scope.add_ident scope (Symtab.find symtab "cons") Node.cons in
+    let scope = Scope.add_ident scope (Symtab.find symtab "cons&") Node.cons_lazy in
+    let scope = Scope.add_ident scope (Symtab.find symtab ",") Node.cons_comma in
+    let scope = Scope.add_ident scope (Symtab.find symtab "fst") Node.fst in
+    let scope = Scope.add_ident scope (Symtab.find symtab "snd") Node.snd in
+    let scope = Scope.add_ident scope (Symtab.find symtab "hd") Node.hd in
+    let scope = Scope.add_ident scope (Symtab.find symtab "tl") Node.tl in
+    let scope = Scope.add_ident scope (Symtab.find symtab "not") Node.xnot in
+    let scope = Scope.add_ident scope (Symtab.find symtab "and") Node.xand in
+    let scope = Scope.add_ident scope (Symtab.find symtab "or") Node.xor in
+    let scope = Scope.add_ident scope (Symtab.find symtab "match1") Node.match1 in
+
+    (* declare other builtins *)
+
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_record_get") (record_get, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "cons") (cons, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "cons&") (cons, 2, CallByNeed) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "fst") (lst_fst, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "snd") (lst_snd, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "+") (add, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "-") (sub, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "*") (mul, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "div") (div, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "mod") (xmod, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "random") (xrandom, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab ">") (gt, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "<") (lt, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab ">=") (ge, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "<=") (le, 2, CallByValue) in
-    let (scope, builtin) = Builtin.declare scope (Symtab.find symtab "not") (bool_not, 1, CallByValue) in
-    not_builtin := builtin;
-    let (scope, builtin) = Builtin.declare scope (Symtab.find symtab "and") (bool_and, 2, CallByValue) in
-    and_builtin := builtin;
-    let (scope, builtin) = Builtin.declare scope (Symtab.find symtab "or") (bool_or, 2, CallByValue) in
-    or_builtin := builtin;
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "^") (concat, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "match1") (match1, 4, CallByName) in
+
     scope
   end

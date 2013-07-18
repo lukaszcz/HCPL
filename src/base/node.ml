@@ -35,6 +35,25 @@ type t =
   | Placeholder
   | Ignore
 
+  (* inlined core builtins *)
+  | BEq of t * t
+  | BGt of t * t
+  | BGe of t * t
+  | BAdd of t * t
+  | BSub of t * t
+  | BMul of t * t
+  | BIDiv of t * t
+  | BMod of t * t
+  | BCons of t * t
+  | BConsNE of t * t
+  | BFst of t
+  | BSnd of t
+  | BNot of t
+  | BAnd of t * t
+  | BOr of t * t
+  | BMatch1 of t * t * t * t
+  | BRecordGet of t * t
+
   (* used only by the evaluator *)
   | Delayed of t ref
   | Closure of t * t list * int
@@ -42,11 +61,8 @@ type t =
         (* (body, argument env, env_len, call type, times entered, attrs) *)
   | LambdaEagerClosure of t * t list * int * int ref * attrs_t option
         (* (body, argument env, env_len, times entered, attrs) *)
-and attrs_t = { name : Symbol.t option; pos : Lexing.position option;
+and attrs_t = { mutable name : Symbol.t option; pos : Lexing.position option;
                 attr_map : (t Symbol.Map.t) option; node_type : t option }
-
-let id = Lambda(Var(0), 0, CallByName, ref 0, None)
-let progn = LambdaEager(id, 0, ref 0, None)
 
 module Attrs =
   struct
@@ -62,8 +78,7 @@ module Attrs =
 
     let set_name ma aname =
       match ma with
-      | Some(a) -> Some({ name = Some(aname); pos = a.pos; attr_map = a.attr_map;
-                          node_type = a.node_type })
+      | Some(a) -> Some({ a with name = Some(aname) })
       | None -> Some({ name = Some(aname); pos = None; attr_map = None;
                        node_type = None })
 
@@ -74,8 +89,7 @@ module Attrs =
 
     let set_type ma atype =
       match ma with
-      | Some(a) -> Some({ name = a.name; pos = a.pos; attr_map = a.attr_map;
-                          node_type = Some(atype) })
+      | Some(a) -> Some({ a with node_type = Some(atype) })
       | None -> Some({ name = None; pos = None; attr_map = None;
                        node_type = Some(atype) })
 
@@ -99,12 +113,40 @@ module Attrs =
                 Some(Symbol.Map.add aname value map)
             | None -> Some(Symbol.Map.add aname value (Symbol.Map.empty))
           in
-          Some({ name = a.name; pos = a.pos; attr_map = map2;
-                 node_type = a.node_type })
+          Some({ a with attr_map = map2 })
       | None -> Some({ name = None; pos = None;
                        attr_map = Some(Symbol.Map.add aname value (Symbol.Map.empty));
                        node_type = None })
   end
+
+let id = Lambda(Var(0), 0, CallByName, ref 0, Attrs.create None None)
+let progn = LambdaEager(id, 0, ref 0, Attrs.create None None)
+
+let eq = LambdaEager(LambdaEager(BEq(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let gt = LambdaEager(LambdaEager(BGt(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let lt = LambdaEager(LambdaEager(BGt(Var(0), Var(1)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let ge = LambdaEager(LambdaEager(BGe(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let le = LambdaEager(LambdaEager(BGe(Var(0), Var(1)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let add = LambdaEager(LambdaEager(BAdd(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let sub = LambdaEager(LambdaEager(BSub(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let mul = LambdaEager(LambdaEager(BMul(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let idiv = LambdaEager(LambdaEager(BIDiv(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let xmod = LambdaEager(LambdaEager(BMod(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let cons = LambdaEager(LambdaEager(BCons(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let cons_comma = LambdaEager(LambdaEager(BCons(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let cons_lazy = Lambda(Lambda(BConsNE(Var(1), Var(0)), 1, CallByNeed, ref 0, None), 0, CallByNeed, ref 0, Attrs.create None None)
+let fst = LambdaEager(BFst(Var(0)), 0, ref 0, Attrs.create None None)
+let snd = LambdaEager(BSnd(Var(0)), 0, ref 0, Attrs.create None None)
+let hd = LambdaEager(BFst(Var(0)), 0, ref 0, Attrs.create None None)
+let tl = LambdaEager(BSnd(Var(0)), 0, ref 0, Attrs.create None None)
+let xnot = LambdaEager(BNot(Var(0)), 0, ref 0, Attrs.create None None)
+let xand = LambdaEager(LambdaEager(BAnd(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let xor = LambdaEager(LambdaEager(BOr(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let match1 = LambdaEager(LambdaEager(Lambda(Lambda(
+                                            BMatch1(Var(3), Var(2), Var(1), Var(0)),
+                                            3, CallByName, ref 0, None),
+                                            2, CallByName, ref 0, None),
+                                     1, ref 0, None), 0, ref 0, Attrs.create None None)
 
 let is_immediate = function
   (* note: don't use "| _ -> ..." here so that the compiler warns when we
@@ -114,7 +156,9 @@ let is_immediate = function
     -> false
   | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
-    LambdaClosure(_) | LambdaEagerClosure(_)
+    LambdaClosure(_) | LambdaEagerClosure(_) |
+    BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch1(_) | BRecordGet(_)
     -> true
 
 let rec get_attrs node =
@@ -130,6 +174,11 @@ let rec get_attrs node =
   | Closure(x, _, _) -> get_attrs x
   | Builtin(_, _, attrs) -> attrs
   | _ -> None
+
+let change_name node name =
+  match get_attrs node with
+  | Some(attrs) -> attrs.name <- Some(name)
+  | None -> assert false
 
 let get_name node = Attrs.get_name (get_attrs node)
 
@@ -226,6 +275,29 @@ let rec prune node =
   | Appl(f, x, _) when f == id -> prune x
   | _ -> node
 
+let optimize node =
+  let node1 = prune node
+  in
+  match node1 with
+  | Appl(Appl(f, x, _), y, _) when f == eq -> BEq(x, y)
+  | Appl(Appl(f, x, _), y, _) when f == gt -> BGt(x, y)
+  | Appl(Appl(f, x, _), y, _) when f == lt -> BGt(y, x)
+  | Appl(Appl(f, x, _), y, _) when f == ge -> BGe(x, y)
+  | Appl(Appl(f, x, _), y, _) when f == le -> BGe(y, x)
+  | Appl(Appl(f, x, _), y, _) when f == add -> BAdd(x, y)
+  | Appl(Appl(f, x, _), y, _) when f == sub -> BSub(x, y)
+  | Appl(Appl(f, x, _), y, _) when f == mul -> BMul(x, y)
+  | Appl(Appl(f, x, _), y, _) when f == idiv -> BIDiv(x, y)
+  | Appl(Appl(f, x, _), y, _) when f == xmod -> BMod(x, y)
+  | Appl(Appl(f, x, _), y, _) when f == cons || f == cons_comma -> BCons(x, y)
+  | Appl(f, x, _) when f == fst || f == hd -> BFst(x)
+  | Appl(f, x, _) when f == snd || f == tl -> BSnd(x)
+  | Appl(f, x, _) when f == xnot -> BNot(x)
+  | Appl(Appl(f, x, _), y, _) when f == xand -> BAnd(x, y)
+  | Appl(Appl(f, x, _), y, _) when f == xor -> BOr(x, y)
+  | Appl(Appl(Appl(Appl(f, a, _), pat, _), x, _), y, _) when f == match1 -> BMatch1(a, pat, x, y)
+  | _ -> node1
+
 let call_type_to_string call_type =
   match call_type with
   | CallByValue -> "!"
@@ -262,6 +334,15 @@ let to_string node =
           match node with
           | Cons(x, y) -> "[" ^ prn x (limit - 1) ^ loop y limit ^ "]"
           | _ -> assert false
+        in
+        let rec prn_match pat x y =
+          " | " ^ prn pat (limit - 1) ^ " -> " ^ prn x (limit - 1) ^
+          begin
+            match y with
+            | BMatch1(Var(0), pat2, x2, y2) -> prn_match pat2 x2 y2
+            | Nil -> ""
+            | _ -> " | %_ -> " ^ prn y (limit - 1)
+          end
         in
         let rec prn_progn node =
           match node with
@@ -308,6 +389,26 @@ let to_string node =
         | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
         | LambdaClosure(body, _, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
         | LambdaEagerClosure(body, _, frm, _, attrs) -> lambda_str body frm attrs CallByValue
+        | BEq(x, y) -> prn x (limit - 1) ^ " = " ^ prn y (limit - 1)
+        | BGt(x, y) -> prn x (limit - 1) ^ " > " ^ prn y (limit - 1)
+        | BGe(x, y) -> prn x (limit - 1) ^ " >= " ^ prn y (limit - 1)
+        | BAdd(x, y) -> prn x (limit - 1) ^ " + " ^ prn y (limit - 1)
+        | BSub(x, y) -> prn x (limit - 1) ^ " - " ^ prn y (limit - 1)
+        | BMul(x, y) -> prn x (limit - 1) ^ " * " ^ prn y (limit - 1)
+        | BIDiv(x, y) -> prn x (limit - 1) ^ " div " ^ prn y (limit - 1)
+        | BMod(x, y) -> prn x (limit - 1) ^ " mod " ^ prn y (limit - 1)
+        | BCons(x, y) -> "(cons " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
+        | BConsNE(x, y) -> "(cons# " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
+        | BFst(x) -> "(fst " ^ prn x (limit - 1) ^ ")"
+        | BSnd(x) -> "(snd " ^ prn x (limit - 1) ^ ")"
+        | BNot(x) -> "(not " ^ prn x (limit - 1) ^ ")"
+        | BAnd(x, y) -> prn x (limit - 1) ^ " and " ^ prn y (limit - 1)
+        | BOr(x, y) -> prn x (limit - 1) ^ " or " ^ prn y (limit - 1)
+        | BMatch1(Var(0), pat, x, y) -> "(match $0 with " ^ prn_match pat x y ^ ")"
+        | BMatch1(a, pat, x, y) ->
+            "(match1 " ^ prn a (limit - 1) ^ " " ^ prn pat (limit - 1) ^ " " ^
+            prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
+        | BRecordGet(x, y) -> prn x (limit - 1) ^ "." ^ prn y (limit - 1)
       end
   in
   prn node 20

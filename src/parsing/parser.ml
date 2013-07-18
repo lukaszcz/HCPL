@@ -382,14 +382,12 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_eq = Symtab.find symtab "="
   and sym_in = Symtab.find symtab "in"
   and sym_is = Symtab.find symtab "is"
-  and sym_cons = Symtab.find symtab "cons"
   and sym_at = Symtab.find symtab "@"
   and sym_quote = Symtab.find symtab "'"
   and sym_ret_type = Symtab.find symtab ":>"
   and sym_arrow = Symtab.find symtab "->"
   and sym_match_sep = Symtab.find symtab "|"
   and sym_match = Symtab.find symtab "match"
-  and sym_match1 = Symtab.find symtab "match1"
   and sym_with = Symtab.find symtab "with"
 
   and sym_fun = Symtab.find symtab "fun"
@@ -419,7 +417,6 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_return_type = Symtab.find symtab "return_type"
 
   and sym_load_module = Symtab.find symtab "__ipl_load_module"
-  and sym_record_get = Symtab.find symtab "__ipl_record_get"
 
   and sym_unknown = Symtab.find symtab "??"
 
@@ -439,7 +436,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     | [Program(x)] -> Node.Appl(Node.id, x, attrs)
         (* we can't just return x here if things like "map2 (+) lst1 lst2" are to work
            as expected (this superflous application is later removed
-           by a call to Node.prune) *)
+           by a call to Node.optimize) *)
     | _ -> build_progn lst attrs
 
   and mkapply scope sym lst =
@@ -622,7 +619,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             let node2 =
               match module_node with
               | Node.Record(_) -> node
-              | _ -> mkapply scope sym_record_get [module_node; Node.Sym(k)]
+              | _ -> Node.BRecordGet(module_node, Node.Sym(k))
             in
             try
               Scope.add_ident scope (f sym k) node2
@@ -640,7 +637,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     let rec program () =
       recursive
         begin
-          progn ++ eof >> (fun lst _ _ -> match lst with [Program(x)] -> Program(Node.prune x) | _ -> assert false)
+          progn ++ eof >> (fun lst _ _ -> match lst with [Program(x)] -> Program(Node.optimize x) | _ -> assert false)
         end
 
     and progn () =
@@ -751,13 +748,13 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             match lst with
             | [CallType(ct); Ident(sym); Program(value); Program(body)] ->
                 if Node.is_immediate value then
-                  Program(Node.prune body)
+                  Program(Node.optimize body)
                 else
                   let lam =
                     if ct = Node.CallByValue then
-                      Node.LambdaEager(Node.prune body, Scope.frame scope + 1, ref 0, attrs)
+                      Node.LambdaEager(Node.optimize body, Scope.frame scope + 1, ref 0, attrs)
                     else
-                      Node.Lambda(Node.prune body, Scope.frame scope + 1, ct, ref 0, attrs)
+                      Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs)
                   in
                   Program(Node.Appl(lam, value, None))
             | _ -> assert false)
@@ -1026,7 +1023,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           terms
             >>
           (fun lst attrs scope ->
-            let node = Node.prune (Scope.rewrite scope (List.map (function Program(x) -> x | _ -> assert false) lst))
+            let node = Node.optimize (Scope.rewrite scope (List.map (function Program(x) -> x | _ -> assert false) lst))
             in
             match node with
             | Node.Appl(x, y, _) -> Program(Node.Appl(x, y, attrs))
@@ -1045,9 +1042,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           lambda ^|| cond ^||
           lparen +! new_scope (catch_errors (progn ++ rparen)) ^||
           lparen_curl +! new_scope (catch_errors (progn ++ rparen_curl)) ^||
-          token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(Node.prune (get_singleton_node lst)))) ^||
-          token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(Node.prune (get_singleton_node lst)))) ^||
-          token Token.Leave +! term +> (fun lst _ _ -> Program(Node.Leave(Node.prune (get_singleton_node lst)))) ^||
+          token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(Node.optimize (get_singleton_node lst)))) ^||
+          token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(Node.optimize (get_singleton_node lst)))) ^||
+          token Token.Leave +! term +> (fun lst _ _ -> Program(Node.Leave(Node.optimize (get_singleton_node lst)))) ^||
           token Token.True +> return (Program(Node.True)) ^||
           token Token.False +> return (Program(Node.False)) ^||
           token Token.Placeholder_generic ++
@@ -1083,9 +1080,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             match lst with
             | [CallType(ct); Ident(sym); Program(body)] ->
                 if ct = Node.CallByValue then
-                  Program(Node.LambdaEager(Node.prune body, Scope.frame scope + 1, ref 0, attrs))
+                  Program(Node.LambdaEager(Node.optimize body, Scope.frame scope + 1, ref 0, attrs))
                 else
-                  Program(Node.Lambda(Node.prune body, Scope.frame scope + 1, ct, ref 0, attrs))
+                  Program(Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs))
             | _ -> assert false)
         end
 
@@ -1120,17 +1117,12 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             new_ident_scope (maybe (symbol sym_match_sep) ++ (new_frame match_branches))
             >>
           (fun lst attrs scope ->
-            let match1 = Scope.find_ident scope sym_match1
-            in
-            let mkmatchappl pat value =
-              Node.Appl(Node.Appl(Node.Appl(match1, Node.Var(0), None), pat, None), value, None)
-            in
             let rec mkmatch lst =
               match lst with
               | [Program(pat); Program(value)] ->
-                  Node.Appl(mkmatchappl pat value, Node.Nil, None) (* TODO: match failure *)
+                  Node.BMatch1(Node.Var(0), pat, value, Node.Nil) (* TODO: match failure *)
               | Program(pat) :: Program(value) :: t ->
-                  Node.Appl(mkmatchappl pat value, mkmatch t, None)
+                  Node.BMatch1(Node.Var(0), pat, value, mkmatch t)
               | _ -> assert false
             in
             match lst with
@@ -1185,12 +1177,10 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           lparen_sqr +! new_scope (maybe list_elems) ++ rparen_sqr
             >>
           (fun lst _ scope ->
-            let cons = Scope.find_ident scope sym_cons
-            in
             Program(List.fold_right
                       (fun x y ->
                         match x with
-                        | Program(node) -> Node.Appl(Node.Appl(cons, node, None), y, None)
+                        | Program(node) -> Node.BCons(node, y)
                         | _ -> assert false)
                       lst Node.Nil))
         end
