@@ -86,14 +86,13 @@ let declare_builtins scope symtab =
     Node.change_name Node.cons (Symtab.find symtab "cons");
     Node.change_name Node.cons_comma (Symtab.find symtab ",");
     Node.change_name Node.cons_lazy (Symtab.find symtab "cons&");
-    Node.change_name Node.fst (Symtab.find symtab "fst");
-    Node.change_name Node.snd (Symtab.find symtab "snd");
-    Node.change_name Node.hd (Symtab.find symtab "hd");
-    Node.change_name Node.tl (Symtab.find symtab "tl");
+    Node.change_name Node.xfst (Symtab.find symtab "fst");
+    Node.change_name Node.xsnd (Symtab.find symtab "snd");
+    Node.change_name Node.xhd (Symtab.find symtab "hd");
+    Node.change_name Node.xtl (Symtab.find symtab "tl");
     Node.change_name Node.xnot (Symtab.find symtab "not");
     Node.change_name Node.xand (Symtab.find symtab "and");
     Node.change_name Node.xor (Symtab.find symtab "or");
-    Node.change_name Node.match1 (Symtab.find symtab "match1");
 
     (* declare inline builtins *)
 
@@ -110,14 +109,13 @@ let declare_builtins scope symtab =
     let scope = Scope.add_ident scope (Symtab.find symtab "cons") Node.cons in
     let scope = Scope.add_ident scope (Symtab.find symtab "cons&") Node.cons_lazy in
     let scope = Scope.add_ident scope (Symtab.find symtab ",") Node.cons_comma in
-    let scope = Scope.add_ident scope (Symtab.find symtab "fst") Node.fst in
-    let scope = Scope.add_ident scope (Symtab.find symtab "snd") Node.snd in
-    let scope = Scope.add_ident scope (Symtab.find symtab "hd") Node.hd in
-    let scope = Scope.add_ident scope (Symtab.find symtab "tl") Node.tl in
+    let scope = Scope.add_ident scope (Symtab.find symtab "fst") Node.xfst in
+    let scope = Scope.add_ident scope (Symtab.find symtab "snd") Node.xsnd in
+    let scope = Scope.add_ident scope (Symtab.find symtab "hd") Node.xhd in
+    let scope = Scope.add_ident scope (Symtab.find symtab "tl") Node.xtl in
     let scope = Scope.add_ident scope (Symtab.find symtab "not") Node.xnot in
     let scope = Scope.add_ident scope (Symtab.find symtab "and") Node.xand in
     let scope = Scope.add_ident scope (Symtab.find symtab "or") Node.xor in
-    let scope = Scope.add_ident scope (Symtab.find symtab "match1") Node.match1 in
 
     (* declare other builtins *)
 

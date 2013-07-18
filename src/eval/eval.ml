@@ -8,13 +8,13 @@ open Node
 
 let pop_to env env_len frm =
   if frm = 0 then
-    []
+    Env.empty
   else
     let n = env_len - frm
     in
     if n > 0 then
       match env with
-      | h :: t -> Env.pop_n t (n - 1)
+      | h :: t -> assert (env != Env.empty); Env.pop_n t (n - 1)
       | [] -> assert (env <> []); []
     else
       env
@@ -32,6 +32,155 @@ let do_close x env env_len =
       LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
   | Var(n) -> assert (n < env_len); Env.nth env n
   | _ -> Closure(x, env, env_len)
+
+let rec do_match_quoted node pat acc =
+  let node = Node.normalize node
+  and pat = Node.normalize pat
+  in
+  begin
+    if pat == node then
+      acc
+    else
+      match pat with
+      | Appl(x, y, _) ->
+          begin
+            match node with
+            | Appl(a, b, _) -> do_match_quoted b y (do_match_quoted a x acc)
+            | _ -> raise Exit
+          end
+      | Cond(x, y, z, _) ->
+          begin
+            match node with
+            | Cond(a, b, c, _) ->
+                do_match_quoted c z (do_match_quoted b y (do_match_quoted a x acc))
+            | _ ->
+                raise Exit
+          end
+      | Delay(x) ->
+          begin
+            match node with
+            | Delay(a) ->
+                do_match_quoted a x acc
+            | _ ->
+                raise Exit
+          end
+      | Leave(x) ->
+          begin
+            match node with
+            | Leave(a) ->
+                do_match_quoted a x acc
+            | _ ->
+                raise Exit
+          end
+      | Force(x) ->
+          begin
+            match node with
+            | Force(a) ->
+                do_match_quoted a x acc
+            | _ ->
+                raise Exit
+          end
+      | Lambda(body, frame, _, _, _) ->
+          begin
+            match node with
+            | Lambda(body2, frame2, _, _, _) when frame = frame2 ->
+                do_match_quoted body2 body acc
+            | _ ->
+                raise Exit
+          end
+      | Integer(x) ->
+          begin
+            match node with
+            | Integer(y) ->
+                if Big_int.eq_big_int x y then
+                  acc
+                else
+                  raise Exit
+            | _ -> raise Exit
+          end
+      | Sym(x) ->
+          begin
+            match node with
+            | Sym(y) -> if Symbol.eq x y then acc else raise Exit
+            | _ -> raise Exit
+          end
+      | String(_) | Record(_) | Nil | True | False ->
+          if node = pat then
+            acc
+          else
+            raise Exit
+      | Placeholder ->
+          node :: acc
+      | Ignore ->
+          acc
+      | Cons(x, y) ->
+          begin
+            match node with
+            | Cons(a, b) -> do_match_quoted b y (do_match_quoted a x acc)
+            | _ -> raise Exit
+          end
+      | Quoted(x) ->
+          begin
+            match node with
+            | Quoted(a) ->
+                do_match_quoted a x acc
+            | _ ->
+                raise Exit
+          end
+      | _ ->
+          failwith "bad pattern"
+  end
+
+let rec do_match node pat acc =
+  if pat == node then
+    acc
+  else
+    begin
+      match pat with
+      | Integer(x) ->
+          begin
+            match node with
+            | Integer(y) ->
+                if Big_int.eq_big_int x y then
+                  acc
+                else
+                  raise Exit
+            | _ -> raise Exit
+          end
+      | Sym(x) ->
+          begin
+            match node with
+            | Sym(y) -> if Symbol.eq x y then acc else raise Exit
+            | _ -> raise Exit
+          end
+      | String(_) | Record(_) | Nil | True | False ->
+          if node = pat then
+            acc
+          else
+            raise Exit
+      | Proxy(rx) ->
+          do_match node !rx acc
+      | Placeholder ->
+          node :: acc
+      | Ignore ->
+          acc
+      | Cons(x, y) ->
+          begin
+            match node with
+            | Cons(a, b) -> do_match b y (do_match a x acc)
+            | _ -> raise Exit
+          end
+      | Quoted(x) ->
+          begin
+            match node with
+            | Quoted(a) ->
+                do_match_quoted a x acc
+            | _ ->
+                raise Exit
+          end
+      | _ ->
+          failwith "bad pattern"
+    end
 
 let rec do_eval node env env_len =
   match node with
@@ -295,19 +444,27 @@ let rec do_eval node env env_len =
         | _ -> BOr(x, y)
       end
 
-  | BMatch1(x, y, z1, z2) ->
-      let node = do_eval x env env_len
-      and pat = do_eval y env env_len
+  | BMatch(x, branches) ->
+      let rec loop node env env_len lst =
+        match lst with
+        | (y, body, args_num) :: t ->
+            begin
+              let pat = do_eval y env env_len
+              in
+              let env2 =
+                try
+                  do_match node pat env
+                with Exit ->
+                  []
+              in
+              if env2 != [] then
+                do_eval body env2 (env_len + args_num)
+              else
+                loop node env env_len t
+            end
+        | [] -> failwith "match failure"
       in
-      let (m, args) = Node.matches node pat
-      in
-      if m then
-        if args = [] then
-          do_eval z1 env env_len
-        else
-          do_eval (Node.mkappl (z1 :: args) None) env env_len
-      else
-        do_eval z2 env env_len
+      loop (do_eval x env env_len) env env_len branches
 
   | BRecordGet(x, y) ->
       begin
@@ -319,10 +476,10 @@ let rec do_eval node env env_len =
         | _ -> failwith "record error"
       end
 
-let reduce node = do_eval node [] 0
+let reduce node = do_eval node Env.empty 0
 
-let eval node = do_eval node [] 0
+let eval node = do_eval node Env.empty 0
 
-let eval_limited node limit = do_eval node [] 0
+let eval_limited node limit = do_eval node Env.empty 0
 
 let eval_in node env = do_eval node env (Env.length env)

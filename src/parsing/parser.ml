@@ -48,6 +48,7 @@ Copyright (C) 2013 by Łukasz Czajka
 
 type sexp_t =
   | Program of Node.t
+  | MatchBranch of Node.t * int
   | Ident of Symbol.t
   | Bool of bool
   | CallType of Node.call_t
@@ -62,6 +63,7 @@ type sexp_t =
 let rec sexp_to_string sexp =
   match sexp with
   | Program(node) -> "Program(" ^ Node.to_string node ^ ")"
+  | MatchBranch(node, n) -> "Program(" ^ Node.to_string node ^ ", " ^ string_of_int n ^ ")"
   | Ident(sym) -> "Ident(" ^ Symbol.to_string sym ^ ")"
   | Bool(b) -> "Bool(" ^ (if b then "true" else "false") ^ ")"
   | CallType(ct) -> "CallType(" ^ Node.call_type_to_string ct ^ ")"
@@ -1114,20 +1116,19 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
       recursive
         begin
           symbol sym_match +! new_keyword sym_with (catch_errors expr) ++ symbol sym_with ++
-            new_ident_scope (maybe (symbol sym_match_sep) ++ (new_frame match_branches))
+            new_ident_scope (maybe (symbol sym_match_sep) ++ match_branches)
             >>
           (fun lst attrs scope ->
-            let rec mkmatch lst =
+            let rec mkbranches lst =
               match lst with
-              | [Program(pat); Program(value)] ->
-                  Node.BMatch1(Node.Var(0), pat, value, Node.Nil) (* TODO: match failure *)
-              | Program(pat) :: Program(value) :: t ->
-                  Node.BMatch1(Node.Var(0), pat, value, mkmatch t)
+              | Program(pat) :: MatchBranch(value, n) :: t ->
+                  (pat, value, n) :: mkbranches t
+              | [] -> []
               | _ -> assert false
             in
             match lst with
             | Program(value) :: lst2 ->
-                Program(Node.Appl(Node.LambdaEager(mkmatch lst2, Scope.frame scope + 1, ref 0, None), value, attrs))
+                Program(Node.BMatch(value, mkbranches lst2))
             | _ -> assert false)
         end
 
@@ -1159,14 +1160,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                     (mkparse placeholders >>
                      (fun lst attrs _ ->
                        match lst with
-                       | [Program(node)] ->
-                           let rec loop m =
-                             if m > n then
-                               node
-                             else
-                               Node.Lambda(loop (m + 1), Scope.frame scope + m, Node.CallByName, ref 0, attrs)
-                           in
-                           Program(loop 1)
+                       | [Program(node)] -> MatchBranch(node, n)
                        | _ -> assert false))
                       () state cont)))
         end

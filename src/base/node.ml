@@ -51,7 +51,7 @@ type t =
   | BNot of t
   | BAnd of t * t
   | BOr of t * t
-  | BMatch1 of t * t * t * t
+  | BMatch of t * ((t * t * int) list)
   | BRecordGet of t * t
 
   (* used only by the evaluator *)
@@ -135,18 +135,13 @@ let xmod = LambdaEager(LambdaEager(BMod(Var(1), Var(0)), 1, ref 0, None), 0, ref
 let cons = LambdaEager(LambdaEager(BCons(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
 let cons_comma = LambdaEager(LambdaEager(BCons(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
 let cons_lazy = Lambda(Lambda(BConsNE(Var(1), Var(0)), 1, CallByNeed, ref 0, None), 0, CallByNeed, ref 0, Attrs.create None None)
-let fst = LambdaEager(BFst(Var(0)), 0, ref 0, Attrs.create None None)
-let snd = LambdaEager(BSnd(Var(0)), 0, ref 0, Attrs.create None None)
-let hd = LambdaEager(BFst(Var(0)), 0, ref 0, Attrs.create None None)
-let tl = LambdaEager(BSnd(Var(0)), 0, ref 0, Attrs.create None None)
+let xfst = LambdaEager(BFst(Var(0)), 0, ref 0, Attrs.create None None)
+let xsnd = LambdaEager(BSnd(Var(0)), 0, ref 0, Attrs.create None None)
+let xhd = LambdaEager(BFst(Var(0)), 0, ref 0, Attrs.create None None)
+let xtl = LambdaEager(BSnd(Var(0)), 0, ref 0, Attrs.create None None)
 let xnot = LambdaEager(BNot(Var(0)), 0, ref 0, Attrs.create None None)
 let xand = LambdaEager(LambdaEager(BAnd(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
 let xor = LambdaEager(LambdaEager(BOr(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let match1 = LambdaEager(LambdaEager(Lambda(Lambda(
-                                            BMatch1(Var(3), Var(2), Var(1), Var(0)),
-                                            3, CallByName, ref 0, None),
-                                            2, CallByName, ref 0, None),
-                                     1, ref 0, None), 0, ref 0, Attrs.create None None)
 
 let is_immediate = function
   (* note: don't use "| _ -> ..." here so that the compiler warns when we
@@ -158,7 +153,7 @@ let is_immediate = function
     True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
     LambdaClosure(_) | LambdaEagerClosure(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch1(_) | BRecordGet(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     -> true
 
 let rec get_attrs node =
@@ -290,13 +285,18 @@ let optimize node =
   | Appl(Appl(f, x, _), y, _) when f == idiv -> BIDiv(x, y)
   | Appl(Appl(f, x, _), y, _) when f == xmod -> BMod(x, y)
   | Appl(Appl(f, x, _), y, _) when f == cons || f == cons_comma -> BCons(x, y)
-  | Appl(f, x, _) when f == fst || f == hd -> BFst(x)
-  | Appl(f, x, _) when f == snd || f == tl -> BSnd(x)
+  | Appl(f, x, _) when f == xfst || f == xhd -> BFst(x)
+  | Appl(f, x, _) when f == xsnd || f == xtl -> BSnd(x)
   | Appl(f, x, _) when f == xnot -> BNot(x)
   | Appl(Appl(f, x, _), y, _) when f == xand -> BAnd(x, y)
   | Appl(Appl(f, x, _), y, _) when f == xor -> BOr(x, y)
-  | Appl(Appl(Appl(Appl(f, a, _), pat, _), x, _), y, _) when f == match1 -> BMatch1(a, pat, x, y)
   | _ -> node1
+
+let rec normalize node =
+  match node with
+  | LambdaEager(body, frame, seen, attrs) -> Lambda(body, frame, CallByValue, seen, attrs)
+  | Proxy(r) -> normalize !r
+  | _ -> node
 
 let call_type_to_string call_type =
   match call_type with
@@ -335,14 +335,11 @@ let to_string node =
           | Cons(x, y) -> "[" ^ prn x (limit - 1) ^ loop y limit ^ "]"
           | _ -> assert false
         in
-        let rec prn_match pat x y =
-          " | " ^ prn pat (limit - 1) ^ " -> " ^ prn x (limit - 1) ^
-          begin
-            match y with
-            | BMatch1(Var(0), pat2, x2, y2) -> prn_match pat2 x2 y2
-            | Nil -> ""
-            | _ -> " | %_ -> " ^ prn y (limit - 1)
-          end
+        let rec prn_match lst =
+          match lst with
+          | (pat, value, _) :: t ->
+              " | " ^ prn pat (limit - 1) ^ " -> " ^ prn value (limit - 1) ^ prn_match t
+          | [] -> ""
         in
         let rec prn_progn node =
           match node with
@@ -404,130 +401,8 @@ let to_string node =
         | BNot(x) -> "(not " ^ prn x (limit - 1) ^ ")"
         | BAnd(x, y) -> prn x (limit - 1) ^ " and " ^ prn y (limit - 1)
         | BOr(x, y) -> prn x (limit - 1) ^ " or " ^ prn y (limit - 1)
-        | BMatch1(Var(0), pat, x, y) -> "(match $0 with " ^ prn_match pat x y ^ ")"
-        | BMatch1(a, pat, x, y) ->
-            "(match1 " ^ prn a (limit - 1) ^ " " ^ prn pat (limit - 1) ^ " " ^
-            prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
+        | BMatch(x, branches) -> "(match " ^ prn x (limit - 1) ^ " with" ^ prn_match branches ^ ")"
         | BRecordGet(x, y) -> prn x (limit - 1) ^ "." ^ prn y (limit - 1)
       end
   in
   prn node 20
-
-let matches node pat =
-  (* TODO: change (false, []) to raise Exit *)
-  let rec aux node pat lst =
-    match node with
-    | Proxy(rn) -> aux !rn pat lst
-    | _ -> if pat == node then (true, lst) else
-      begin
-        match pat with
-        | Appl(x, y, _) ->
-            begin
-              match node with
-              | Appl(a, b, _) ->
-                  let (mb, lstb) = aux b y lst
-                  in
-                  if mb then
-                    aux a x lstb
-                  else
-                    (false, [])
-              | _ ->
-                  (false, [])
-            end
-        | Cond(x, y, z, _) ->
-            begin
-              match node with
-              | Cond(a, b, c, _) ->
-                  let (mc, lstc) = aux c z lst
-                  in
-                  if mc then
-                    let (mb, lstb) = aux b y lstc
-                    in
-                    if mb then
-                      aux a x lstb
-                    else
-                      (false, [])
-                  else
-                    (false, [])
-              | _ ->
-                  (false, [])
-            end
-        | Delay(x) ->
-            begin
-              match node with
-              | Delay(a) ->
-                  aux a x lst
-              | _ ->
-                  (false, [])
-            end
-        | Leave(x) ->
-            begin
-              match node with
-              | Leave(a) ->
-                  aux a x lst
-              | _ ->
-                  (false, [])
-            end
-        | Force(x) ->
-            begin
-              match node with
-              | Force(a) ->
-                  aux a x lst
-              | _ ->
-                  (false, [])
-            end
-        | Integer(x) ->
-            begin
-              match node with
-              | Integer(y) ->
-                  if Big_int.eq_big_int x y then
-                    (true, lst)
-                  else
-                    (false, [])
-              | _ -> (false, [])
-            end
-        | Var(_) | MakeRecord(_) | String(_) | Record(_) | Sym(_) | Nil | True | False ->
-            if node = pat then
-              (true, lst)
-            else
-              (false, [])
-        | Proxy(rx) ->
-            aux node !rx lst
-        | Lambda(body, frame, _, _, _) ->
-            begin
-              match node with
-              | Lambda(body2, frame2, _, _, _) when frame = frame2 ->
-                  aux body2 body lst
-              | _ ->
-                  (false, [])
-            end
-        | Placeholder ->
-            (true, node :: lst)
-        | Ignore ->
-            (true, lst)
-        | Cons(x, y) ->
-            begin
-              match node with
-              | Cons(a, b) ->
-                  let (mb, lstb) = aux b y lst
-                  in
-                  if mb then
-                    aux a x lstb
-                  else
-                    (false, [])
-              | _ ->
-                  (false, [])
-            end
-        | Quoted(x) ->
-            begin
-              match node with
-              | Quoted(a) ->
-                  aux a x lst
-              | _ ->
-                  (false, [])
-            end
-        | _ ->
-            failwith "bad pattern"
-      end
-  in
-  aux node pat []
