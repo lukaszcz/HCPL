@@ -20,20 +20,18 @@ let pop_to env env_len frm =
       env
 
 let do_close x env env_len =
-  if is_const x then
-    x
-  else
     match x with
-    | Integer(_) | String(_) | Record(_) | Sym(_) | Cons(_) | Quoted(_) | Closure(_) |
-      Lambda(_, 0, _, _, _) | LambdaEager(_, 0, _, _) |
-      LambdaClosure(_) | LambdaEagerClosure(_)
-      -> x
     | Lambda(body, frame, call_type, times_entered, attrs) ->
         LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
     | LambdaEager(body, frame, times_entered, attrs) ->
         LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
     | Var(n) -> assert (n < env_len); Env.nth env n
-    | _ -> Closure(x, env, env_len)
+    | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) |
+      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+      BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+      ->
+        Closure(x, env, env_len)
+    | _ -> x
 
 exception Unknown
 
