@@ -16,3 +16,6 @@ val dir_sep : unit -> string
 val timing_enabled : unit -> bool
 val enable_timing : unit -> unit
 val disable_timing : unit -> unit
+
+(* the number of bits available for a _positive_ OCaml int *)
+val int_bits : int

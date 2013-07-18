@@ -519,7 +519,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     and number = number +>
       (fun lst _ _ ->
         match lst with
-        | [Number(num)] -> Program(Node.Integer(num))
+        | [Number(num)] -> Program(Bignum.from_big_int num)
         | _ -> assert false)
 
     and string = string +>

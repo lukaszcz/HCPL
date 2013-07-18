@@ -20,23 +20,24 @@ let pop_to env env_len frm =
       env
 
 let do_close x env env_len =
-  match x with
-  | Integer(_) | String(_) | Record(_) | Sym(_) | True | False |
-    Placeholder | Ignore | Cons(_) | Nil | Quoted(_) | Closure(_) |
-    Lambda(_, 0, _, _, _) | LambdaEager(_, 0, _, _) |
-    LambdaClosure(_) | LambdaEagerClosure(_)
-    -> x
-  | Lambda(body, frame, call_type, times_entered, attrs) ->
-      LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
-  | LambdaEager(body, frame, times_entered, attrs) ->
-      LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
-  | Var(n) -> assert (n < env_len); Env.nth env n
-  | _ -> Closure(x, env, env_len)
+  if is_const x then
+    x
+  else
+    match x with
+    | Integer(_) | String(_) | Record(_) | Sym(_) | Cons(_) | Quoted(_) | Closure(_) |
+      Lambda(_, 0, _, _, _) | LambdaEager(_, 0, _, _) |
+      LambdaClosure(_) | LambdaEagerClosure(_)
+      -> x
+    | Lambda(body, frame, call_type, times_entered, attrs) ->
+        LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
+    | LambdaEager(body, frame, times_entered, attrs) ->
+        LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
+    | Var(n) -> assert (n < env_len); Env.nth env n
+    | _ -> Closure(x, env, env_len)
 
 let rec do_match_quoted node pat acc =
-  let node = Node.normalize node
-  and pat = Node.normalize pat
-  in
+  let node = Node.normalize node in
+  let pat = Node.normalize pat in
   begin
     if pat == node then
       acc
@@ -128,7 +129,10 @@ let rec do_match_quoted node pat acc =
                 raise Exit
           end
       | _ ->
-          failwith "bad pattern"
+          if is_smallint pat then
+            raise Exit
+          else
+            failwith "bad pattern"
   end
 
 let rec do_match node pat acc =
@@ -179,7 +183,10 @@ let rec do_match node pat acc =
                 raise Exit
           end
       | _ ->
-          failwith "bad pattern"
+          if is_smallint pat then
+            raise Exit
+          else
+            failwith "bad pattern"
     end
 
 let rec do_eval node env env_len =
@@ -288,9 +295,6 @@ let rec do_eval node env env_len =
   | MakeRecord(identtab) ->
       Record(Symbol.Map.map (fun x -> do_close x env env_len) identtab)
 
-  | Integer(_) | String(_) | Record(_) | Sym(_) | True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) ->
-      node
-
   | Lambda(_, 0, _, _, _) | LambdaEager(_, 0, _, _) | LambdaClosure(_) | LambdaEagerClosure(_) -> node
 
   | Lambda(body, frame, call_type, times_entered, attrs) ->
@@ -306,9 +310,8 @@ let rec do_eval node env env_len =
   (* inlined builtins *)
 
   | BEq(x, y) ->
-      let x = do_eval x env env_len
-      and y = do_eval y env env_len
-      in
+      let x = do_eval x env env_len in
+      let y = do_eval y env env_len in
       let ret = Node.equal x y
       in
       if ret <> Nil then
@@ -318,79 +321,57 @@ let rec do_eval node env env_len =
 
   | BGt(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
-        match x, y with
-        | Integer(a), Integer(b) -> if Big_int.gt_big_int a b then True else False
-        | _ -> assert (1 = 0); False
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
+        Bignum.gt x y
       end
 
   | BGe(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
-        match x, y with
-        | Integer(a), Integer(b) -> if Big_int.ge_big_int a b then True else False
-        | _ -> assert (1 = 0); False
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
+        Bignum.ge x y
       end
 
   | BAdd(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
-        match x, y with
-        | Integer(a), Integer(b) -> Integer(Big_int.add_big_int a b)
-        | _ -> assert (1 = 0); False
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
+        Bignum.add x y
       end
 
   | BSub(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
-        match x, y with
-        | Integer(a), Integer(b) -> Integer(Big_int.sub_big_int a b)
-        | _ -> assert (1 = 0); False
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
+        Bignum.sub x y
       end
 
   | BMul(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
-        match x, y with
-        | Integer(a), Integer(b) -> Integer(Big_int.mult_big_int a b)
-        | _ -> assert (1 = 0); False
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
+        Bignum.mul x y
       end
 
   | BIDiv(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
-        match x, y with
-        | Integer(a), Integer(b) -> Integer(Big_int.div_big_int a b)
-        | _ -> assert (1 = 0); False
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
+        Bignum.idiv x y
       end
 
   | BMod(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
-        match x, y with
-        | Integer(a), Integer(b) -> Integer(Big_int.mod_big_int a b)
-        | _ -> assert (1 = 0); False
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
+        Bignum.modulo x y
       end
 
   | BCons(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
         Cons(x, y)
       end
 
@@ -422,9 +403,8 @@ let rec do_eval node env env_len =
 
   | BAnd(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
         match x, y with
         | True, True -> True
         | False, _ -> False
@@ -434,9 +414,8 @@ let rec do_eval node env env_len =
 
   | BOr(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
         match x, y with
         | False, False -> False
         | True, _ -> True
@@ -468,13 +447,14 @@ let rec do_eval node env env_len =
 
   | BRecordGet(x, y) ->
       begin
-        let x = do_eval x env env_len
-        and y = do_eval y env env_len
-        in
+        let x = do_eval x env env_len in
+        let y = do_eval y env env_len in
         match x, y with
         | Record(r), Sym(s) -> Symbol.Map.find s r
         | _ -> failwith "record error"
       end
+
+  | _ -> node
 
 let reduce node = do_eval node Env.empty 0
 

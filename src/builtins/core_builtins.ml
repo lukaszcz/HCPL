@@ -15,8 +15,8 @@ let prn lst =
 let myexit lst =
   match lst with
   | Nil :: _ -> exit 0
-  | Integer(num) :: _ -> exit (Big_int.int_of_big_int num)
-  | _ -> failwith "exit: type error"
+  | num :: _ -> exit (Bignum.to_int num)
+  | _ -> assert false
 
 (* modules *)
 
@@ -27,12 +27,12 @@ let load_module lst =
   | x :: init_node :: y :: env ->
       begin
         match x, y with
-        | Integer(bfrm), Sym(sym) ->
+        | bfrm, Sym(sym) ->
             begin
               try
                 Symbol.Hash.find module_hash sym
               with Not_found ->
-                let frm = Big_int.int_of_big_int bfrm
+                let frm = Bignum.to_int bfrm
                 in
                 assert (frm <= Env.length env);
                 let env2 = Env.pop_n env (Env.length env - frm - 1)
@@ -50,7 +50,7 @@ let load_module lst =
 
 let xrandom lst =
   match lst with
-  | (Integer(x)) :: _ -> Integer(big_int_of_int (Random.int (int_of_big_int x)))
+  | x :: _ -> Integer(big_int_of_int (Random.int (Bignum.to_int x)))
   | _ -> failwith "random: type error"
 
 (* strings *)

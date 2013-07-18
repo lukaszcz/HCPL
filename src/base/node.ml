@@ -29,10 +29,19 @@ type t =
   | Sym of Symbol.t
   | Cons of t * t
   | Quoted of t
+
+  (* UnboxedX are to ensure that the values of constant constructors have
+     their second bit set (i.e. they are not divisible by 2 when
+     interpreted as OCaml ints) *)
+  | Unboxed1
   | Nil
+  | Unboxed2
   | True
+  | Unboxed3
   | False
+  | Unboxed4
   | Placeholder
+  | Unboxed5
   | Ignore
 
   (* inlined core builtins *)
@@ -143,18 +152,41 @@ let xnot = LambdaEager(BNot(Var(0)), 0, ref 0, Attrs.create None None)
 let xand = LambdaEager(LambdaEager(BAnd(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
 let xor = LambdaEager(LambdaEager(BOr(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
 
-let is_immediate = function
-  (* note: don't use "| _ -> ..." here so that the compiler warns when we
-  forget one of the possibilities *)
-  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
-    MakeRecord(_) | Closure(_)
-    -> false
-  | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-    True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
-    LambdaClosure(_) | LambdaEagerClosure(_) |
-    BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
-    -> true
+(* WARNING: some functions below depend on OCaml implementation details *)
+
+let is_const (node : t) = Obj.is_int (Obj.repr node)
+
+let is_immediate node =
+  if is_const node then
+    true
+  else
+    match node with
+   (* note: don't use "| _ -> ..." here so that the compiler warns when we
+      forget one of the possibilities *)
+    | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
+      MakeRecord(_) | Closure(_)
+      -> false
+    | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+      True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
+      LambdaClosure(_) | LambdaEagerClosure(_) |
+      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+      BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+      Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
+      -> true
+
+let is_smallint (node : t) =
+  if is_const node then
+    (Obj.magic node) land 1 = 0
+  else
+    false
+
+let smallint_value (node : t) = assert (is_smallint node); (Obj.magic node) asr 1
+
+let is_smallint_value v = v <= max_int asr 1 && v >= min_int asr 1
+
+let make_smallint v = assert (is_smallint_value v); ((Obj.magic (v * 2)) : t)
+
+let smallint_bits = Config.int_bits / 2
 
 let rec get_attrs node =
   match node with
@@ -203,7 +235,21 @@ let mkappl lst attrs =
 
 (* Returns Nil for "don't know" *)
 let rec equal node1 node2 =
-  if not (is_immediate node1) || not (is_immediate node2) then
+  if is_const node1 then
+    begin
+      if is_const node2 && node1 == node2 then
+        True
+      else
+        False
+    end
+  else if is_const node2 then
+    begin
+      if is_const node1 && node1 == node2 then
+        True
+      else
+        False
+    end
+  else if not (is_immediate node1) || not (is_immediate node2) then
     Nil
   else
     match node1, node2 with
@@ -347,62 +393,66 @@ let to_string node =
               prn x (limit - 1) ^ "; " ^ prn_progn y
           | _ -> prn node (limit - 1)
         in
-        match node with
-        | Appl(Appl(f, x, _), y, _) when f == progn ->
-            "{" ^ prn x (limit - 1) ^ "; " ^ prn_progn y ^ "}"
-        | Appl(a, b, _) ->
-            if a == id then
-              "id(" ^ prn b (limit - 1) ^ ")"
-            else
-              "(" ^ (prn a (limit - 1)) ^ " " ^ (prn b (limit - 1)) ^ ")"
-        | Cond(x, y, z, _) ->
-            "(if " ^ (prn x (limit - 1)) ^ " then " ^ (prn y (limit - 1)) ^
-            " else " ^ (prn z (limit - 1)) ^ ")"
-        | Delay(x) -> "&" ^ prn x (limit - 1)
-        | Force(x) -> "!" ^ prn x (limit - 1)
-        | Leave(x) -> "#" ^ prn x (limit - 1)
-        | Var(i) -> "$" ^ string_of_int i
-        | Proxy(rx) -> prn !rx limit
-        | MakeRecord(_) -> "<make-record>"
-        | Lambda(body, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
-        | LambdaEager(body, frm, _, attrs) -> lambda_str body frm attrs CallByValue
-        | Builtin(_) -> "<builtin>"
-        | Integer(i) -> Big_int.string_of_big_int i
-        | String(str) -> "\"" ^ (String.escaped str) ^ "\""
-        | Record(_) -> "<record>"
-        | Sym(sym) -> Symbol.to_string sym
-        | True -> "true"
-        | False -> "false"
-        | Quoted(x) -> "(quote " ^ prn x (limit - 1) ^ ")"
-        | Placeholder -> "%%"
-        | Ignore -> "%_"
-        | Cons(x, y) ->
-            if is_list y then
-              prn_list node limit
-            else
-              "(" ^ prn x (limit - 1) ^ ", " ^ prn y (limit - 1) ^ ")"
-        | Nil -> "()"
-        | Delayed(_) -> "<delayed>"
-        | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
-        | LambdaClosure(body, _, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
-        | LambdaEagerClosure(body, _, frm, _, attrs) -> lambda_str body frm attrs CallByValue
-        | BEq(x, y) -> prn x (limit - 1) ^ " = " ^ prn y (limit - 1)
-        | BGt(x, y) -> prn x (limit - 1) ^ " > " ^ prn y (limit - 1)
-        | BGe(x, y) -> prn x (limit - 1) ^ " >= " ^ prn y (limit - 1)
-        | BAdd(x, y) -> prn x (limit - 1) ^ " + " ^ prn y (limit - 1)
-        | BSub(x, y) -> prn x (limit - 1) ^ " - " ^ prn y (limit - 1)
-        | BMul(x, y) -> prn x (limit - 1) ^ " * " ^ prn y (limit - 1)
-        | BIDiv(x, y) -> prn x (limit - 1) ^ " div " ^ prn y (limit - 1)
-        | BMod(x, y) -> prn x (limit - 1) ^ " mod " ^ prn y (limit - 1)
-        | BCons(x, y) -> "(cons " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
-        | BConsNE(x, y) -> "(cons# " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
-        | BFst(x) -> "(fst " ^ prn x (limit - 1) ^ ")"
-        | BSnd(x) -> "(snd " ^ prn x (limit - 1) ^ ")"
-        | BNot(x) -> "(not " ^ prn x (limit - 1) ^ ")"
-        | BAnd(x, y) -> prn x (limit - 1) ^ " and " ^ prn y (limit - 1)
-        | BOr(x, y) -> prn x (limit - 1) ^ " or " ^ prn y (limit - 1)
-        | BMatch(x, branches) -> "(match " ^ prn x (limit - 1) ^ " with" ^ prn_match branches ^ ")"
-        | BRecordGet(x, y) -> prn x (limit - 1) ^ "." ^ prn y (limit - 1)
+        if is_smallint node then
+          string_of_int (smallint_value node)
+        else
+          match node with
+          | Appl(Appl(f, x, _), y, _) when f == progn ->
+              "{" ^ prn x (limit - 1) ^ "; " ^ prn_progn y ^ "}"
+          | Appl(a, b, _) ->
+              if a == id then
+                "id(" ^ prn b (limit - 1) ^ ")"
+              else
+                "(" ^ (prn a (limit - 1)) ^ " " ^ (prn b (limit - 1)) ^ ")"
+          | Cond(x, y, z, _) ->
+              "(if " ^ (prn x (limit - 1)) ^ " then " ^ (prn y (limit - 1)) ^
+              " else " ^ (prn z (limit - 1)) ^ ")"
+          | Delay(x) -> "&" ^ prn x (limit - 1)
+          | Force(x) -> "!" ^ prn x (limit - 1)
+          | Leave(x) -> "#" ^ prn x (limit - 1)
+          | Var(i) -> "$" ^ string_of_int i
+          | Proxy(rx) -> prn !rx limit
+          | MakeRecord(_) -> "<make-record>"
+          | Lambda(body, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
+          | LambdaEager(body, frm, _, attrs) -> lambda_str body frm attrs CallByValue
+          | Builtin(_) -> "<builtin>"
+          | Integer(i) -> Big_int.string_of_big_int i
+          | String(str) -> "\"" ^ (String.escaped str) ^ "\""
+          | Record(_) -> "<record>"
+          | Sym(sym) -> Symbol.to_string sym
+          | True -> "true"
+          | False -> "false"
+          | Quoted(x) -> "(quote " ^ prn x (limit - 1) ^ ")"
+          | Placeholder -> "%%"
+          | Ignore -> "%_"
+          | Cons(x, y) ->
+              if is_list y then
+                prn_list node limit
+              else
+                "(" ^ prn x (limit - 1) ^ ", " ^ prn y (limit - 1) ^ ")"
+          | Nil -> "()"
+          | Delayed(_) -> "<delayed>"
+          | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
+          | LambdaClosure(body, _, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
+          | LambdaEagerClosure(body, _, frm, _, attrs) -> lambda_str body frm attrs CallByValue
+          | BEq(x, y) -> prn x (limit - 1) ^ " = " ^ prn y (limit - 1)
+          | BGt(x, y) -> prn x (limit - 1) ^ " > " ^ prn y (limit - 1)
+          | BGe(x, y) -> prn x (limit - 1) ^ " >= " ^ prn y (limit - 1)
+          | BAdd(x, y) -> prn x (limit - 1) ^ " + " ^ prn y (limit - 1)
+          | BSub(x, y) -> prn x (limit - 1) ^ " - " ^ prn y (limit - 1)
+          | BMul(x, y) -> prn x (limit - 1) ^ " * " ^ prn y (limit - 1)
+          | BIDiv(x, y) -> prn x (limit - 1) ^ " div " ^ prn y (limit - 1)
+          | BMod(x, y) -> prn x (limit - 1) ^ " mod " ^ prn y (limit - 1)
+          | BCons(x, y) -> "(cons " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
+          | BConsNE(x, y) -> "(cons# " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
+          | BFst(x) -> "(fst " ^ prn x (limit - 1) ^ ")"
+          | BSnd(x) -> "(snd " ^ prn x (limit - 1) ^ ")"
+          | BNot(x) -> "(not " ^ prn x (limit - 1) ^ ")"
+          | BAnd(x, y) -> prn x (limit - 1) ^ " and " ^ prn y (limit - 1)
+          | BOr(x, y) -> prn x (limit - 1) ^ " or " ^ prn y (limit - 1)
+          | BMatch(x, branches) -> "(match " ^ prn x (limit - 1) ^ " with" ^ prn_match branches ^ ")"
+          | BRecordGet(x, y) -> prn x (limit - 1) ^ "." ^ prn y (limit - 1)
+          | _ -> failwith "unknown node"
       end
   in
   prn node 20
