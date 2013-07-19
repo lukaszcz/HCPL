@@ -158,8 +158,6 @@ let xor = LambdaEager(LambdaEager(BOr(Var(1), Var(0)), 1, ref 0, None), 0, ref 0
 
 let is_const (node : t) = Obj.is_int (Obj.repr node)
 
-let is_cons node = match node with Cons(_) -> true | _ -> false
-
 (* NOTE: The correctness of the matchings below depends on the fact
    that different constant constructors are not differentiated by the
    matches and the same should be returned for smallints as for
@@ -209,7 +207,7 @@ let rec get_attrs node =
 let change_name node name =
   match get_attrs node with
   | Some(attrs) -> attrs.name <- Some(name)
-  | None -> assert false
+  | None -> ()
 
 let get_name node = Attrs.get_name (get_attrs node)
 
@@ -361,23 +359,23 @@ let to_string node =
           | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
           | LambdaClosure(body, _, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
           | LambdaEagerClosure(body, _, frm, _, attrs) -> lambda_str body frm attrs CallByValue
-          | BEq(x, y) -> prn x (limit - 1) ^ " = " ^ prn y (limit - 1)
-          | BGt(x, y) -> prn x (limit - 1) ^ " > " ^ prn y (limit - 1)
-          | BGe(x, y) -> prn x (limit - 1) ^ " >= " ^ prn y (limit - 1)
-          | BAdd(x, y) -> prn x (limit - 1) ^ " + " ^ prn y (limit - 1)
-          | BSub(x, y) -> prn x (limit - 1) ^ " - " ^ prn y (limit - 1)
-          | BMul(x, y) -> prn x (limit - 1) ^ " * " ^ prn y (limit - 1)
-          | BIDiv(x, y) -> prn x (limit - 1) ^ " div " ^ prn y (limit - 1)
-          | BMod(x, y) -> prn x (limit - 1) ^ " mod " ^ prn y (limit - 1)
+          | BEq(x, y) -> "(" ^ prn x (limit - 1) ^ " = " ^ prn y (limit - 1) ^ ")"
+          | BGt(x, y) -> "(" ^ prn x (limit - 1) ^ " > " ^ prn y (limit - 1) ^ ")"
+          | BGe(x, y) -> "(" ^ prn x (limit - 1) ^ " >= " ^ prn y (limit - 1) ^ ")"
+          | BAdd(x, y) -> "(" ^ prn x (limit - 1) ^ " + " ^ prn y (limit - 1) ^ ")"
+          | BSub(x, y) -> "(" ^ prn x (limit - 1) ^ " - " ^ prn y (limit - 1) ^ ")"
+          | BMul(x, y) -> "(" ^ prn x (limit - 1) ^ " * " ^ prn y (limit - 1) ^ ")"
+          | BIDiv(x, y) -> "(" ^ prn x (limit - 1) ^ " div " ^ prn y (limit - 1) ^ ")"
+          | BMod(x, y) -> "(" ^ prn x (limit - 1) ^ " mod " ^ prn y (limit - 1) ^ ")"
           | BCons(x, y) -> "(cons " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
           | BConsNE(x, y) -> "(cons# " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
           | BFst(x) -> "(fst " ^ prn x (limit - 1) ^ ")"
           | BSnd(x) -> "(snd " ^ prn x (limit - 1) ^ ")"
           | BNot(x) -> "(not " ^ prn x (limit - 1) ^ ")"
-          | BAnd(x, y) -> prn x (limit - 1) ^ " and " ^ prn y (limit - 1)
-          | BOr(x, y) -> prn x (limit - 1) ^ " or " ^ prn y (limit - 1)
+          | BAnd(x, y) -> "(" ^ prn x (limit - 1) ^ " and " ^ prn y (limit - 1) ^ ")"
+          | BOr(x, y) -> "(" ^ prn x (limit - 1) ^ " or " ^ prn y (limit - 1) ^ ")"
           | BMatch(x, branches) -> "(match " ^ prn x (limit - 1) ^ " with" ^ prn_match branches ^ ")"
-          | BRecordGet(x, y) -> prn x (limit - 1) ^ "." ^ prn y (limit - 1)
+          | BRecordGet(x, y) -> "(" ^ prn x (limit - 1) ^ "." ^ prn y (limit - 1) ^ ")"
           | _ -> failwith "unknown node"
       end
   in
