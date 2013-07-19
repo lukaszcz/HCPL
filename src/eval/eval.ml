@@ -14,6 +14,8 @@ let rec do_match_quoted node pat acc eq_mode =
   begin
     if pat == node then
       acc
+    else if is_smallint pat then
+      raise Exit
     else if eq_mode && not (is_immediate node && is_immediate pat) then
       raise Unknown
     else
@@ -114,15 +116,14 @@ let rec do_match_quoted node pat acc eq_mode =
                 raise Exit
           end
       | _ ->
-          if is_smallint pat then
-            raise Exit
-          else
-            failwith "bad pattern"
+          failwith "bad pattern"
   end
 
 let rec do_match node pat acc =
   if pat == node then
     acc
+  else if is_smallint pat then
+    raise Exit
   else
     begin
       match pat with
@@ -168,23 +169,13 @@ let rec do_match node pat acc =
                 raise Exit
           end
       | _ ->
-          if is_smallint pat then
-            raise Exit
-          else
-            failwith "bad pattern"
+          failwith "bad pattern"
     end
 
 let do_equal node1 node2 =
-  if is_const node1 then
+  if is_const node1 || is_const node2 then
     begin
-      if is_const node2 && node1 == node2 then
-        True
-      else
-        False
-    end
-  else if is_const node2 then
-    begin
-      if is_const node1 && node1 == node2 then
+      if node1 == node2 then
         True
       else
         False
