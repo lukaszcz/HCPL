@@ -17,6 +17,29 @@ type t =
   | Proxy of t ref
   | MakeRecord of t Symbol.Map.t
 
+  (* inlined core builtins *)
+  | BEq of t * t
+  | BGt of t * t
+  | BGe of t * t
+  | BAdd of t * t
+  | BSub of t * t
+  | BMul of t * t
+  | BIDiv of t * t
+  | BMod of t * t
+  | BCons of t * t
+  | BConsNE of t * t
+  | BFst of t
+  | BSnd of t
+  | BNot of t
+  | BAnd of t * t
+  | BOr of t * t
+  | BMatch of t * ((t * t * int) list)
+  | BRecordGet of t * t
+
+  (* used only by the evaluator *)
+  | Closure of t * t list * int
+  | Delayed of t ref
+
   (* immediate *)
   | Lambda of t * int * call_t * int ref * attrs_t option
         (* (body, frame number (for the argument), call type, times entered, attrs) *)
@@ -44,28 +67,7 @@ type t =
   | Unboxed5
   | Ignore
 
-  (* inlined core builtins *)
-  | BEq of t * t
-  | BGt of t * t
-  | BGe of t * t
-  | BAdd of t * t
-  | BSub of t * t
-  | BMul of t * t
-  | BIDiv of t * t
-  | BMod of t * t
-  | BCons of t * t
-  | BConsNE of t * t
-  | BFst of t
-  | BSnd of t
-  | BNot of t
-  | BAnd of t * t
-  | BOr of t * t
-  | BMatch of t * ((t * t * int) list)
-  | BRecordGet of t * t
-
   (* used only by the evaluator *)
-  | Delayed of t ref
-  | Closure of t * t list * int
   | LambdaClosure of t * t list * int * call_t * int ref * attrs_t option
         (* (body, argument env, env_len, call type, times entered, attrs) *)
   | LambdaEagerClosure of t * t list * int * int ref * attrs_t option
@@ -156,23 +158,25 @@ let xor = LambdaEager(LambdaEager(BOr(Var(1), Var(0)), 1, ref 0, None), 0, ref 0
 
 let is_const (node : t) = Obj.is_int (Obj.repr node)
 
-let is_immediate node =
-  if is_const node then
-    true
-  else
-    match node with
-   (* note: don't use "| _ -> ..." here so that the compiler warns when we
-      forget one of the possibilities *)
-    | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
-      MakeRecord(_) | Closure(_) |
-      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-      BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
-      -> false
-    | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-      True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
-      LambdaClosure(_) | LambdaEagerClosure(_) |
-      Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
-      -> true
+let is_cons node = match node with Cons(_) -> true | _ -> false
+
+(* NOTE: The correctness of the matchings below depends on the fact
+   that different constant constructors are not differentiated by the
+   matches and the same should be returned for smallints as for
+   constant constructors. *)
+let is_immediate node = match node with
+    (* note: don't use "| _ -> ..." here so that the compiler warns when we
+       forget one of the possibilities *)
+  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
+    MakeRecord(_) | Closure(_) |
+    BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+    -> false
+  | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+    True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
+    LambdaClosure(_) | LambdaEagerClosure(_) |
+    Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
+    -> true
 
 let is_smallint (node : t) =
   if is_const node then

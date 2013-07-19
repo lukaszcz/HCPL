@@ -216,24 +216,35 @@ let pop_to env env_len frm =
 
 let do_close x env env_len =
     match x with
-    | Lambda(body, frame, call_type, times_entered, attrs) ->
-        LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
-    | LambdaEager(body, frame, times_entered, attrs) ->
-        LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
-    | Var(n) -> assert (n < env_len); Env.nth env n
     | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) |
       BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
       BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
       ->
         Closure(x, env, env_len)
+    | Lambda(body, frame, call_type, times_entered, attrs) ->
+        LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
+    | LambdaEager(body, frame, times_entered, attrs) ->
+        LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
+    | Var(n) -> assert (n < env_len); Env.nth env n
     | _ -> x
 
-let do_delay x env env_len =
-  let x = do_close x env env_len
-  in
-  match x with
-  | Delayed(_) -> x
-  | _ -> Delayed(ref x)
+let rec do_delay x env env_len =
+   match x with
+   | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | MakeRecord(_) | Proxy(_) |
+     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+     BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+     Closure(_)
+     (* is is very rare that we get a closure here -- only when sth
+        (e.g. application) was not fully evaluated *)
+     ->
+       Delayed(ref (Closure(x, env, env_len)))
+   | Lambda(body, frame, call_type, times_entered, attrs) ->
+       LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
+   | LambdaEager(body, frame, times_entered, attrs) ->
+       LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
+   | Var(n) -> assert (n < env_len); assert (env <> []);
+       do_delay (Env.nth env n) [] 0 (* passing [] is OK since values in envs are closed, so the env won't be needed *)
+   | _ -> x
 
 let rec do_eval node env env_len =
   match node with
@@ -320,8 +331,17 @@ let rec do_eval node env env_len =
       do_eval (Env.nth env n) env env_len
 
   | Delayed(rx) ->
-      rx := do_eval !rx env env_len;
-      !rx
+      begin
+        let x = !rx
+        in
+        if is_immediate x then
+          x
+        else
+          begin
+            rx := do_eval x env env_len;
+            !rx
+          end
+      end
 
   | Proxy(rx) ->
       do_eval !rx env env_len
