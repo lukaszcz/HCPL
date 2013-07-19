@@ -210,8 +210,6 @@ let do_close x env env_len =
         Closure(x, env, env_len)
     | Lambda(body, frame, call_type, times_entered, attrs) ->
         LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
-    | LambdaEager(body, frame, times_entered, attrs) ->
-        LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
     | Var(n) -> assert (n < env_len); Env.nth env n
     | _ -> x
 
@@ -227,8 +225,6 @@ let rec do_delay x env env_len =
        Delayed(ref (Closure(x, env, env_len)))
    | Lambda(body, frame, call_type, times_entered, attrs) ->
        LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
-   | LambdaEager(body, frame, times_entered, attrs) ->
-       LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
    | Var(n) -> assert (n < env_len); assert (env <> []);
        do_delay (Env.nth env n) [] 0 (* passing [] is OK since values in envs are closed, so the env won't be needed *)
    | _ -> x
@@ -240,7 +236,7 @@ let rec do_eval node env env_len =
         let x = do_eval x env env_len
         in
         match x with
-        | LambdaEager(body, frame, _, _) | Lambda(body, frame, CallByValue, _, _) ->
+        | Lambda(body, frame, CallByValue, _, _) ->
             let arg = do_eval y env env_len
             and env2 = pop_to env env_len frame
             and env2_len = frame
@@ -274,7 +270,7 @@ let rec do_eval node env env_len =
                   do_eval body (arg :: env2) (env2_len + 1)
             end
 
-        | LambdaEagerClosure(body, env2, env2_len, _, _) | LambdaClosure(body, env2, env2_len, CallByValue, _, _) ->
+        | LambdaClosure(body, env2, env2_len, CallByValue, _, _) ->
             let arg = do_eval y env env_len
             in
             do_eval body (arg :: env2) (env2_len + 1)
@@ -348,13 +344,10 @@ let rec do_eval node env env_len =
   | MakeRecord(identtab) ->
       Record(Symbol.Map.map (fun x -> do_close x env env_len) identtab)
 
-  | Lambda(_, 0, _, _, _) | LambdaEager(_, 0, _, _) | LambdaClosure(_) | LambdaEagerClosure(_) -> node
+  | Lambda(_, 0, _, _, _) | LambdaClosure(_) -> node
 
   | Lambda(body, frame, call_type, times_entered, attrs) ->
       LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
-
-  | LambdaEager(body, frame, times_entered, attrs) ->
-      LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
 
   | Builtin(func, args_num, _) ->
       assert (args_num >= env_len);
@@ -591,8 +584,8 @@ let rec do_eval node env env_len =
               | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | Proxy(_) | MakeRecord(_) |
                 BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
                 BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
-                Closure(_) | Delayed(_) | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) |
-                Record(_) | Quoted(_) | LambdaClosure(_) | LambdaEagerClosure(_)
+                Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | Integer(_) | String(_) |
+                Record(_) | Quoted(_) | LambdaClosure(_)
                 ->
                   begin
                     let env2 =

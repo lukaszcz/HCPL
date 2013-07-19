@@ -702,8 +702,6 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                           match value with
                           | Node.Lambda(body, frm, call_type, seen, attrs) ->
                               Node.Lambda(body, frm, call_type, seen, Node.Attrs.set_name attrs sym)
-                          | Node.LambdaEager(body, frm, seen, attrs) ->
-                              Node.LambdaEager(body, frm, seen, Node.Attrs.set_name attrs sym)
                           | _ -> value
                         in
                         r := value2;
@@ -765,10 +763,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                   Program(Node.optimize body)
                 else
                   let lam =
-                    if ct = Node.CallByValue then
-                      Node.LambdaEager(Node.optimize body, Scope.frame scope + 1, ref 0, attrs)
-                    else
-                      Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs)
+                    Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs)
                   in
                   Program(Node.Appl(lam, value, None))
             | _ -> assert false)
@@ -1093,10 +1088,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           (fun lst attrs scope ->
             match lst with
             | [CallType(ct); Ident(sym); Program(body)] ->
-                if ct = Node.CallByValue then
-                  Program(Node.LambdaEager(Node.optimize body, Scope.frame scope + 1, ref 0, attrs))
-                else
-                  Program(Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs))
+                Program(Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs))
             | _ -> assert false)
         end
 

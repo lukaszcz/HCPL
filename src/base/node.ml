@@ -43,7 +43,6 @@ type t =
   (* immediate *)
   | Lambda of t * int * call_t * int ref * attrs_t option
         (* (body, frame number (for the argument), call type, times entered, attrs) *)
-  | LambdaEager of t * int * int ref * attrs_t option
   | Builtin of (t list -> t) * int * attrs_t option
         (* (function, args num, attrs) *)
   | Integer of Big_int.big_int
@@ -70,8 +69,6 @@ type t =
   (* used only by the evaluator *)
   | LambdaClosure of t * t list * int * call_t * int ref * attrs_t option
         (* (body, argument env, env_len, call type, times entered, attrs) *)
-  | LambdaEagerClosure of t * t list * int * int ref * attrs_t option
-        (* (body, argument env, env_len, times entered, attrs) *)
 and attrs_t = { mutable name : Symbol.t option; pos : Lexing.position option;
                 attr_map : (t Symbol.Map.t) option; node_type : t option }
 
@@ -131,28 +128,28 @@ module Attrs =
   end
 
 let id = Lambda(Var(0), 0, CallByName, ref 0, Attrs.create None None)
-let progn = LambdaEager(id, 0, ref 0, Attrs.create None None)
+let progn = Lambda(id, 0, CallByValue, ref 0, Attrs.create None None)
 
-let eq = LambdaEager(LambdaEager(BEq(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let gt = LambdaEager(LambdaEager(BGt(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let lt = LambdaEager(LambdaEager(BGt(Var(0), Var(1)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let ge = LambdaEager(LambdaEager(BGe(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let le = LambdaEager(LambdaEager(BGe(Var(0), Var(1)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let add = LambdaEager(LambdaEager(BAdd(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let sub = LambdaEager(LambdaEager(BSub(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let mul = LambdaEager(LambdaEager(BMul(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let idiv = LambdaEager(LambdaEager(BIDiv(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let xmod = LambdaEager(LambdaEager(BMod(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let cons = LambdaEager(LambdaEager(BCons(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let cons_comma = LambdaEager(LambdaEager(BCons(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let eq = Lambda(Lambda(BEq(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let gt = Lambda(Lambda(BGt(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let lt = Lambda(Lambda(BGt(Var(0), Var(1)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let ge = Lambda(Lambda(BGe(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let le = Lambda(Lambda(BGe(Var(0), Var(1)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let add = Lambda(Lambda(BAdd(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let sub = Lambda(Lambda(BSub(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let mul = Lambda(Lambda(BMul(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let idiv = Lambda(Lambda(BIDiv(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let xmod = Lambda(Lambda(BMod(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let cons = Lambda(Lambda(BCons(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let cons_comma = Lambda(Lambda(BCons(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
 let cons_lazy = Lambda(Lambda(BConsNE(Var(1), Var(0)), 1, CallByNeed, ref 0, None), 0, CallByNeed, ref 0, Attrs.create None None)
-let xfst = LambdaEager(BFst(Var(0)), 0, ref 0, Attrs.create None None)
-let xsnd = LambdaEager(BSnd(Var(0)), 0, ref 0, Attrs.create None None)
-let xhd = LambdaEager(BFst(Var(0)), 0, ref 0, Attrs.create None None)
-let xtl = LambdaEager(BSnd(Var(0)), 0, ref 0, Attrs.create None None)
-let xnot = LambdaEager(BNot(Var(0)), 0, ref 0, Attrs.create None None)
-let xand = LambdaEager(LambdaEager(BAnd(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
-let xor = LambdaEager(LambdaEager(BOr(Var(1), Var(0)), 1, ref 0, None), 0, ref 0, Attrs.create None None)
+let xfst = Lambda(BFst(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
+let xsnd = Lambda(BSnd(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
+let xhd = Lambda(BFst(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
+let xtl = Lambda(BSnd(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
+let xnot = Lambda(BNot(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
+let xand = Lambda(Lambda(BAnd(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let xor = Lambda(Lambda(BOr(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
 
 (* WARNING: some functions below depend on OCaml implementation details *)
 
@@ -170,10 +167,9 @@ let is_immediate node = match node with
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
     BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     -> false
-  | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+  | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
-    LambdaClosure(_) | LambdaEagerClosure(_) |
-    Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
+    LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
     -> true
 
 let is_smallint (node : t) =
@@ -197,9 +193,7 @@ let rec get_attrs node =
   | Delayed(rx) -> get_attrs !rx
   | Proxy(rx) -> get_attrs !rx
   | Lambda(_, _, _, _, attrs) -> attrs
-  | LambdaEager(_, _, _, attrs) -> attrs
   | LambdaClosure(_, _, _, _, _, attrs) -> attrs
-  | LambdaEagerClosure(_, _, _, _, attrs) -> attrs
   | Closure(x, _, _) -> get_attrs x
   | Builtin(_, _, attrs) -> attrs
   | _ -> None
@@ -264,7 +258,6 @@ let optimize node =
 
 let rec normalize node =
   match node with
-  | LambdaEager(body, frame, seen, attrs) -> Lambda(body, frame, CallByValue, seen, attrs)
   | Proxy(r) -> normalize !r
   | _ -> node
 
@@ -338,7 +331,6 @@ let to_string node =
           | Proxy(rx) -> prn !rx limit
           | MakeRecord(_) -> "<make-record>"
           | Lambda(body, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
-          | LambdaEager(body, frm, _, attrs) -> lambda_str body frm attrs CallByValue
           | Builtin(_) -> "<builtin>"
           | Integer(i) -> Big_int.string_of_big_int i
           | String(str) -> "\"" ^ (String.escaped str) ^ "\""
@@ -358,7 +350,6 @@ let to_string node =
           | Delayed(_) -> "<delayed>"
           | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
           | LambdaClosure(body, _, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
-          | LambdaEagerClosure(body, _, frm, _, attrs) -> lambda_str body frm attrs CallByValue
           | BEq(x, y) -> "(" ^ prn x (limit - 1) ^ " = " ^ prn y (limit - 1) ^ ")"
           | BGt(x, y) -> "(" ^ prn x (limit - 1) ^ " > " ^ prn y (limit - 1) ^ ")"
           | BGe(x, y) -> "(" ^ prn x (limit - 1) ^ " >= " ^ prn y (limit - 1) ^ ")"
