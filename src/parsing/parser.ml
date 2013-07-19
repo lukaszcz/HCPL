@@ -692,37 +692,39 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             ident_let ++
             symbol sym_eq ++
             new_keyword sym_in (catch_errors expr) ++
-            (change_scope
-               (fun lst _ scope ->
-                 match lst with
-                 | [_; Ident(sym); Program(value)] ->
-                     begin
-                       match Scope.find_ident scope sym with
-                       | Node.Proxy(r) ->
-                           let value2 =
-                             match value with
-                             | Node.Lambda(body, frm, call_type, seen, attrs) ->
-                                 Node.Lambda(body, frm, call_type, seen, Node.Attrs.set_name attrs sym)
-                             | Node.LambdaEager(body, frm, seen, attrs) ->
-                                 Node.LambdaEager(body, frm, seen, Node.Attrs.set_name attrs sym)
-                             | _ -> value
-                           in
-                           r := value2;
-                           let node =
-                             if Node.is_immediate value2 then
-                               value2
-                             else
-                               Node.Var(Scope.frame scope + 1)
-                           in
-                           let scope2 = Scope.replace_ident scope sym node
-                           in
-                           if Node.is_immediate value2 then
-                             scope2
-                           else
-                             Scope.push_frame scope2
-                       | _ -> Debug.print (sexp_list_to_string lst); assert false
-                     end
-                 | _ -> assert false)) ++
+            (fun () (lst, attrs, strm, scope) cont ->
+              match lst with
+              | [Program(value); Ident(sym); x] ->
+                  begin
+                    match Scope.find_ident scope sym with
+                    | Node.Proxy(r) ->
+                        let value2 =
+                          match value with
+                          | Node.Lambda(body, frm, call_type, seen, attrs) ->
+                              Node.Lambda(body, frm, call_type, seen, Node.Attrs.set_name attrs sym)
+                          | Node.LambdaEager(body, frm, seen, attrs) ->
+                              Node.LambdaEager(body, frm, seen, Node.Attrs.set_name attrs sym)
+                          | _ -> value
+                        in
+                        r := value2;
+                        let node =
+                          if Node.is_immediate value2 then
+                            value2
+                          else
+                            Node.Var(Scope.frame scope + 1)
+                        in
+                        let scope2 = Scope.replace_ident scope sym node
+                        in
+                        let scope3 =
+                        if Node.is_immediate value2 then
+                          scope2
+                        else
+                          Scope.push_frame scope2
+                        in
+                        cont ([Program(value2); Ident(sym); x], attrs, strm, scope3)
+                    | _ -> Debug.print (sexp_list_to_string lst); assert false
+                  end
+              | _ -> assert false) ++
             (symbol sym_in +! new_ident_scope progn ++
                (change_scope
                   (fun lst _ scope ->
