@@ -214,6 +214,13 @@ let peek (token : Token.t) =
                           "syntax error",
                           (fun () -> cont state)))
 
+let warn msg =
+  fun () ((_, _, strm, scope) as state) (cont : parser_cont_t) ->
+    begin
+      Error.warn (Some(Scope.strm_position scope strm)) msg;
+      cont state
+    end
+
 let symbol sym = token (Token.Symbol(sym))
 let keyword sym = token (Token.Keyword(sym))
 
@@ -733,6 +740,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                else
                  Program(Node.Nil))
            ^||
+             (peek (Token.Keyword(sym_in)) ++ warn "this `in' belongs to an earlier `let', which is probably not what you intend")
+             ++ repl_decl ++ progn
+           ^||
              repl_decl ++ progn
             )
             ++
@@ -1072,7 +1082,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                new_ident_scope
                (new_frame
                   (ident_lambda ++ discard (maybe ret_atype) ++
-                     (symbol sym_dot +! expr
+                     (symbol sym_dot +! (catch_errors expr)
                      ^||
                      token Token.LeftParenCurl +! new_scope (catch_errors (progn ++ token Token.RightParenCurl))
                      ^||

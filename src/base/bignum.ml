@@ -1,4 +1,4 @@
-(* bignum.mli: Big numbers encoded in nodes -- implementation.
+(* bignum.ml: Big numbers encoded in nodes -- implementation.
 
    Copyright (C) 2013 by Łukasz Czajka
 *)

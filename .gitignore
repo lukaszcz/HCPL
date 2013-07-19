@@ -8,4 +8,4 @@ ipl.byte
 ipl.native
 test.out
 a.out
-benchmarks.log
+*.log

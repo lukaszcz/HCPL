@@ -164,13 +164,13 @@ let is_immediate node =
    (* note: don't use "| _ -> ..." here so that the compiler warns when we
       forget one of the possibilities *)
     | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
-      MakeRecord(_) | Closure(_)
+      MakeRecord(_) | Closure(_) |
+      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+      BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
       -> false
     | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
       True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
       LambdaClosure(_) | LambdaEagerClosure(_) |
-      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-      BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
       Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
       -> true
 
@@ -186,7 +186,7 @@ let is_smallint_value v = v <= max_int asr 1 && v >= min_int asr 1
 
 let make_smallint v = assert (is_smallint_value v); ((Obj.magic (v * 2)) : t)
 
-let smallint_bits = Config.int_bits / 2
+let smallint_bits = Config.int_bits - 1
 
 let rec get_attrs node =
   match node with

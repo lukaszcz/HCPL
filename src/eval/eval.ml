@@ -6,33 +6,6 @@ Copyright (C) 2013 by Łukasz Czajka
 
 open Node
 
-let pop_to env env_len frm =
-  if frm = 0 then
-    Env.empty
-  else
-    let n = env_len - frm
-    in
-    if n > 0 then
-      match env with
-      | h :: t -> assert (env != Env.empty); Env.pop_n t (n - 1)
-      | [] -> assert (env <> []); []
-    else
-      env
-
-let do_close x env env_len =
-    match x with
-    | Lambda(body, frame, call_type, times_entered, attrs) ->
-        LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
-    | LambdaEager(body, frame, times_entered, attrs) ->
-        LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
-    | Var(n) -> assert (n < env_len); Env.nth env n
-    | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) |
-      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-      BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
-      ->
-        Closure(x, env, env_len)
-    | _ -> x
-
 exception Unknown
 
 let rec do_match_quoted node pat acc eq_mode =
@@ -228,6 +201,40 @@ let do_equal node1 node2 =
         BEq(node1, node2)
     end
 
+let pop_to env env_len frm =
+  if frm = 0 then
+    Env.empty
+  else
+    let n = env_len - frm
+    in
+    if n > 0 then
+      match env with
+      | h :: t -> assert (env != Env.empty); Env.pop_n t (n - 1)
+      | [] -> assert (env <> []); []
+    else
+      env
+
+let do_close x env env_len =
+    match x with
+    | Lambda(body, frame, call_type, times_entered, attrs) ->
+        LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
+    | LambdaEager(body, frame, times_entered, attrs) ->
+        LambdaEagerClosure(body, Env.pop_n env (env_len - frame), frame, times_entered, attrs)
+    | Var(n) -> assert (n < env_len); Env.nth env n
+    | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) |
+      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+      BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+      ->
+        Closure(x, env, env_len)
+    | _ -> x
+
+let do_delay x env env_len =
+  let x = do_close x env env_len
+  in
+  match x with
+  | Delayed(_) -> x
+  | _ -> Delayed(ref x)
+
 let rec do_eval node env env_len =
   match node with
   | Appl(x, y, attrs) ->
@@ -260,7 +267,7 @@ let rec do_eval node env env_len =
               | _ ->
                   let arg =
                     if call_type = CallByNeed then
-                      Delayed(ref (do_close y env env_len))
+                      do_delay y env env_len
                     else
                       do_close y env env_len
                   and env2 = pop_to env env_len frame
@@ -288,7 +295,7 @@ let rec do_eval node env env_len =
               | _ ->
                   let arg =
                     if call_type = CallByNeed then
-                      Delayed(ref (do_close y env env_len))
+                      do_delay y env env_len
                     else
                       do_close y env env_len
                   in
@@ -326,7 +333,7 @@ let rec do_eval node env env_len =
       do_eval x env env_len
 
   | Delay(x) ->
-      Delayed(ref (do_close x env env_len))
+      do_delay x env env_len
 
   | Leave(x) ->
       do_close x env env_len
