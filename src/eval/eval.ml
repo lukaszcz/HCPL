@@ -12,10 +12,13 @@ let rec do_match_quoted node pat acc eq_mode =
   let node = Node.normalize node in
   let pat = Node.normalize pat in
   begin
-    if pat == node then
-      acc
-    else if is_smallint pat then
-      raise Exit
+    if is_smallint pat then
+      begin
+        if pat == node then
+          acc
+        else
+          raise Exit
+      end
     else if eq_mode && not (is_immediate node && is_immediate pat) then
       raise Unknown
     else
@@ -82,8 +85,13 @@ let rec do_match_quoted node pat acc eq_mode =
             | Sym(y) -> if Symbol.eq x y then acc else raise Exit
             | _ -> raise Exit
           end
-      | String(_) | Record(_) | Nil | True | False ->
-          if node = pat then
+      | Nil | True | False ->
+          if node == pat then
+            acc
+          else
+            raise Exit
+      | String(_) | Record(_) ->
+          if not (is_const node) && node = pat then
             acc
           else
             raise Exit
@@ -120,10 +128,13 @@ let rec do_match_quoted node pat acc eq_mode =
   end
 
 let rec do_match node pat acc =
-  if pat == node then
-    acc
-  else if is_smallint pat then
-    raise Exit
+  if is_smallint pat then
+    begin
+      if pat == node then
+        acc
+      else
+        raise Exit
+    end
   else
     begin
       match pat with
@@ -143,8 +154,13 @@ let rec do_match node pat acc =
             | Sym(y) -> if Symbol.eq x y then acc else raise Exit
             | _ -> raise Exit
           end
-      | String(_) | Record(_) | Nil | True | False ->
-          if node = pat then
+      | Nil | True | False ->
+          if node == pat then
+            acc
+          else
+            raise Exit
+      | String(_) | Record(_) ->
+          if not (is_const node) && node = pat then
             acc
           else
             raise Exit
@@ -170,26 +186,6 @@ let rec do_match node pat acc =
           end
       | _ ->
           failwith "bad pattern"
-    end
-
-let do_equal node1 node2 =
-  if is_const node1 || is_const node2 then
-    begin
-      if node1 == node2 then
-        True
-      else
-        False
-    end
-  else
-    begin
-      try
-        List.hd
-          (try
-            do_match_quoted node1 node2 [True] true
-          with Exit ->
-            [False])
-      with Unknown ->
-        BEq(node1, node2)
     end
 
 let pop_to env env_len frm =
@@ -367,9 +363,26 @@ let rec do_eval node env env_len =
   (* inlined builtins *)
 
   | BEq(x, y) ->
-      let x = do_eval x env env_len in
-      let y = do_eval y env env_len in
-      do_equal x y
+      let node1 = do_eval x env env_len in
+      let node2 = do_eval y env env_len in
+      if is_const node1 || is_const node2 then
+        begin
+          if node1 == node2 then
+            True
+          else
+            False
+        end
+      else
+        begin
+          try
+            List.hd
+              (try
+                do_match_quoted node1 node2 [True] true
+              with Exit ->
+                [False])
+          with Unknown ->
+            BEq(node1, node2)
+        end
 
   | BGt(x, y) ->
       begin
@@ -482,16 +495,137 @@ let rec do_eval node env env_len =
             begin
               let pat = do_eval y env env_len
               in
-              let env2 =
-                try
-                  do_match node pat env
-                with Exit ->
-                  []
-              in
-              if env2 != [] then
-                do_eval body env2 (env_len + args_num)
-              else
-                loop node env env_len t
+              match pat with
+              | Sym(psym) ->
+                  begin
+                    match node with
+                    | Sym(nsym) when Symbol.eq psym nsym ->
+                        assert (args_num = 0);
+                        do_eval body env env_len
+                    | _ ->
+                        loop node env env_len t
+                  end
+              | Cons(ph, pt) ->
+                  begin
+                    match node with
+                    | Cons(nh, nt) ->
+                        begin
+                          match (ph, pt) with
+                          | Placeholder, Placeholder ->
+                              do_eval body (nt :: nh :: env) (env_len + 2)
+                          | Placeholder, Ignore ->
+                              do_eval body (nh :: env) (env_len + 1)
+                          | Ignore, Placeholder ->
+                              do_eval body (nt :: env) (env_len + 1)
+                          | Ignore, Ignore ->
+                              do_eval body env env_len
+                          | Placeholder, _ ->
+                              begin
+                                let env2 =
+                                  try
+                                    do_match nt pt (nh :: env)
+                                  with Exit ->
+                                    []
+                                in
+                                if env2 != [] then
+                                  do_eval body env2 (env_len + args_num)
+                                else
+                                  loop node env env_len t
+                              end
+                          | Ignore, _ ->
+                              begin
+                                let env2 =
+                                  try
+                                    do_match nt pt env
+                                  with Exit ->
+                                    []
+                                in
+                                if env2 != [] then
+                                  do_eval body env2 (env_len + args_num)
+                                else
+                                  loop node env env_len t
+                              end
+                          | _, Placeholder ->
+                              begin
+                                let env2 =
+                                  try
+                                    nt :: (do_match nh ph env)
+                                  with Exit ->
+                                    []
+                                in
+                                if env2 != [] then
+                                  do_eval body env2 (env_len + args_num)
+                                else
+                                  loop node env env_len t
+                              end
+                          | _, Ignore ->
+                              begin
+                                let env2 =
+                                  try
+                                    do_match nh ph env
+                                  with Exit ->
+                                    []
+                                in
+                                if env2 != [] then
+                                  do_eval body env2 (env_len + args_num)
+                                else
+                                  loop node env env_len t
+                              end
+                          | _ ->
+                              begin
+                                let env2 =
+                                  try
+                                    do_match nt pt (do_match nh ph env)
+                                  with Exit ->
+                                    []
+                                in
+                                if env2 != [] then
+                                  do_eval body env2 (env_len + args_num)
+                                else
+                                  loop node env env_len t
+                              end
+                        end
+                    | _ ->
+                        loop node env env_len t
+                  end
+              | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | Proxy(_) | MakeRecord(_) |
+                BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+                BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+                Closure(_) | Delayed(_) | Lambda(_) | LambdaEager(_) | Builtin(_) | Integer(_) | String(_) |
+                Record(_) | Quoted(_) | LambdaClosure(_) | LambdaEagerClosure(_)
+                ->
+                  begin
+                    let env2 =
+                      try
+                        do_match node pat env
+                      with Exit ->
+                        []
+                    in
+                    if env2 != [] then
+                      do_eval body env2 (env_len + args_num)
+                    else
+                      loop node env env_len t
+                  end
+              | _ ->
+                  begin
+                    if pat == Ignore then
+                      begin
+                        assert (args_num = 0);
+                        do_eval body env env_len
+                      end
+                    else if pat == Placeholder then
+                      begin
+                        assert (args_num = 1);
+                        do_eval body (node :: env) (env_len + 1)
+                      end
+                    else if pat == node then
+                      begin
+                        assert (args_num = 0);
+                        do_eval body env env_len
+                      end
+                    else
+                      loop node env env_len t
+                  end
             end
         | [] -> failwith "match failure"
       in
