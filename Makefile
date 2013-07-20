@@ -28,4 +28,4 @@ clean:
 	ocamlbuild -clean
 	-rm ipl
 	-rm *.out
-	-rm benchmarks.log
+	-rm *.log
