@@ -6,7 +6,7 @@ DEBUG_LIBS=nums.cmxa
 RELEASE_LIBS=nums.cmxa
 
 DEBUG_FLAGS=-inline 0 -g
-RELEASE_FLAGS=-inline 100 -noassert -unsafe -nodynlink -ccopt -O9
+RELEASE_FLAGS=-inline 40 -noassert -unsafe -nodynlink -ccopt -O9
 
 SPACE :=
 SPACE +=

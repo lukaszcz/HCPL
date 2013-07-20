@@ -196,7 +196,7 @@ let pop_to env env_len frm =
     in
     if n > 0 then
       match env with
-      | h :: t -> assert (env != Env.empty); Env.pop_n t (n - 1)
+      | _ :: t -> assert (env != Env.empty); Env.pop_n t (n - 1)
       | [] -> assert (env <> []); []
     else
       env
@@ -237,7 +237,22 @@ let rec do_eval node env env_len =
         in
         match x with
         | Lambda(body, frame, CallByValue, _, _) ->
-            let arg = do_eval y env env_len
+            let arg =
+              match y with
+              | Var(n) ->
+                  begin
+                    let y = Env.nth env n
+                    in
+                    if is_immediate y then y else do_eval y env env_len
+                  end
+              | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) | MakeRecord(_) | Closure(_) |
+                BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+                BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+                Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+                Cons(_) | Quoted(_) | LambdaClosure(_) ->
+                  do_eval y env env_len
+              | _ ->
+                  y
             and env2 = pop_to env env_len frame
             and env2_len = frame
             in
@@ -271,7 +286,23 @@ let rec do_eval node env env_len =
             end
 
         | LambdaClosure(body, env2, env2_len, CallByValue, _, _) ->
-            let arg = do_eval y env env_len
+            let arg =
+              match y with
+              | Var(n) ->
+                  begin
+                    let y = Env.nth env n
+                    in
+                    if is_immediate y then y else do_eval y env env_len
+                  end
+              | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+                MakeRecord(_) | Closure(_) |
+                BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+                BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+                Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+                Cons(_) | Quoted(_) | LambdaClosure(_) ->
+                  do_eval y env env_len
+              | _ ->
+                  y
             in
             do_eval body (arg :: env2) (env2_len + 1)
 
@@ -310,8 +341,12 @@ let rec do_eval node env env_len =
       end
 
   | Var(n) ->
-      assert (n < env_len);
-      do_eval (Env.nth env n) env env_len
+      begin
+        assert (n < env_len);
+        let x = Env.nth env n
+        in
+        if is_const x then x else do_eval x env env_len
+      end
 
   | Delayed(rx) ->
       begin
@@ -356,8 +391,42 @@ let rec do_eval node env env_len =
   (* inlined builtins *)
 
   | BEq(x, y) ->
-      let node1 = do_eval x env env_len in
-      let node2 = do_eval y env env_len in
+      let node1 =
+        match x with
+        | Var(n) ->
+            begin
+              let x = Env.nth env n
+              in
+              if is_const x then x else do_eval x env env_len
+            end
+        | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+          MakeRecord(_) | Closure(_) |
+          BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+          BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+          Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+          Cons(_) | Quoted(_) | LambdaClosure(_) ->
+            do_eval x env env_len
+        | _ ->
+            x
+      in
+      let node2 =
+        match y with
+        | Var(n) ->
+            begin
+              let y = Env.nth env n
+              in
+              if is_const y then y else do_eval y env env_len
+            end
+        | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+          MakeRecord(_) | Closure(_) |
+          BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+          BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+          Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+          Cons(_) | Quoted(_) | LambdaClosure(_) ->
+            do_eval y env env_len
+        | _ ->
+            y
+      in
       if is_const node1 || is_const node2 then
         begin
           if node1 == node2 then
@@ -379,57 +448,329 @@ let rec do_eval node env env_len =
 
   | BGt(x, y) ->
       begin
-        let x = do_eval x env env_len in
-        let y = do_eval y env env_len in
+        let x =
+          match x with
+          | Var(n) ->
+              begin
+                let x = Env.nth env n
+                in
+                if is_const x then x else do_eval x env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval x env env_len
+          | _ ->
+              x
+        in
+        let y =
+          match y with
+          | Var(n) ->
+              begin
+                let y = Env.nth env n
+                in
+                if is_const y then y else do_eval y env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval y env env_len
+          | _ ->
+              y
+        in
         Bignum.gt x y
       end
 
   | BGe(x, y) ->
       begin
-        let x = do_eval x env env_len in
-        let y = do_eval y env env_len in
+        let x =
+          match x with
+          | Var(n) ->
+              begin
+                let x = Env.nth env n
+                in
+                if is_const x then x else do_eval x env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval x env env_len
+          | _ ->
+              x
+        in
+        let y =
+          match y with
+          | Var(n) ->
+              begin
+                let y = Env.nth env n
+                in
+                if is_const y then y else do_eval y env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval y env env_len
+          | _ ->
+              y
+        in
         Bignum.ge x y
       end
 
   | BAdd(x, y) ->
       begin
-        let x = do_eval x env env_len in
-        let y = do_eval y env env_len in
+        let x =
+          match x with
+          | Var(n) ->
+              begin
+                let x = Env.nth env n
+                in
+                if is_const x then x else do_eval x env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval x env env_len
+          | _ ->
+              x
+        in
+        let y =
+          match y with
+          | Var(n) ->
+              begin
+                let y = Env.nth env n
+                in
+                if is_const y then y else do_eval y env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval y env env_len
+          | _ ->
+              y
+        in
         Bignum.add x y
       end
 
   | BSub(x, y) ->
       begin
-        let x = do_eval x env env_len in
-        let y = do_eval y env env_len in
+        let x =
+          match x with
+          | Var(n) ->
+              begin
+                let x = Env.nth env n
+                in
+                if is_const x then x else do_eval x env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval x env env_len
+          | _ ->
+              x
+        in
+        let y =
+          match y with
+          | Var(n) ->
+              begin
+                let y = Env.nth env n
+                in
+                if is_const y then y else do_eval y env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval y env env_len
+          | _ ->
+              y
+        in
         Bignum.sub x y
       end
 
   | BMul(x, y) ->
       begin
-        let x = do_eval x env env_len in
-        let y = do_eval y env env_len in
+        let x =
+          match x with
+          | Var(n) ->
+              begin
+                let x = Env.nth env n
+                in
+                if is_const x then x else do_eval x env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval x env env_len
+          | _ ->
+              x
+        in
+        let y =
+          match y with
+          | Var(n) ->
+              begin
+                let y = Env.nth env n
+                in
+                if is_const y then y else do_eval y env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval y env env_len
+          | _ ->
+              y
+        in
         Bignum.mul x y
       end
 
   | BIDiv(x, y) ->
       begin
-        let x = do_eval x env env_len in
-        let y = do_eval y env env_len in
+        let x =
+          match x with
+          | Var(n) ->
+              begin
+                let x = Env.nth env n
+                in
+                if is_const x then x else do_eval x env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval x env env_len
+          | _ ->
+              x
+        in
+        let y =
+          match y with
+          | Var(n) ->
+              begin
+                let y = Env.nth env n
+                in
+                if is_const y then y else do_eval y env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval y env env_len
+          | _ ->
+              y
+        in
         Bignum.idiv x y
       end
 
   | BMod(x, y) ->
       begin
-        let x = do_eval x env env_len in
-        let y = do_eval y env env_len in
+        let x =
+          match x with
+          | Var(n) ->
+              begin
+                let x = Env.nth env n
+                in
+                if is_const x then x else do_eval x env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval x env env_len
+          | _ ->
+              x
+        in
+        let y =
+          match y with
+          | Var(n) ->
+              begin
+                let y = Env.nth env n
+                in
+                if is_const y then y else do_eval y env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval y env env_len
+          | _ ->
+              y
+        in
         Bignum.modulo x y
       end
 
   | BCons(x, y) ->
       begin
-        let x = do_eval x env env_len in
-        let y = do_eval y env env_len in
+        let x =
+          match x with
+          | Var(n) ->
+              begin
+                let x = Env.nth env n
+                in
+                do_eval x env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval x env env_len
+          | _ ->
+              x
+        in
+        let y =
+          match y with
+          | Var(n) ->
+              begin
+                let y = Env.nth env n
+                in
+                do_eval y env env_len
+              end
+          | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+            MakeRecord(_) | Closure(_) |
+            BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+            BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+            Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+            Cons(_) | Quoted(_) | LambdaClosure(_) ->
+              do_eval y env env_len
+          | _ ->
+              y
+        in
         Cons(x, y)
       end
 
@@ -437,16 +778,50 @@ let rec do_eval node env env_len =
 
   | BFst(x) ->
       begin
-        match do_eval x env env_len with
-        | Cons(a, _) -> do_eval a env env_len
-        | a -> BFst(a)
+        match x with
+        | Var(n) ->
+            begin
+              let x = Env.nth env n
+              in
+              match x with
+              | Cons(a, _) -> do_eval a env env_len
+              | _ ->
+                  begin
+                    match do_eval x env env_len with
+                    | Cons(a, _) -> do_eval a env env_len
+                    | a -> BFst(a)
+                  end
+            end
+        | _ ->
+            begin
+              match do_eval x env env_len with
+              | Cons(a, _) -> do_eval a env env_len
+              | a -> BFst(a)
+            end
       end
 
   | BSnd(x) ->
       begin
-        match do_eval x env env_len with
-        | Cons(_, a) -> do_eval a env env_len
-        | a -> BSnd(a)
+        match x with
+        | Var(n) ->
+            begin
+              let x = Env.nth env n
+              in
+              match x with
+              | Cons(_, a) -> do_eval a env env_len
+              | _ ->
+                  begin
+                    match do_eval x env env_len with
+                    | Cons(_, a) -> do_eval a env env_len
+                    | a -> BFst(a)
+                  end
+            end
+        | _ ->
+            begin
+              match do_eval x env env_len with
+              | Cons(_, a) -> do_eval a env env_len
+              | a -> BSnd(a)
+            end
       end
 
   | BNot(x) ->
@@ -486,7 +861,23 @@ let rec do_eval node env env_len =
         match lst with
         | (y, body, args_num) :: t ->
             begin
-              let pat = do_eval y env env_len
+              let pat =
+                match y with
+                | Var(n) ->
+                    begin
+                      let y = Env.nth env n
+                      in
+                      if is_const y then y else do_eval y env env_len
+                    end
+                | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+                  MakeRecord(_) | Closure(_) |
+                  BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+                  BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+                  Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+                  Cons(_) | Quoted(_) | LambdaClosure(_) ->
+                    do_eval y env env_len
+                | _ ->
+                    y
               in
               match pat with
               | Sym(psym) ->

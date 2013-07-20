@@ -8,18 +8,32 @@ type t = Node.t list
 
 let empty = [Node.Nil]
 
-let rec nth env n =
+let rec do_nth env n =
   assert (n >= 0);
   match env with
   | h :: t ->
       begin
         assert (env != empty);
         if n > 0 then
-          nth t (n - 1)
+          do_nth t (n - 1)
         else
           h
       end
   | [] -> assert (env <> []); Node.Nil
+
+let nth env n =
+  if n = 0 then
+    match env with
+    | x :: _ -> x
+    | [] -> assert (env <> []); Node.Nil
+  else if n = 1 then
+    match env with
+    | _ :: x :: _ -> x
+    | _ -> assert (1 = 0); Node.Nil
+  else
+    match env with
+    | _ :: _ :: t -> do_nth t (n - 2)
+    | _ -> assert (1 = 0); Node.Nil
 
 let push env x = x :: env
 
