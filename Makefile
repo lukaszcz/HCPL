@@ -35,6 +35,9 @@ package: clean
 test: release
 	scripts/run-tests.sh
 
+debug-test: debug
+	scripts/run-tests.sh
+
 clean:
 	ocamlbuild -clean
 	-rm ipl
