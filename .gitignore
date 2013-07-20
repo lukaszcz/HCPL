@@ -9,3 +9,4 @@ ipl.native
 test.out
 a.out
 *.log
+*.tar.gz
