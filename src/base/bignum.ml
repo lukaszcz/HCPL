@@ -54,7 +54,7 @@ let msb x =
 let mul_fits x y =
   msb x + msb y <= smallint_bits
 
-(* `rec' to prevent inlining *)
+(* "rec" to prevent inlining *)
 let rec do_gt x y =
   if is_smallint x then
     begin

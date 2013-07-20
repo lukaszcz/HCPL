@@ -17,11 +17,11 @@ IDIRS=$(subst $(SPACE),$(COMMA),$(DIRS))
 all: $(MODE)
 
 debug:
-	ocamlbuild -ocamlopt "ocamlopt.opt -S $(DEBUG_FLAGS) $(DEBUG_LIBS)" -Is $(IDIRS) ipl.native
+	ocamlbuild -pp 'm4 -P' -ocamlopt "ocamlopt.opt -pp 'm4 -P' -S $(DEBUG_FLAGS) $(DEBUG_LIBS)" -Is $(IDIRS) ipl.native
 	cp ipl.native ipl
 
 release:
-	ocamlbuild -ocamlopt "ocamlopt.opt -S $(RELEASE_FLAGS) $(RELEASE_LIBS)" -Is $(IDIRS) ipl.native
+	ocamlbuild -pp 'm4 -P' -ocamlopt "ocamlopt.opt -pp 'm4 -P' -S $(RELEASE_FLAGS) $(RELEASE_LIBS)" -Is $(IDIRS) ipl.native
 	cp ipl.native ipl
 
 package: clean
@@ -32,11 +32,17 @@ package: clean
 	tar czf ipl-`date +"%d-%m-%y"`.tar.gz ipl-`date +"%d-%m-%y"`
 	rm -r ipl-`date +"%d-%m-%y"`
 
-test: release
+test: all
 	scripts/run-tests.sh
 
 debug-test: debug
 	scripts/run-tests.sh
+
+release-test: release
+	scripts/run-tests.sh
+
+benchmark: release
+	scripts/run-benchmarks.sh
 
 clean:
 	ocamlbuild -clean

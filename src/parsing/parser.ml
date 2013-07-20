@@ -443,7 +443,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     match lst with
     | [] -> Node.Nil
     | [Program(x)] -> Node.Appl(Node.id, x, attrs)
-        (* we can't just return x here if things like "map2 (+) lst1 lst2" are to work
+        (* we cannot just return x here if things like "map2 (+) lst1 lst2" are to work
            as expected (this superflous application is later removed
            by a call to Node.optimize) *)
     | _ -> build_progn lst attrs
@@ -454,8 +454,9 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     List.fold_left (fun acc x -> Node.Appl(acc, x, None)) node lst
 
   and mkmodule scope sym node frm =
-    Node.Delayed(ref (mkapply scope sym_load_module
-                        [Node.Sym(sym); node; Node.Integer(Big_int.big_int_of_int frm)]))
+    Node.Delayed(ref (Node.Closure((mkapply scope sym_load_module
+                                      [Node.Sym(sym); node; Node.Integer(Big_int.big_int_of_int frm)]),
+                                   Env.empty, 0)))
 
   and join_syms sym1 sym2 =
     Symtab.find symtab (Symbol.to_string sym1 ^ "." ^ Symbol.to_string sym2)
@@ -1009,12 +1010,12 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
              in
              cont (sexp :: lst, attrs, strm,
                    Scope.leave_module scope)
-               (* This is a bit of a hack. We need to set module_mode
+               (* /* This is a bit of a hack. We need to set module_mode
                to false (by calling leave_module) so that this rule
                does not succeed for the second time. The scope is then
                discarded anyway, because the only way we can see a '\}'
                in module mode (on correct input) is with the `module X
-               { ... }' construction *)
+               { ... }' construction */ *)
            else
              raise (ParseFailure(Some(TokenStream.position strm),
                                  "internal error: module failure",
@@ -1105,7 +1106,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             | _ -> assert false)
         end
 
-    and placeholder = (* TODO: resumptions don't work well with placeholders *)
+    and placeholder = (* TODO: resumptions do not work well with placeholders *)
       token Token.Placeholder ++ name ++
         change_scope
         (fun lst _ scope ->

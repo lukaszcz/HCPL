@@ -8,13 +8,13 @@ type call_t = CallByValue | CallByNeed | CallByName
 
 type t =
   (* not immediate *)
+  | Var of int
+  | Proxy of t ref
   | Appl of t * t * attrs_t option (* a b -> Appl(a, b, attrs) *)
   | Cond of t * t * t * attrs_t option
   | Delay of t
   | Leave of t
   | Force of t
-  | Var of int
-  | Proxy of t ref
   | MakeRecord of t Symbol.Map.t
 
   (* inlined core builtins *)
@@ -48,9 +48,15 @@ type t =
   | Integer of Big_int.big_int
   | String of string
   | Record of t Symbol.Map.t
+  | Quoted of t
+
+  (* used only by the evaluator *)
+  | LambdaClosure of t * t list * int * call_t * int ref * attrs_t option
+        (* (body, argument env, env_len, call type, times entered, attrs) *)
+
+  (* immediate cntd. *)
   | Sym of Symbol.t
   | Cons of t * t
-  | Quoted of t
 
   (* UnboxedX are to ensure that the values of constant constructors have
      their second bit set (i.e. they are not divisible by 2 when
@@ -66,9 +72,6 @@ type t =
   | Unboxed5
   | Ignore
 
-  (* used only by the evaluator *)
-  | LambdaClosure of t * t list * int * call_t * int ref * attrs_t option
-        (* (body, argument env, env_len, call type, times entered, attrs) *)
 and attrs_t = { mutable name : Symbol.t option; pos : Lexing.position option;
                 attr_map : (t Symbol.Map.t) option; node_type : t option }
 
@@ -160,7 +163,7 @@ let is_const (node : t) = Obj.is_int (Obj.repr node)
    matches and the same should be returned for smallints as for
    constant constructors. *)
 let is_immediate node = match node with
-    (* note: don't use "| _ -> ..." here so that the compiler warns when we
+    (* note: do not use "| _ -> ..." here so that the compiler warns when we
        forget one of the possibilities *)
   | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Closure(_) |
@@ -168,6 +171,20 @@ let is_immediate node = match node with
     BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     -> false
   | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+    True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
+    LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
+    -> true
+
+(* true if node is immediate and closed *)
+let is_immed node = match node with
+    (* note: do not use "| _ -> ..." here so that the compiler warns when we
+       forget one of the possibilities *)
+  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
+    MakeRecord(_) | Closure(_) | Lambda(_) | Builtin(_) |
+    BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+    -> false
+  | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
     LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
     -> true
