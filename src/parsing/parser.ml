@@ -431,7 +431,6 @@ m4_changequote([`],['])
   and sym_return_type = Symtab.find symtab "return_type"
 
   and sym_ipl_load_module = Symtab.find symtab "__ipl_load_module"
-  and sym_ipl_quote = Symtab.find symtab "__ipl_quote"
 
   and sym_unknown = Symtab.find symtab "??"
 
@@ -1113,7 +1112,7 @@ m4_changequote([`],['])
     and quoted () =
       recursive
         begin
-          (symbol sym_quote +! term ^|| symbol sym_quote2 +! expr)
+          (symbol sym_quote ^|| symbol sym_quote2) ++ term
             >>
           (fun lst attrs scope ->
             match lst with
@@ -1122,7 +1121,7 @@ m4_changequote([`],['])
                   Program(Node.quote (Node.optimize value))
                 else
                   begin
-                    let ipl_quote = Scope.find_ident scope sym_ipl_quote
+                    let ipl_quote = Scope.find_ident scope sym_quote2
                     in
                     Program(Node.Appl(ipl_quote, (Node.optimize value), attrs))
                   end
