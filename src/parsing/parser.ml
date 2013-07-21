@@ -392,13 +392,17 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_in = Symtab.find symtab "in"
   and sym_is = Symtab.find symtab "is"
   and sym_at = Symtab.find symtab "@"
-  and sym_sym = Symtab.find symtab "'"
+  and sym_sym = Symtab.find symtab "sym"
+m4_changequote(`[',`]')
+  and sym_backquote = Symtab.find symtab "`"
+m4_changequote([`],['])
   and sym_ret_type = Symtab.find symtab ":>"
   and sym_arrow = Symtab.find symtab "->"
   and sym_match_sep = Symtab.find symtab "|"
   and sym_match = Symtab.find symtab "match"
   and sym_with = Symtab.find symtab "with"
-  and sym_quote = Symtab.find symtab "quote"
+  and sym_quote = Symtab.find symtab "'"
+  and sym_quote2 = Symtab.find symtab "quote"
 
   and sym_fun = Symtab.find symtab "fun"
   and sym_def = Symtab.find symtab "def"
@@ -426,7 +430,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
 
   and sym_return_type = Symtab.find symtab "return_type"
 
-  and sym_load_module = Symtab.find symtab "__ipl_load_module"
+  and sym_ipl_load_module = Symtab.find symtab "__ipl_load_module"
+  and sym_ipl_quote = Symtab.find symtab "__ipl_quote"
 
   and sym_unknown = Symtab.find symtab "??"
 
@@ -445,8 +450,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     | [] -> Node.Nil
     | [Program(x)] -> Node.Appl(Node.id, x, attrs)
         (* we cannot just return x here if things like "map2 (+) lst1 lst2" are to work
-           as expected (this superflous application is later removed
-           by a call to Node.optimize) *)
+           as expected (this superfluous application is later removed
+           by a call to Node.optimize or Node.prune) *)
     | _ -> build_progn lst attrs
 
   and mkapply scope sym lst =
@@ -455,7 +460,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
     List.fold_left (fun acc x -> Node.Appl(acc, x, None)) node lst
 
   and mkmodule scope sym node frm =
-    Node.Delayed(ref (Node.Closure((mkapply scope sym_load_module
+    Node.Delayed(ref (Node.Closure((mkapply scope sym_ipl_load_module
                                       [Node.Sym(sym); node; Node.Integer(Big_int.big_int_of_int frm)]),
                                    Env.empty, 0)))
 
@@ -725,7 +730,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                     | _ -> Debug.print (sexp_list_to_string lst); assert false
                   end
               | _ -> assert false) ++
-            (symbol sym_in +! new_ident_scope progn ++
+            ((symbol sym_in ^|| keyword sym_in) +! new_ident_scope progn ++
                (change_scope
                   (fun lst _ scope ->
                     match lst with
@@ -741,9 +746,6 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
                  Program(Node.MakeRecord(Scope.identtab scope))
                else
                  Program(Node.Nil))
-           ^||
-             (peek (Token.Keyword(sym_in)) ++ warn "this `in' belongs to an earlier `let', which is probably not what you intend")
-             ++ repl_decl ++ progn
            ^||
              repl_decl ++ progn
             )
@@ -1062,12 +1064,10 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             check (fun scope -> not (Scope.is_match_mode scope)) "generic placeholder in match pattern"
             +> return (Program(Node.Placeholder)) ^||
           token Token.Placeholder_ignore +> return (Program(Node.Ignore)) ^||
-          symbol sym_quote +! term ++
-            check (fun scope -> Scope.frame scope = -1) "quoted expressions not allowed inside lambdas"
-            +> (fun lst _ _ -> match lst with [Program(value)] -> Program(Node.quote (Node.optimize value)) | _ -> assert false) ^||
           placeholder ^||
           match_with ^||
           list ^|| sym ^|| number ^|| string ^||
+          quoted ^||
           ident_ref ^||
           fail "expected expression" [Program(Node.Nil)]
         end
@@ -1107,6 +1107,25 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
             match lst with
             | [Program(x); Program(y); Program(z)] ->
                 Program(Node.Cond(x, y, z, attrs))
+            | _ -> assert false)
+        end
+
+    and quoted () =
+      recursive
+        begin
+          (symbol sym_quote +! term ^|| symbol sym_quote2 +! expr)
+            >>
+          (fun lst attrs scope ->
+            match lst with
+            | [Program(value)] ->
+                if Scope.frame scope = -1 then
+                  Program(Node.quote (Node.optimize value))
+                else
+                  begin
+                    let ipl_quote = Scope.find_ident scope sym_ipl_quote
+                    in
+                    Program(Node.Appl(ipl_quote, (Node.optimize value), attrs))
+                  end
             | _ -> assert false)
         end
 
@@ -1195,11 +1214,11 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
         end
 
     and sym =
-      symbol sym_sym ++ name
+      (symbol sym_sym ^|| symbol sym_backquote) ++ name
         >>
       (fun lst _ _ ->
         match lst with
-        | [Ident(sym)] -> Program(Node.Sym(Symtab.find symtab ("'" ^ Symbol.to_string sym)))
+        | [Ident(sym)] -> Program(Node.Sym(Symtab.find symtab ((Symbol.to_string sym_backquote) ^ Symbol.to_string sym)))
         | _ -> assert false)
 
     and ident_ref =

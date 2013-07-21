@@ -11,32 +11,48 @@ if q1 = q2 then
 else
    print 0;
 
-if quote f = quote (\z . z + 7) then
+if 'f = '(\z . z + 7) then
    print 1
 else
    print 0;
 
-if quote f = quote (\z . z * 7) then
+if 'f = '(\z . z * 7) then
    print 1
 else
    print 0;
 
-match quote f with
-| quote (\u { u + %x }) -> print x
+match 'f with
+| '(\u { u + %x }) -> print x
 | %_ -> print "zonk";
 
-match quote g with
-| quote (\u { u + %x }) -> print x
-| %_ -> print "zonk";
-
-match q1 with
-| quote (\u { u + %x } 10) -> print x
+match 'g with
+| '(\u { u + %x }) -> print x
 | %_ -> print "zonk";
 
 match q1 with
-| quote (\u { u + %x } 1) -> print x
+| '(\u { u + %x } 10) -> print x
+| %_ -> print "zonk";
+
+match q1 with
+| '(\u { u + %x } 1) -> print x
 | %_ -> print "OK";
 
 match q1 with
 | q2 -> print "OK"
-| %_ -> print "zonk"
+| %_ -> print "zonk";
+
+let h = \x . '(g x);
+
+print (h 3);
+
+match q1 with
+| h 1 -> print "ZONK"
+| %_ -> print "OK";
+
+match q1 with
+| h 7 -> print "ZONK"
+| %_ -> print "OK";
+
+match q1 with
+| h 10 -> print "OK"
+| %_ -> print "ZONK";

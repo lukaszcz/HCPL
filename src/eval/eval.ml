@@ -6,6 +6,15 @@ Copyright (C) 2013 by Łukasz Czajka
 
 open Node
 
+(*
+   Invariants:
+      - nodes stored in environments are closed
+      - do_eval returns a closed node
+      - quoted nodes (i.e. inside Quoted(_)) are closed, and they do
+        not contain any Closure, LambdaClosure or Delayed nodes unless
+        Config.is_unsafe_mode () returns true
+*)
+
 exception Unknown
 
 type match_quoted_mode_t = ModeMatch | ModeEq | ModeQuotedEq
@@ -366,7 +375,7 @@ let rec do_delay x env env_len =
        do_delay (Env.nth env n) [] 0 (* passing [] is OK since values in envs are closed, so the env will not be needed *)
    | _ -> x
 
-(* EVAL_DELAYED(r, env, env_len) *)
+(* EVAL_DELAYED(r) *)
 m4_define(`EVAL_DELAYED', `
   begin
     match !($1) with

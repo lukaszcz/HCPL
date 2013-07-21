@@ -175,7 +175,7 @@ let is_immediate node = match node with
     LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
     -> true
 
-(* true if node is immediate and closed *)
+(* true if node is immediate and closed, false if it _might_ not be *)
 let is_immed node = match node with
     (* note: do not use "| _ -> ..." here so that the compiler warns when we
        forget one of the possibilities *)
@@ -361,7 +361,7 @@ let to_string node =
           | Sym(sym) -> Symbol.to_string sym
           | True -> "true"
           | False -> "false"
-          | Quoted(x) -> "(quote " ^ prn x (limit - 1) ^ ")"
+          | Quoted(x) -> "'" ^ prn x (limit - 1)
           | Placeholder -> "%%"
           | Ignore -> "%_"
           | Cons(x, y) ->

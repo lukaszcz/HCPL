@@ -9,6 +9,8 @@ let rpath = ref []
 
 let rtiming = ref false
 
+let runsafe = ref false
+
 let init () = ()
 
 let path () = !rpath
@@ -28,6 +30,10 @@ let timing_enabled () = !rtiming
 let enable_timing () = rtiming := true
 
 let disable_timing () = rtiming := false
+
+let is_unsafe_mode () = !runsafe
+
+let set_unsafe_mode b = runsafe := b
 
 (* NOTE: this works only for 32bit or 64bit platforms *)
 let int_bits = if max_int lsr 30 = 0 then 30 else 62
