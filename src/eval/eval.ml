@@ -8,32 +8,56 @@ open Node
 
 exception Unknown
 
-let rec do_match_quoted node pat acc eq_mode =
+type match_quoted_mode_t = ModeMatch | ModeEq | ModeQuotedEq
+
+let rec do_match_quoted node pat acc (mode : match_quoted_mode_t) =
   let node = Node.normalize node in
   let pat = Node.normalize pat in
   begin
     if is_smallint pat then
       begin
-        if pat == node then
+        if node == pat then
           acc
         else
           raise Exit
       end
-    else if eq_mode && not (is_immediate node && is_immediate pat) then
-      raise Unknown
+    else if pat == Placeholder then
+      begin
+        if mode <> ModeMatch then
+          begin
+            if node == pat then acc else raise Exit
+          end
+        else
+          (Node.quote node) :: acc
+      end
+    else if pat == Ignore then
+      begin
+        if mode <> ModeMatch then
+          begin
+            if node == pat then acc else raise Exit
+          end
+        else
+          acc
+      end
+    else if node == pat then
+      acc
+    else if mode = ModeEq && not (is_immediate node && is_immediate pat) then
+      begin
+        raise Unknown
+      end
     else
       match pat with
       | Appl(x, y, _) ->
           begin
             match node with
-            | Appl(a, b, _) -> do_match_quoted b y (do_match_quoted a x acc eq_mode) eq_mode
+            | Appl(a, b, _) -> do_match_quoted b y (do_match_quoted a x acc mode) mode
             | _ -> raise Exit
           end
       | Cond(x, y, z, _) ->
           begin
             match node with
             | Cond(a, b, c, _) ->
-                do_match_quoted c z (do_match_quoted b y (do_match_quoted a x acc eq_mode) eq_mode) eq_mode
+                do_match_quoted c z (do_match_quoted b y (do_match_quoted a x acc mode) mode) mode
             | _ ->
                 raise Exit
           end
@@ -41,7 +65,7 @@ let rec do_match_quoted node pat acc eq_mode =
           begin
             match node with
             | Delay(a) ->
-                do_match_quoted a x acc eq_mode
+                do_match_quoted a x acc mode
             | _ ->
                 raise Exit
           end
@@ -49,7 +73,7 @@ let rec do_match_quoted node pat acc eq_mode =
           begin
             match node with
             | Leave(a) ->
-                do_match_quoted a x acc eq_mode
+                do_match_quoted a x acc mode
             | _ ->
                 raise Exit
           end
@@ -57,7 +81,7 @@ let rec do_match_quoted node pat acc eq_mode =
           begin
             match node with
             | Force(a) ->
-                do_match_quoted a x acc eq_mode
+                do_match_quoted a x acc mode
             | _ ->
                 raise Exit
           end
@@ -65,24 +89,26 @@ let rec do_match_quoted node pat acc eq_mode =
           begin
             match node with
             | Lambda(body2, frame2, _, _, _) when frame = frame2 ->
-                do_match_quoted body2 body acc eq_mode
+                do_match_quoted body2 body acc mode
             | _ ->
                 raise Exit
+          end
+      | Var(n) ->
+          begin
+            match node with
+            | Var(m) when m = n -> acc
+            | _ -> raise Exit
           end
       | Integer(x) ->
           begin
             match node with
-            | Integer(y) ->
-                if Big_int.eq_big_int x y then
-                  acc
-                else
-                  raise Exit
+            | Integer(y) when Big_int.eq_big_int x y -> acc
             | _ -> raise Exit
           end
       | Sym(x) ->
           begin
             match node with
-            | Sym(y) -> if Symbol.eq x y then acc else raise Exit
+            | Sym(y) when Symbol.eq x y -> acc
             | _ -> raise Exit
           end
       | Nil | True | False ->
@@ -90,103 +116,213 @@ let rec do_match_quoted node pat acc eq_mode =
             acc
           else
             raise Exit
-      | String(_) | Record(_) ->
-          if not (is_const node) && node = pat then
-            acc
-          else
-            raise Exit
-      | Placeholder ->
-          if eq_mode then
-            begin
-              if node == pat then acc else raise Exit
-            end
-          else
-            node :: acc
-      | Ignore ->
-          if eq_mode then
-            begin
-              if node == pat then acc else raise Exit
-            end
-          else
-            acc
+      | String(x) ->
+          begin
+            match node with
+            | String(y) when x = y -> acc
+            | _ -> raise Exit
+          end
+      | Record(x) ->
+          begin
+            match node with
+            | Record(y) when x = y -> acc (* TODO: this is wrong *)
+            | _ -> raise Exit
+          end
       | Cons(x, y) ->
           begin
             match node with
-            | Cons(a, b) -> do_match_quoted b y (do_match_quoted a x acc eq_mode) eq_mode
+            | Cons(a, b) -> do_match_quoted b y (do_match_quoted a x acc mode) mode
             | _ -> raise Exit
           end
       | Quoted(x) ->
           begin
             match node with
-            | Quoted(a) ->
-                do_match_quoted a x acc eq_mode
-            | _ ->
-                raise Exit
+            | Quoted(a) -> do_match_quoted a x acc (if mode = ModeEq then ModeQuotedEq else mode)
+            | _ -> raise Exit
+          end
+      | BEq(px, py) ->
+          begin
+            match node with
+            | BEq(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BGt(px, py) ->
+          begin
+            match node with
+            | BGt(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BGe(px, py) ->
+          begin
+            match node with
+            | BGe(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BAdd(px, py) ->
+          begin
+            match node with
+            | BAdd(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BSub(px, py) ->
+          begin
+            match node with
+            | BSub(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BMul(px, py) ->
+          begin
+            match node with
+            | BMul(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BIDiv(px, py) ->
+          begin
+            match node with
+            | BIDiv(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BMod(px, py) ->
+          begin
+            match node with
+            | BMod(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BCons(px, py) ->
+          begin
+            match node with
+            | BCons(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BConsNE(px, py) ->
+          begin
+            match node with
+            | BConsNE(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BFst(px) ->
+          begin
+            match node with
+            | BFst(nx) -> do_match_quoted nx px acc mode
+            | _ -> raise Exit
+          end
+      | BSnd(px) ->
+          begin
+            match node with
+            | BSnd(nx) -> do_match_quoted nx px acc mode
+            | _ -> raise Exit
+          end
+      | BNot(px) ->
+          begin
+            match node with
+            | BNot(nx) -> do_match_quoted nx px acc mode
+            | _ -> raise Exit
+          end
+      | BAnd(px, py) ->
+          begin
+            match node with
+            | BAnd(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BOr(px, py) ->
+          begin
+            match node with
+            | BOr(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | BMatch(px, plst) ->
+          begin
+            match node with
+            | BMatch(nx, nlst) ->
+                List.fold_left2
+                  (fun a (n1, n2, _) (p1, p2, _) ->
+                    do_match_quoted n2 p2 (do_match_quoted n1 p1 a mode) mode)
+                  (do_match_quoted nx px acc mode) nlst plst
+            | _ -> raise Exit
+          end
+      | BRecordGet(px, py) ->
+          begin
+            match node with
+            | BRecordGet(nx, ny) -> do_match_quoted ny py (do_match_quoted nx px acc mode) mode
+            | _ -> raise Exit
+          end
+      | Delayed(r) ->
+          begin
+            match node with
+            | Delayed(r0) -> do_match_quoted !r0 !r acc mode
+            | _ -> raise Exit
           end
       | _ ->
           failwith "bad pattern"
   end
 
 let rec do_match node pat acc =
-  if is_smallint pat then
-    begin
-      if pat == node then
-        acc
-      else
-        raise Exit
-    end
-  else
-    begin
-      match pat with
-      | Integer(x) ->
+  match pat with
+  | Sym(psym) ->
+      begin
+        match node with
+        | Sym(nsym) when Symbol.eq psym nsym -> acc
+        | _ -> raise Exit
+      end
+  | Cons(px, py) ->
+      begin
+        match node with
+        | Cons(nx, ny) -> do_match ny py (do_match nx px acc)
+        | _ -> raise Exit
+      end
+  | Integer(x) ->
+      begin
+        match node with
+        | Integer(y) when Big_int.eq_big_int x y -> acc
+        | _ -> raise Exit
+      end
+  | String(x) ->
+      begin
+        match node with
+        | String(y) when x = y -> acc
+        | _ -> raise Exit
+      end
+  | Record(x) ->
+      begin
+        match node with
+        | Record(y) when x = y -> acc
+        | _ -> raise Exit
+      end
+  | Quoted(x) ->
+      begin
+        match node with
+        | Quoted(y) -> do_match_quoted y x acc ModeMatch
+        | _ -> raise Exit
+      end
+  | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | Proxy(_) | MakeRecord(_) |
+    BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+    Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | LambdaClosure(_)
+    ->
+      failwith "bad pattern"
+  | _ ->
+      begin
+        if is_smallint pat then
           begin
-            match node with
-            | Integer(y) ->
-                if Big_int.eq_big_int x y then
+            if pat == node then
+              acc
+            else
+              raise Exit
+          end
+        else
+          begin
+            match pat with
+            | Placeholder ->
+                node :: acc
+            | Ignore ->
+                acc
+            | _ ->
+                if node == pat then
                   acc
                 else
                   raise Exit
-            | _ -> raise Exit
           end
-      | Sym(x) ->
-          begin
-            match node with
-            | Sym(y) -> if Symbol.eq x y then acc else raise Exit
-            | _ -> raise Exit
-          end
-      | Nil | True | False ->
-          if node == pat then
-            acc
-          else
-            raise Exit
-      | String(_) | Record(_) ->
-          if not (is_const node) && node = pat then
-            acc
-          else
-            raise Exit
-      | Proxy(rx) ->
-          do_match node !rx acc
-      | Placeholder ->
-          node :: acc
-      | Ignore ->
-          acc
-      | Cons(x, y) ->
-          begin
-            match node with
-            | Cons(a, b) -> do_match b y (do_match a x acc)
-            | _ -> raise Exit
-          end
-      | Quoted(x) ->
-          begin
-            match node with
-            | Quoted(a) ->
-                do_match_quoted a x acc false
-            | _ ->
-                raise Exit
-          end
-      | _ ->
-          failwith "bad pattern"
-    end
+      end
 
 let pop_to env env_len frm =
   if frm = 0 then
@@ -280,6 +416,8 @@ m4_define(`EVAL', `
       -> $1
   end
 ')
+
+let dummy_env = ((Obj.magic 100) : Node.t list)
 
 let rec do_eval_delayed r =
   EVAL_DELAYED(r)
@@ -415,7 +553,7 @@ and do_eval node env env_len =
           try
             List.hd
               (try
-                do_match_quoted node1 node2 [True] true
+                do_match_quoted node1 node2 [True] ModeEq
               with Exit ->
                 [False])
           with Unknown ->
@@ -613,9 +751,9 @@ and do_eval node env env_len =
                                   try
                                     do_match nt pt (nh :: env)
                                   with Exit ->
-                                    []
+                                    dummy_env
                                 in
-                                if env2 != [] then
+                                if env2 != dummy_env then
                                   do_eval body env2 (env_len + args_num)
                                 else
                                   loop node env env_len t
@@ -626,9 +764,9 @@ and do_eval node env env_len =
                                   try
                                     do_match nt pt env
                                   with Exit ->
-                                    []
+                                    dummy_env
                                 in
-                                if env2 != [] then
+                                if env2 != dummy_env then
                                   do_eval body env2 (env_len + args_num)
                                 else
                                   loop node env env_len t
@@ -639,9 +777,9 @@ and do_eval node env env_len =
                                   try
                                     nt :: (do_match nh ph env)
                                   with Exit ->
-                                    []
+                                    dummy_env
                                 in
-                                if env2 != [] then
+                                if env2 != dummy_env then
                                   do_eval body env2 (env_len + args_num)
                                 else
                                   loop node env env_len t
@@ -652,9 +790,9 @@ and do_eval node env env_len =
                                   try
                                     do_match nh ph env
                                   with Exit ->
-                                    []
+                                    dummy_env
                                 in
-                                if env2 != [] then
+                                if env2 != dummy_env then
                                   do_eval body env2 (env_len + args_num)
                                 else
                                   loop node env env_len t
@@ -665,9 +803,9 @@ and do_eval node env env_len =
                                   try
                                     do_match nt pt (do_match nh ph env)
                                   with Exit ->
-                                    []
+                                    dummy_env
                                 in
-                                if env2 != [] then
+                                if env2 != dummy_env then
                                   do_eval body env2 (env_len + args_num)
                                 else
                                   loop node env env_len t
@@ -687,9 +825,9 @@ and do_eval node env env_len =
                       try
                         do_match node pat env
                       with Exit ->
-                        []
+                        dummy_env
                     in
-                    if env2 != [] then
+                    if env2 != dummy_env then
                       do_eval body env2 (env_len + args_num)
                     else
                       loop node env env_len t

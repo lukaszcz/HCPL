@@ -278,6 +278,12 @@ let rec normalize node =
   | Proxy(r) -> normalize !r
   | _ -> node
 
+let quote node =
+  if is_const node then
+    node
+  else
+    Quoted(node)
+
 let call_type_to_string call_type =
   match call_type with
   | CallByValue -> "!"

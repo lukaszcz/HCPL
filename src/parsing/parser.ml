@@ -392,12 +392,13 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_in = Symtab.find symtab "in"
   and sym_is = Symtab.find symtab "is"
   and sym_at = Symtab.find symtab "@"
-  and sym_quote = Symtab.find symtab "'"
+  and sym_sym = Symtab.find symtab "'"
   and sym_ret_type = Symtab.find symtab ":>"
   and sym_arrow = Symtab.find symtab "->"
   and sym_match_sep = Symtab.find symtab "|"
   and sym_match = Symtab.find symtab "match"
   and sym_with = Symtab.find symtab "with"
+  and sym_quote = Symtab.find symtab "quote"
 
   and sym_fun = Symtab.find symtab "fun"
   and sym_def = Symtab.find symtab "def"
@@ -1010,12 +1011,12 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
              in
              cont (sexp :: lst, attrs, strm,
                    Scope.leave_module scope)
-               (* /* This is a bit of a hack. We need to set module_mode
+               (* This is a bit of a hack. We need to set module_mode
                to false (by calling leave_module) so that this rule
                does not succeed for the second time. The scope is then
                discarded anyway, because the only way we can see a '\}'
                in module mode (on correct input) is with the `module X
-               { ... }' construction */ *)
+               { ... }' construction *)
            else
              raise (ParseFailure(Some(TokenStream.position strm),
                                  "internal error: module failure",
@@ -1058,9 +1059,12 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
           token Token.True +> return (Program(Node.True)) ^||
           token Token.False +> return (Program(Node.False)) ^||
           token Token.Placeholder_generic ++
-            check (fun scope -> not (Scope.is_match_mode scope)) "syntax error: generic placeholder in match pattern"
+            check (fun scope -> not (Scope.is_match_mode scope)) "generic placeholder in match pattern"
             +> return (Program(Node.Placeholder)) ^||
           token Token.Placeholder_ignore +> return (Program(Node.Ignore)) ^||
+          symbol sym_quote +! term ++
+            check (fun scope -> Scope.frame scope = -1) "quoted expressions not allowed inside lambdas"
+            +> (fun lst _ _ -> match lst with [Program(value)] -> Program(Node.quote (Node.optimize value)) | _ -> assert false) ^||
           placeholder ^||
           match_with ^||
           list ^|| sym ^|| number ^|| string ^||
@@ -1191,7 +1195,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
         end
 
     and sym =
-      symbol sym_quote ++ name
+      symbol sym_sym ++ name
         >>
       (fun lst _ _ ->
         match lst with
