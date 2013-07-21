@@ -3,6 +3,8 @@
    Copyright (C) 2013 by Łukasz Czajka
 *)
 
+let version = "0.0.1"
+
 let rpath = ref []
 
 let rtiming = ref false

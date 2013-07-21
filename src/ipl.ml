@@ -45,7 +45,7 @@ let run_repl name chan =
     print_endline (Node.to_string value);
     prompt lineno
   in
-  print_endline "\tIPL version 0.0.1";
+  print_endline ("\tIPL version " ^ Config.version);
   print_endline "\tCopyright (C) 2013 by Lukasz Czajka";
   print_newline ();
   print_string "> ";

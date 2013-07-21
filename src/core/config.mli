@@ -5,6 +5,8 @@
 
 val init : unit -> unit
 
+val version : string
+
 val path : unit -> string list
 val set_path : string list -> unit
 val prepend_path : string -> unit

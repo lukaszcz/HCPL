@@ -2,6 +2,8 @@
 MODE=debug
 # debug or release
 
+VERSION := $(strip $(shell cat src/core/config.ml | sed -n 's/^[ ]*let[ ]*version[ ]*=[ ]*\"\(.*\)\"/\1/p'))
+
 DEBUG_LIBS=nums.cmxa
 RELEASE_LIBS=nums.cmxa
 
@@ -26,11 +28,11 @@ release:
 
 package: clean
 	-scripts/rmbackups.sh
-	mkdir ipl-`date +"%d-%m-%y"`
-	cp -r scripts src lib tests TODO ipl-`date +"%d-%m-%y"`
-	cat Makefile | sed s/MODE=debug/MODE=release/ > ipl-`date +"%d-%m-%y"`/Makefile
-	tar czf ipl-`date +"%d-%m-%y"`.tar.gz ipl-`date +"%d-%m-%y"`
-	rm -r ipl-`date +"%d-%m-%y"`
+	mkdir ipl-$(VERSION)
+	cp -r scripts src lib tests TODO ipl-$(VERSION)
+	cat Makefile | sed s/MODE=debug/MODE=release/ > ipl-$(VERSION)/Makefile
+	tar czf ipl-$(VERSION).tar.gz ipl-$(VERSION)
+	rm -r ipl-$(VERSION)
 
 test: all
 	scripts/run-tests.sh
