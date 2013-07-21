@@ -190,16 +190,19 @@ let rec do_match node pat acc =
 
 let pop_to env env_len frm =
   if frm = 0 then
-    Env.empty
+    []
   else
-    let n = env_len - frm
-    in
-    if n > 0 then
-      match env with
-      | _ :: t -> assert (env != Env.empty); Env.pop_n t (n - 1)
-      | [] -> assert (env <> []); []
-    else
-      env
+    begin
+      assert (frm <= env_len);
+      let n = env_len - frm
+      in
+      if n > 0 then
+        match env with
+        | _ :: t -> Env.pop_n t (n - 1)
+        | [] -> assert (env <> []); []
+      else
+        env
+    end
 
 let do_close x env env_len =
     match x with

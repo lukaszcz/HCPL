@@ -6,7 +6,7 @@ Copyright (C) 2013 by Łukasz Czajka
 
 type t = Node.t list
 
-let empty = [Node.Nil]
+let empty = []
 
 let rec do_nth env n =
   assert (n >= 0);
@@ -49,4 +49,4 @@ let rec pop_n env n =
   else
     env
 
-let length env = List.length env - 1
+let length env = List.length env
