@@ -324,9 +324,11 @@ let catch_errors r =
         Error.error pos msg;
         resume ())
 
-let change_attrs f =
+let change_attrs rule f =
   fun () (lst, attrs, strm, scope) cont ->
-    cont (lst, f (List.rev lst) attrs, strm, scope)
+    rule () ([], attrs, strm, scope)
+      (fun (lst2, attrs2, strm2, scope2) ->
+        cont (lst, f (List.rev lst2) attrs2, strm2, scope2))
 
 let change_scope f =
   fun () (lst, attrs, strm, scope) cont ->
@@ -692,11 +694,22 @@ m4_changequote([`],['])
     and xlet () =
       recursive
         begin
-          (token Token.LetEager +> return (CallType Node.CallByValue)
-           ^|| token Token.LetLazy +> return (CallType Node.CallByNeed)
-           ^|| token Token.LetCBN +> return (CallType Node.CallByName)) +!
-            ident_let ++
-            symbol sym_eq ++
+          (((token Token.LetEager +> return (CallType Node.CallByValue)
+             ^|| token Token.LetLazy +> return (CallType Node.CallByNeed)
+             ^|| token Token.LetCBN +> return (CallType Node.CallByName)) +!
+              ident_let ++ symbol sym_eq)
+           ^||
+           (name ++ symbol sym_colon ++
+           (fun () (lst, attrs, strm, scope) cont ->
+             match lst with
+             | [Ident(sym)] ->
+                 let scope2 =
+                   Scope.replace_ident scope sym (Node.Proxy(ref Node.Nil))
+                 in
+                 cont ([Ident(sym); CallType Node.CallByValue], attrs, strm, scope2)
+             | _ -> Debug.print (sexp_list_to_string lst); assert false
+           )))
+          ++
             new_keyword sym_in (catch_errors expr) ++
             (fun () (lst, attrs, strm, scope) cont ->
               match lst with
@@ -1255,19 +1268,25 @@ m4_changequote([`],['])
     and atype () =
       recursive
         begin
-          (symbol sym_colon) +! term ++
-            change_attrs
+          change_attrs
+            ((symbol sym_colon) +! term)
             (fun lst attrs ->
-              Node.Attrs.set_type attrs (get_singleton_node lst))
+              match lst with
+              | Program(node) :: _ ->
+                  Node.Attrs.set_type attrs node
+              | _ -> Debug.print (sexp_list_to_string lst); assert false)
         end
 
     and ret_atype () =
       recursive
         begin
-          (symbol sym_ret_type) +! term ++
-            change_attrs
+          change_attrs
+            ((symbol sym_ret_type) +! term)
             (fun lst attrs ->
-              Node.Attrs.set_attr attrs sym_return_type (get_singleton_node lst))
+              match lst with
+              | Program(node) :: _ ->
+                  Node.Attrs.set_attr attrs sym_return_type node
+              | _ -> assert false)
         end
 
     and attributes () =
@@ -1279,8 +1298,8 @@ m4_changequote([`],['])
     and attribute () =
       recursive
         begin
-          symbol sym_at +! name ++ optional (symbol sym_eq ++ term) ++
-            change_attrs
+          change_attrs
+            (symbol sym_at +! name ++ optional (symbol sym_eq ++ term))
             (fun lst attrs ->
               match lst with
               | [Ident(aname); Sexp([])] ->

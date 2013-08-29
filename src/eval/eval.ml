@@ -10,9 +10,9 @@ open Node
    Invariants:
       - nodes stored in environments are closed
       - do_eval returns a closed node
-      - quoted nodes (i.e. inside Quoted(_)) are closed, and they do
-        not contain any Closure, LambdaClosure or Delayed nodes unless
-        Config.is_unsafe_mode () returns true
+      - quoted nodes (i.e. inside Quoted(_)) are closed
+      - quoted nodes do not contain any Closure, LambdaClosure or
+        Delayed nodes unless Config.is_unsafe_mode () returns true
 *)
 
 exception Unknown

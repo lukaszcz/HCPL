@@ -11,7 +11,7 @@ open Lexing
 }
 
 let oper = ['-' '+' '=' '~' '`' '@' '#' '$' '%' '^' '*' '|' '/' '?' '.' ':' '<' '>']
-let id0 = ['a'-'z' 'A'-'Z' '_']['-' 'a'-'z' 'A'-'Z' '_' '0'-'9']*['?' '!' '@' '#' '$' '&' '%' '^' '~' '*' ''']?
+let id0 = ['a'-'z' 'A'-'Z' '_' '$']['-' 'a'-'z' 'A'-'Z' '_' '$' '0'-'9']*['?' '!' '@' '#' '$' '&' '%' '^' '~' '*' ''']?
 let id = id0('.'id0)* | oper+
 let special_oper = [',' '@' ''']
 
@@ -22,7 +22,6 @@ rule read_token symtab = parse
   | '!'                            { Token.Force }
   | '&'                            { Token.Lazy }
   | '#'                            { Token.Leave }
-  | '$'                            { Token.Var }
   | "%%"                           { Token.Placeholder_generic }
   | "%_"                           { Token.Placeholder_ignore }
   | '%'                            { Token.Placeholder }

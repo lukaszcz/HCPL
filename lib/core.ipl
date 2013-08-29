@@ -41,6 +41,7 @@ syntax operator << is left, binary, prio >>;
 
 syntax operator $> is right, binary, after <<;
 syntax operator $< is right, binary, prio $>;
+syntax operator $. is right, binary, prio $>;
 
 let neg = \x . 0 - x;
 let /=  = \x \y . not (x = y);
@@ -49,3 +50,4 @@ let >> = \x \f . f x;
 let << = \#f . f;
 let $> = >>;
 let $< = <<;
+let $. = <<;

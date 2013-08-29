@@ -30,7 +30,6 @@ type t =
   | Force
   | Lazy
   | Leave
-  | Var
   | Newline
   | NewlineSep
   | Eof
@@ -69,7 +68,6 @@ let to_string x =
   | Force -> "Token.Force"
   | Lazy -> "Token.Lazy"
   | Leave -> "Token.Leave"
-  | Var -> "Token.Var"
   | Newline -> "Token.Newline"
   | NewlineSep -> "Token.NewlineSep"
   | Eof -> "Token.Eof"
