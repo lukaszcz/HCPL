@@ -1,0 +1,9 @@
+
+let fact = \x { if x = 1 then 1 else x * fact (x - 1) };
+let q = '(fact 10);
+
+print (eval q);
+print (reduce q);
+print (reduce (reduce q));
+print (eval_limited q 5);
+print (eval_limited q 10);

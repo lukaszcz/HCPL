@@ -428,6 +428,28 @@ m4_define(`EVAL', `
 
 let dummy_env = ((Obj.magic 100) : Node.t list)
 
+(* refstack and eval_limit are modified by eval, reduce, etc. *)
+let refstack = Stack.create ()
+let eval_limit = ref (-1)
+
+let check_limit times_entered =
+  if !eval_limit >= 0 then
+    begin
+      if !eval_limit > !times_entered then
+        begin
+          if !times_entered = 0 then
+            begin
+              Stack.push times_entered refstack
+            end;
+          incr times_entered;
+          true
+        end
+      else
+        false
+    end
+  else
+    true
+
 let rec do_eval_delayed r =
   EVAL_DELAYED(r)
 and do_eval node env env_len =
@@ -437,56 +459,81 @@ and do_eval node env env_len =
         let x = do_eval x env env_len
         in
         match x with
-        | Lambda(body, frame, CallByValue, _, _) ->
+        | Lambda(body, frame, CallByValue, times_entered, _) ->
             let arg = EVAL(y, env, env_len)
-            and env2 = pop_to env env_len frame
-            and env2_len = frame
             in
-            do_eval body (arg :: env2) (env2_len + 1)
+            if check_limit times_entered then
+              let env2 = pop_to env env_len frame
+              and env2_len = frame
+              in
+              do_eval body (arg :: env2) (env2_len + 1)
+            else
+              Appl(x, arg, attrs)
 
-        | Lambda(body, frame, call_type, _, _) ->
+        | Lambda(body, frame, call_type, times_entered, _) ->
             begin
               match y with
               | Force(arg) ->
                   let arg = do_eval arg env env_len
-                  and env2 = pop_to env env_len frame
-                  and env2_len = frame
                   in
-                  do_eval body (arg :: env2) (env2_len + 1)
+                  if check_limit times_entered then
+                    let env2 = pop_to env env_len frame
+                    and env2_len = frame
+                    in
+                    do_eval body (arg :: env2) (env2_len + 1)
+                  else
+                    Appl(x, arg, attrs)
               | Leave(arg) ->
                   let arg = do_close arg env env_len
-                  and env2 = pop_to env env_len frame
-                  and env2_len = frame
                   in
-                  do_eval body (arg :: env2) (env2_len + 1)
+                  if check_limit times_entered then
+                    let env2 = pop_to env env_len frame
+                    and env2_len = frame
+                    in
+                    do_eval body (arg :: env2) (env2_len + 1)
+                  else
+                    Appl(x, arg, attrs)
               | _ ->
                   let arg =
                     if call_type = CallByNeed then
                       do_delay y env env_len
                     else
                       do_close y env env_len
-                  and env2 = pop_to env env_len frame
-                  and env2_len = frame
                   in
-                  do_eval body (arg :: env2) (env2_len + 1)
+                  if check_limit times_entered then
+                    let env2 = pop_to env env_len frame
+                    and env2_len = frame
+                    in
+                    do_eval body (arg :: env2) (env2_len + 1)
+                  else
+                    Appl(x, arg, attrs)
             end
 
-        | LambdaClosure(body, env2, env2_len, CallByValue, _, _) ->
+        | LambdaClosure(body, env2, env2_len, CallByValue, times_entered, _) ->
             let arg = EVAL(y, env, env_len)
             in
-            do_eval body (arg :: env2) (env2_len + 1)
+            if check_limit times_entered then
+              do_eval body (arg :: env2) (env2_len + 1)
+            else
+              Appl(x, arg, attrs)
 
-        | LambdaClosure(body, env2, env2_len, call_type, _, _) ->
+        | LambdaClosure(body, env2, env2_len, call_type, times_entered, _) ->
             begin
               match y with
               | Force(arg) ->
                   let arg = do_eval arg env env_len
                   in
-                  do_eval body (arg :: env2) (env2_len + 1)
+                  if check_limit times_entered then
+                    do_eval body (arg :: env2) (env2_len + 1)
+                  else
+                    Appl(x, arg, attrs)
               | Leave(arg) ->
                   let arg = do_close arg env env_len
                   in
-                  do_eval body (arg :: env2) (env2_len + 1)
+                  if check_limit times_entered then
+                    do_eval body (arg :: env2) (env2_len + 1)
+                  else
+                    Appl(x, arg, attrs)
               | _ ->
                   let arg =
                     if call_type = CallByNeed then
@@ -494,7 +541,10 @@ and do_eval node env env_len =
                     else
                       do_close y env env_len
                   in
-                  do_eval body (arg :: env2) (env2_len + 1)
+                  if check_limit times_entered then
+                    do_eval body (arg :: env2) (env2_len + 1)
+                  else
+                    Appl(x, arg, attrs)
             end
 
         | _ -> Appl(x, do_close y env env_len, attrs)
@@ -877,10 +927,16 @@ and do_eval node env env_len =
 
   | _ -> node
 
-let reduce node = do_eval node Env.empty 0
+let eval node = eval_limit := -1; do_eval node Env.empty 0
 
-let eval node = do_eval node Env.empty 0
+let eval_limited node limit =
+  eval_limit := limit;
+  let r = do_eval node Env.empty 0
+  in
+  Stack.iter (fun x -> x := 0) refstack;
+  Stack.clear refstack;
+  r
 
-let eval_limited node limit = do_eval node Env.empty 0
+let reduce node = eval_limited node 1
 
-let eval_in node env = do_eval node env (Env.length env)
+let eval_in node env = eval_limit := -1; do_eval node env (Env.length env)

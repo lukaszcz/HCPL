@@ -174,6 +174,23 @@ let to_string lst =
   | x :: _ -> String(Node.to_string x)
   | _ -> failwith "to_string"
 
+(* evaluation *)
+
+let eval lst =
+  match lst with
+  | Quoted(x) :: _ -> Quoted(Eval.eval x)
+  | _ -> failwith "eval: bad argument"
+
+let reduce lst =
+  match lst with
+  | Quoted(x) :: _ -> Quoted(Eval.reduce x)
+  | _ -> failwith "reduce: bad argument"
+
+let eval_limited lst =
+  match lst with
+  | y :: Quoted(x) :: _ -> Quoted(Eval.eval_limited x (Bignum.to_int y))
+  | _ -> failwith "eval_limited: bad arguments"
+
 (* public interface *)
 
 let declare_builtins scope symtab =
@@ -236,6 +253,9 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "random") (xrandom, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "^") (concat, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval") (eval, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "reduce") (reduce, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval_limited") (eval_limited, 2, CallByValue) in
 
     scope
   end
