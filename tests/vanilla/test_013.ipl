@@ -21,6 +21,7 @@ let funkcja = \x . + x 4;
 let z = 0;
 
 print (funkcja (div y x)); // 17 div 5 + 4 = 7
+print (+ (* z x) y); // 17
 
 let vx = 30; let vy = 7;
 

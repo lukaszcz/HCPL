@@ -49,7 +49,7 @@ let msb x =
     else
       bit + 1
   in
-  loop (abs x) Config.int_bits
+  if x = 0 then 0 else loop (abs x) Config.int_bits
 
 let mul_fits x y =
   msb x + msb y <= smallint_bits
