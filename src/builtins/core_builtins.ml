@@ -211,6 +211,7 @@ let declare_builtins scope symtab =
     Node.change_name Node.xmod (Symtab.find symtab "mod");
     Node.change_name Node.cons (Symtab.find symtab "cons");
     Node.change_name Node.cons_comma (Symtab.find symtab ",");
+    Node.change_name Node.cons_dcolon (Symtab.find symtab "::");
     Node.change_name Node.cons_lazy (Symtab.find symtab "cons&");
     Node.change_name Node.xfst (Symtab.find symtab "fst");
     Node.change_name Node.xsnd (Symtab.find symtab "snd");
@@ -235,6 +236,7 @@ let declare_builtins scope symtab =
     let scope = Scope.add_ident scope (Symtab.find symtab "cons") Node.cons in
     let scope = Scope.add_ident scope (Symtab.find symtab "cons&") Node.cons_lazy in
     let scope = Scope.add_ident scope (Symtab.find symtab ",") Node.cons_comma in
+    let scope = Scope.add_ident scope (Symtab.find symtab "::") Node.cons_dcolon in
     let scope = Scope.add_ident scope (Symtab.find symtab "fst") Node.xfst in
     let scope = Scope.add_ident scope (Symtab.find symtab "snd") Node.xsnd in
     let scope = Scope.add_ident scope (Symtab.find symtab "hd") Node.xhd in
