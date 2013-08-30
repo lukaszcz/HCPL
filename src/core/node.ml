@@ -279,7 +279,7 @@ let rec normalize node =
   | Proxy(r) -> normalize !r
   | _ -> node
 
-let quote node =
+let mkquoted node =
   if is_const node then
     node
   else

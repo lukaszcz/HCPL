@@ -37,7 +37,7 @@ let rec do_match_quoted node pat acc (mode : match_quoted_mode_t) =
             if node == pat then acc else raise Exit
           end
         else
-          (Node.quote node) :: acc
+          (Node.mkquoted node) :: acc
       end
     else if pat == Ignore then
       begin

@@ -1131,7 +1131,7 @@ m4_changequote([`],['])
             match lst with
             | [Program(value)] ->
                 if Scope.frame scope = -1 then
-                  Program(Node.quote (Node.optimize value))
+                  Program(Quote.quote (Node.optimize value))
                 else
                   begin
                     let ipl_quote = Scope.find_ident scope sym_quote2
