@@ -399,3 +399,78 @@ let to_string node =
       end
   in
   prn node 20
+
+let rec traverse f node acc =
+  let acc2 = f node acc
+  in
+  if is_smallint node then
+    acc2
+  else
+    match node with
+    | Appl(a, b, _) ->
+        traverse f b (traverse f a acc2)
+    | Cond(x, y, z, _) ->
+        traverse f z (traverse f y (traverse f x acc2))
+    | Delay(x) ->
+        traverse f x acc2
+    | Force(x) ->
+        traverse f x acc2
+    | Leave(x) ->
+        traverse f x acc2
+    | Lambda(body, _, _, _, _) ->
+        traverse f body acc2
+    | Quoted(x) ->
+        traverse f x acc2
+    | Cons(x, y) ->
+        traverse f y (traverse f x acc2)
+    | Delayed(x) ->
+        traverse f !x acc2
+    | Closure(body, _, _) ->
+        traverse f body acc2
+    | LambdaClosure(body, _, _, _, _, _) ->
+        traverse f body acc2
+    | BEq(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BGt(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BGe(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BAdd(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BSub(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BMul(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BIDiv(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BMod(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BCons(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BConsNE(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BFst(x) ->
+        traverse f x acc2
+    | BSnd(x) ->
+        traverse f x acc2
+    | BNot(x) ->
+        traverse f x acc2
+    | BAnd(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BOr(x, y) ->
+        traverse f y (traverse f x acc2)
+    | BMatch(x, branches) ->
+        let rec aux lst acc =
+          match lst with
+          | (x, y, z, _) :: t ->
+              aux t (traverse f z (traverse f y (traverse f x acc)))
+          | [] ->
+              acc
+        in
+        aux branches (traverse f x acc2)
+    | BRecordGet(x, y) ->
+        traverse f y (traverse f x acc2)
+    | Var(_) | Proxy(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+      True | False | Placeholder | Ignore | Nil ->
+        acc2
+    | _ -> Debug.print (to_string node); failwith "unknown node"

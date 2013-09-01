@@ -90,6 +90,13 @@ let eval_limited lst =
   | y :: Quoted(x) :: _ -> Node.mkquoted (Eval.eval_limited x (Bignum.to_int y))
   | _ -> failwith "eval_limited: bad arguments"
 
+(* occurs check *)
+
+let occurs_check lst =
+  match lst with
+  | y :: x :: _ -> if Quote.occurs_check x y then True else False
+  | _ -> failwith "occurs_check: bad arguments"
+
 (* public interface *)
 
 let declare_builtins scope symtab =
@@ -156,7 +163,8 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval") (eval, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "reduce") (reduce, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval_limited") (eval_limited, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval-limited") (eval_limited, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "occurs-check") (occurs_check, 2, CallByValue) in
 
     scope
   end

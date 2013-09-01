@@ -119,3 +119,24 @@ let quote node =
     | _ -> node
   in
   Node.mkquoted (do_quote node [] 0)
+
+let occurs_check node1 node2 =
+  match node1 with
+  | Quoted(a) ->
+      begin
+        try
+          traverse
+            (fun x _ ->
+              try
+                if Match.equal_quoted x a then
+                  raise Exit
+                else
+                  false
+              with
+                Match.Unknown -> false
+            ) node2 false
+        with Exit ->
+          true
+      end
+  | _ ->
+      false

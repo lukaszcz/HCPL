@@ -5,5 +5,5 @@ let q = '(fact 10);
 print (eval q);
 print (reduce q);
 print (reduce (reduce q));
-print (eval_limited q 5);
-print (eval_limited q 10);
+print (eval-limited q 5);
+print (eval-limited q 10);
