@@ -33,7 +33,8 @@ type t =
   | BNot of t
   | BAnd of t * t
   | BOr of t * t
-  | BMatch of t * ((t * t * int) list)
+  | BMatch of t * ((t * t * t * int) list)
+        (* (value, [(pattern, when_condition, body, args_num)]) *)
   | BRecordGet of t * t
 
   (* used only by the evaluator *)
@@ -283,7 +284,9 @@ let mkquoted node =
   if is_const node then
     node
   else
-    Quoted(node)
+    match node with
+    | Integer(_) | String(_) | Sym(_) | Quoted(_) -> node
+    | _ -> Quoted(node)
 
 let call_type_to_string call_type =
   match call_type with
@@ -324,8 +327,9 @@ let to_string node =
         in
         let rec prn_match lst =
           match lst with
-          | (pat, value, _) :: t ->
-              " | " ^ prn pat (limit - 1) ^ " -> " ^ prn value (limit - 1) ^ prn_match t
+          | (pat, cond, value, _) :: t ->
+              " | " ^ prn pat (limit - 1) ^ (if cond == True then "" else " when " ^ prn cond (limit - 1)) ^
+              " -> " ^ prn value (limit - 1) ^ prn_match t
           | [] -> ""
         in
         let rec prn_progn node =

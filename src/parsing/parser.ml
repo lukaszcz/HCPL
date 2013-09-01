@@ -48,7 +48,7 @@ Copyright (C) 2013 by Łukasz Czajka
 
 type sexp_t =
   | Program of Node.t
-  | MatchBranch of Node.t * int
+  | MatchBranch of Node.t * Node.t * int (* (cond, body, args_num) *)
   | Ident of Symbol.t
   | Bool of bool
   | CallType of Node.call_t
@@ -63,7 +63,7 @@ type sexp_t =
 let rec sexp_to_string sexp =
   match sexp with
   | Program(node) -> "Program(" ^ Node.to_string node ^ ")"
-  | MatchBranch(node, n) -> "Program(" ^ Node.to_string node ^ ", " ^ string_of_int n ^ ")"
+  | MatchBranch(cond, body, n) -> "Program(" ^ Node.to_string cond ^ "," ^ Node.to_string body ^ ", " ^ string_of_int n ^ ")"
   | Ident(sym) -> "Ident(" ^ Symbol.to_string sym ^ ")"
   | Bool(b) -> "Bool(" ^ (if b then "true" else "false") ^ ")"
   | CallType(ct) -> "CallType(" ^ Node.call_type_to_string ct ^ ")"
@@ -403,11 +403,9 @@ m4_changequote([`],['])
   and sym_match_sep = Symtab.find symtab "|"
   and sym_match = Symtab.find symtab "match"
   and sym_with = Symtab.find symtab "with"
+  and sym_when = Symtab.find symtab "when"
   and sym_quote = Symtab.find symtab "'"
   and sym_quote2 = Symtab.find symtab "quote"
-
-  and sym_fun = Symtab.find symtab "fun"
-  and sym_def = Symtab.find symtab "def"
 
   and sym_syntax = Symtab.find symtab "syntax"
   and sym_drop = Symtab.find symtab "drop"
@@ -1161,8 +1159,8 @@ m4_changequote([`],['])
           (fun lst attrs scope ->
             let rec mkbranches lst =
               match lst with
-              | Program(pat) :: MatchBranch(value, n) :: t ->
-                  (pat, value, n) :: mkbranches t
+              | Program(pat) :: MatchBranch(cond, value, n) :: t ->
+                  (pat, cond, value, n) :: mkbranches t
               | [] -> []
               | _ -> assert false
             in
@@ -1183,16 +1181,30 @@ m4_changequote([`],['])
         begin
           new_ident_scope
             (enter_match
-               (new_keyword sym_arrow (catch_errors expr) ++
-                  symbol sym_arrow ++
+               (new_keyword sym_arrow (new_keyword sym_when (catch_errors expr)) ++
                   (fun () ((lst, attrs, strm, scope) as state) cont ->
                     let rec mkparse placeholders =
                       match placeholders with
                       | h :: t ->
                           new_frame (change_scope
-                                       (fun _ _ scope2 -> Scope.add_ident scope2 h (Node.Var(Scope.frame scope2))) ++
+                                       (fun _ _ scope2 ->
+                                         try
+                                           Scope.add_ident scope2 h (Node.Var(Scope.frame scope2))
+                                         with Scope.Duplicate_ident ->
+                                           raise (ParseFailure(Some(Scope.strm_position scope strm),
+                                                              "duplicate identifier: `" ^ Symbol.to_string h ^ "'",
+                                                              (fun () ->
+                                                                (skip_until
+                                                                  [Token.Symbol(sym_match_sep); Token.Sep]
+                                                                   +> return (MatchBranch(Node.Nil, Node.Nil, 0)))
+                                                                  () state cont)))
+                                       ) ++
                                        mkparse t)
-                      | _ -> new_keyword sym_match_sep (catch_errors expr)
+                      | _ ->
+                          (symbol sym_when +! new_keyword sym_arrow (catch_errors expr)
+                            ^|| empty +> return (Program Node.True)) ++
+                          symbol sym_arrow ++
+                          new_keyword sym_match_sep (catch_errors expr)
                     and placeholders = Scope.placeholders scope
                     in
                     let n = List.length placeholders
@@ -1200,7 +1212,7 @@ m4_changequote([`],['])
                     (mkparse placeholders >>
                      (fun lst attrs _ ->
                        match lst with
-                       | [Program(node)] -> MatchBranch(node, n)
+                       | [Program(cond); Program(body)] -> MatchBranch(cond, body, n)
                        | _ -> assert false))
                       () state cont)))
         end
@@ -1332,7 +1344,7 @@ m4_changequote([`],['])
     (get_singleton_node lst, scope)
   in
 
-  let keywords = [sym_fun; sym_def; sym_syntax; sym_symbol; sym_import; sym_open; sym_include]
+  let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include]
   and builtins = [(fun x -> Core_builtins.declare_builtins x symtab)]
   in
   let scope0 =

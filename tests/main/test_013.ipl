@@ -1,0 +1,56 @@
+
+// match with when clauses
+
+let filter = \f \lst {
+   match lst with
+   | %h :: %t when f h -> h :: filter f t
+   | %_ :: %t -> filter f t
+   | [] -> []
+}
+
+let gen = \n \m \acc {
+   if m + n = 0 then
+      acc
+   else
+      let x =
+         if random (m + n) < n then
+            1
+         else
+            -1
+      in
+      gen (n - x * (x + 1) div 2) (m - x * (x - 1) div 2) (x :: acc)
+}
+
+let sum = \lst {
+   let aux = \lst \acc {
+      match lst with
+      | %h :: %t -> aux t (acc + h)
+      | [] -> acc
+   };
+   aux lst 0
+};
+
+filter (\x . x > 0) (gen 1000 1000 []) >> sum >> print;
+
+let g = \lst {
+   match lst with
+   | [%x, %_, %_, %_] when x > 0 -> 1
+   | [%x, %_, %_, %_] when x < 0 -> -1
+   | [%_, %x, %_, %_] when x > 0 -> 2
+   | [%_, %x, %_, %_] when x < 0 -> -2
+   | [%_, %_, %x, %_] when x > 0 -> 3
+   | [%_, %_, %x, %_] when x < 0 -> -3
+   | [%_, %_, %_, %x] when x > 0 -> 4
+   | [%_, %_, %_, %x] when x < 0 -> -4
+   | %_ -> 0
+};
+
+print << g [1, 0, 0, 0];
+print << g [-1, 0, 0, 0];
+print << g [0, 1, 0, 0];
+print << g [0, -1, 0, 0];
+print << g [0, 0, 1, 0];
+print << g [0, 0, -1, 0];
+print << g [0, 0, 0, 1];
+print << g [0, 0, 0, -1];
+print << g [0, 0, 0, 0];

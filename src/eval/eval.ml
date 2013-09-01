@@ -244,8 +244,8 @@ let rec do_match_quoted node pat acc (mode : match_quoted_mode_t) =
             match node with
             | BMatch(nx, nlst) ->
                 List.fold_left2
-                  (fun a (n1, n2, _) (p1, p2, _) ->
-                    do_match_quoted n2 p2 (do_match_quoted n1 p1 a mode) mode)
+                  (fun a (n1, n2, n3, _) (p1, p2, p3, _) ->
+                    do_match_quoted n3 p3 (do_match_quoted n2 p2 (do_match_quoted n1 p1 a mode) mode) mode)
                   (do_match_quoted nx px acc mode) nlst plst
             | _ -> raise Exit
           end
@@ -776,7 +776,7 @@ and do_eval node env env_len =
   | BMatch(x, branches) ->
       let rec loop node env env_len lst =
         match lst with
-        | (y, body, args_num) :: t ->
+        | (y, cond, body, args_num) :: t ->
             begin
               let pat = do_eval y env env_len
               in
@@ -786,7 +786,10 @@ and do_eval node env env_len =
                     match node with
                     | Sym(nsym) when Symbol.eq psym nsym ->
                         assert (args_num = 0);
-                        do_eval body env env_len
+                        if cond == True || do_eval cond env env_len == True then
+                          do_eval body env env_len
+                        else
+                          loop node env env_len t
                     | _ ->
                         loop node env env_len t
                   end
@@ -797,13 +800,34 @@ and do_eval node env env_len =
                         begin
                           match (ph, pt) with
                           | Placeholder, Placeholder ->
-                              do_eval body (nt :: nh :: env) (env_len + 2)
+                              let env2 = nt :: nh :: env
+                              and env2_len = env_len + 2
+                              in
+                              if cond == True || do_eval cond env2 env2_len == True then
+                                do_eval body env2 env2_len
+                              else
+                                loop node env env_len t
                           | Placeholder, Ignore ->
-                              do_eval body (nh :: env) (env_len + 1)
+                              let env2 = nh :: env
+                              and env2_len = env_len + 1
+                              in
+                              if cond == True || do_eval cond env2 env2_len == True then
+                                do_eval body env2 env2_len
+                              else
+                                loop node env env_len t
                           | Ignore, Placeholder ->
-                              do_eval body (nt :: env) (env_len + 1)
+                              let env2 = nt :: env
+                              and env2_len = env_len + 1
+                              in
+                              if cond == True || do_eval cond env2 env2_len == True then
+                                do_eval body env2 env2_len
+                              else
+                                loop node env env_len t
                           | Ignore, Ignore ->
-                              do_eval body env env_len
+                              if cond == True || do_eval cond env env_len == True then
+                                do_eval body env env_len
+                              else
+                                loop node env env_len t
                           | Placeholder, _ ->
                               begin
                                 let env2 =
@@ -811,9 +835,10 @@ and do_eval node env env_len =
                                     do_match nt pt (nh :: env)
                                   with Exit ->
                                     dummy_env
+                                and env2_len = env_len + args_num
                                 in
-                                if env2 != dummy_env then
-                                  do_eval body env2 (env_len + args_num)
+                                if env2 != dummy_env && (cond == True || do_eval cond env2 env2_len == True) then
+                                  do_eval body env2 env2_len
                                 else
                                   loop node env env_len t
                               end
@@ -824,9 +849,10 @@ and do_eval node env env_len =
                                     do_match nt pt env
                                   with Exit ->
                                     dummy_env
+                                and env2_len = env_len + args_num
                                 in
-                                if env2 != dummy_env then
-                                  do_eval body env2 (env_len + args_num)
+                                if env2 != dummy_env && (cond == True || do_eval cond env2 env2_len == True) then
+                                  do_eval body env2 env2_len
                                 else
                                   loop node env env_len t
                               end
@@ -837,9 +863,10 @@ and do_eval node env env_len =
                                     nt :: (do_match nh ph env)
                                   with Exit ->
                                     dummy_env
+                                and env2_len = env_len + args_num
                                 in
-                                if env2 != dummy_env then
-                                  do_eval body env2 (env_len + args_num)
+                                if env2 != dummy_env && (cond == True || do_eval cond env2 env2_len == True) then
+                                  do_eval body env2 env2_len
                                 else
                                   loop node env env_len t
                               end
@@ -850,9 +877,10 @@ and do_eval node env env_len =
                                     do_match nh ph env
                                   with Exit ->
                                     dummy_env
+                                and env2_len = env_len + args_num
                                 in
-                                if env2 != dummy_env then
-                                  do_eval body env2 (env_len + args_num)
+                                if env2 != dummy_env && (cond == True || do_eval cond env2 env2_len == True) then
+                                  do_eval body env2 env2_len
                                 else
                                   loop node env env_len t
                               end
@@ -863,9 +891,10 @@ and do_eval node env env_len =
                                     do_match nt pt (do_match nh ph env)
                                   with Exit ->
                                     dummy_env
+                                and env2_len = env_len + args_num
                                 in
-                                if env2 != dummy_env then
-                                  do_eval body env2 (env_len + args_num)
+                                if env2 != dummy_env && (cond == True || do_eval cond env2 env2_len == True) then
+                                  do_eval body env2 env2_len
                                 else
                                   loop node env env_len t
                               end
@@ -885,9 +914,10 @@ and do_eval node env env_len =
                         do_match node pat env
                       with Exit ->
                         dummy_env
+                    and env2_len = env_len + args_num
                     in
-                    if env2 != dummy_env then
-                      do_eval body env2 (env_len + args_num)
+                    if env2 != dummy_env && (cond == True || do_eval cond env2 env2_len == True) then
+                      do_eval body env2 env2_len
                     else
                       loop node env env_len t
                   end
@@ -896,17 +926,29 @@ and do_eval node env env_len =
                     if pat == Ignore then
                       begin
                         assert (args_num = 0);
-                        do_eval body env env_len
+                        if cond == True || do_eval cond env env_len == True then
+                          do_eval body env env_len
+                        else
+                          loop node env env_len t
                       end
                     else if pat == Placeholder then
                       begin
                         assert (args_num = 1);
-                        do_eval body (node :: env) (env_len + 1)
+                        let env2 = node :: env
+                        and env2_len = env_len + 1
+                        in
+                        if cond == True || do_eval cond env2 env2_len == True then
+                          do_eval body env2 env2_len
+                        else
+                          loop node env env_len t
                       end
                     else if pat == node then
                       begin
                         assert (args_num = 0);
-                        do_eval body env env_len
+                        if cond == True || do_eval cond env env_len == True then
+                          do_eval body env env_len
+                        else
+                          loop node env env_len t
                       end
                     else
                       loop node env env_len t

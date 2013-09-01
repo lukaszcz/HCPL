@@ -85,8 +85,17 @@ let quote node =
     | BMatch(x, lst) ->
         BMatch(do_quote x env env_len,
                List.fold_right
-                 (fun (x, y, n) acc ->
-                   (do_quote x env env_len, do_quote y env env_len, n) :: acc)
+                 (fun (x, y, z, n) acc ->
+                   let rec pom lst k n =
+                     if n = 0 then
+                       lst
+                     else
+                       pom (Var(k) :: lst) (k + 1) (n - 1)
+                   in
+                   let env2 = pom env env_len n
+                   and env2_len = env_len + n
+                   in
+                   (do_quote x env env_len, do_quote y env2 env2_len, do_quote z env2 env2_len, n) :: acc)
                  lst [])
     | BRecordGet(x, y) ->
         BRecordGet(do_quote x env env_len, do_quote y env env_len)

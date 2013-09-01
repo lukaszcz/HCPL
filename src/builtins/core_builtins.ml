@@ -58,7 +58,7 @@ let ipl_quote lst =
 
 let xrandom lst =
   match lst with
-  | x :: _ -> Integer(big_int_of_int (Random.int (Bignum.to_int x)))
+  | x :: _ -> Bignum.from_int (Random.int (Bignum.to_int x))
   | _ -> failwith "random: type error"
 
 (* strings *)
