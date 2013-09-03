@@ -460,6 +460,8 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_in = Symtab.find symtab "in"
   and sym_is = Symtab.find symtab "is"
   and sym_at = Symtab.find symtab "@"
+  and sym_begin = Symtab.find symtab "begin"
+  and sym_end = Symtab.find symtab "end"
   and sym_sym = Symtab.find symtab "sym"
 m4_changequote(`[',`]')
   and sym_backquote = Symtab.find symtab "`"
@@ -1129,6 +1131,7 @@ m4_changequote([`],['])
       recursive
         begin
           lambda ^|| cond ^||
+          keyword sym_begin +! new_scope (catch_errors (progn ++ keyword sym_end)) ^||
           lparen +! new_scope (catch_errors (progn ++ rparen)) ^||
           lparen_curl +! new_scope (catch_errors (progn ++ rparen_curl)) ^||
           token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(Node.optimize (get_singleton_node lst)))) ^||
@@ -1407,7 +1410,7 @@ m4_changequote([`],['])
     (get_singleton_node lst, scope)
   in
 
-  let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include]
+  let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include; sym_begin; sym_end]
   and builtins = [(fun x -> Core_builtins.declare_builtins x symtab)]
   in
   let scope0 =
