@@ -380,6 +380,72 @@ let execute r lexbuf symtab scope =
 
 (* -------------------------------------------------------------------------- *)
 
+(* lambda correction *)
+
+let max_lambda_body_frame_ref node frame0 =
+  let rec aux node gap cframe acc =
+    NodeUtils.traverse
+      (fun x m ->
+        match x with
+        | Node.Var(n) ->
+            if n >= gap then
+              NodeUtils.Continue(max (cframe - n) m)
+            else
+              NodeUtils.Continue(m)
+        | Node.Lambda(body, frame, _, _, _) ->
+            if frame < frame0 then
+              NodeUtils.Skip(max (frame - 1) m)
+            else
+              NodeUtils.Skip(aux body (gap + 1) (cframe + 1) m)
+        | Node.LambdaClosure(_) | Node.Closure(_) ->
+            NodeUtils.Skip(m)
+        | _ -> NodeUtils.Continue(m)
+      )
+      node acc
+  in
+  aux node 1 frame0 (-1)
+
+let correct_lambda node =
+  let rec aux body frame frame2 call_type attrs gap cframe =
+    let shift = frame - frame2
+    in
+    let body2 =
+      NodeUtils.transform
+        (fun x ->
+          match x with
+          | Node.Lambda(body, frame3, call_type, _, attrs) ->
+              if frame3 >= cframe then
+                NodeUtils.Skip(aux body frame3 (frame3 - shift) call_type attrs (gap + 1) cframe)
+              else
+                NodeUtils.Skip(x)
+          | _ -> NodeUtils.Continue(x))
+        (fun x ->
+          match x with
+          | Node.Var(n) ->
+              if n >= gap then
+                Node.Var(n - shift)
+              else
+                Node.Var(n)
+          | _ -> x)
+        body
+    in
+    Node.Lambda(body2, frame2, call_type, ref 0, attrs)
+  in
+  match node with
+  | Node.Lambda(body, frame, call_type, _, attrs) ->
+      let frame2 = max_lambda_body_frame_ref body frame + 1
+      in
+      if frame2 <> frame then
+        begin
+          aux body frame frame2 call_type attrs 1 frame
+        end
+      else
+        node
+  | _ -> node
+
+
+(* -------------------------------------------------------------------------- *)
+
 let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
 
   let symtab = Symtab.create ()
@@ -1103,7 +1169,7 @@ m4_changequote([`],['])
           (fun lst attrs scope ->
             match lst with
             | [CallType(ct); Ident(sym); Program(body)] ->
-                Program(Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs))
+                Program(correct_lambda (Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs)))
             | _ -> assert false)
         end
 
@@ -1128,14 +1194,11 @@ m4_changequote([`],['])
           (fun lst attrs scope ->
             match lst with
             | [Program(value)] ->
-                if Scope.frame scope = -1 then
-                  Program(Quote.quote (Node.optimize value))
-                else
-                  begin
-                    let ipl_quote = Scope.find_ident scope sym_quote2
-                    in
-                    Program(Node.Appl(ipl_quote, (Node.optimize value), attrs))
-                  end
+                begin
+                  let ipl_quote = Scope.find_ident scope sym_quote2
+                  in
+                  Program(Node.Appl(ipl_quote, (Node.optimize value), attrs))
+                end
             | _ -> assert false)
         end
 
