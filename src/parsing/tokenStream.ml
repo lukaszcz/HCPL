@@ -12,6 +12,14 @@ let empty = lazy Empty
 
 let cons token pos strm = lazy (Cons(token, pos, strm))
 
+let putback strm lst =
+  let rec aux lst acc =
+    match lst with
+    | (tok, pos) :: t -> aux t (cons tok pos acc)
+    | [] -> acc
+  in
+  aux (List.rev lst) strm
+
 let token strm =
   match Lazy.force strm with
   | Cons(x, _, _) -> x

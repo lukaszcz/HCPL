@@ -131,5 +131,7 @@ try
         run "stdin" stdin
     end
 with
+| Error.RuntimeError(msg) ->
+    prerr_endline ("runtime error: " ^ msg); exit 1
 | Sys_error(msg) ->
     Error.fatal msg; exit 1

@@ -87,6 +87,7 @@ m4_define(`ACCESS_VAR', `
     | Delayed(r) ->
         do_eval_delayed r
     | _ -> assert (is_immed x || (match x with Lambda(_, 0, _, _, _) -> true | _ -> false)); x
+           (* TODO: this need not be true, e.g.: let x = hd 3; This should be fixed!!! *)
   end
 ')
 
@@ -102,7 +103,7 @@ m4_define(`EVAL', `
       BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
       -> do_eval $1 $2 $3
     | Integer(_) | String(_) | Record(_) | Sym(_) |
-      True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
+      True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
       LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
       -> $1
   end
@@ -585,7 +586,7 @@ and do_eval node env env_len =
                 BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
                 BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
                 Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | Integer(_) | String(_) |
-                Record(_) | Quoted(_) | LambdaClosure(_)
+                Record(_) | Tokens(_) | Quoted(_) | LambdaClosure(_)
                 ->
                   begin
                     let env2 =
@@ -633,7 +634,7 @@ and do_eval node env env_len =
                       loop node env env_len t
                   end
             end
-        | [] -> failwith "match failure"
+        | [] -> Error.runtime_error "match failure"
       in
       loop (do_eval x env env_len) env env_len branches
 
@@ -643,7 +644,7 @@ and do_eval node env env_len =
         let y = do_eval y env env_len in
         match x, y with
         | Record(r), Sym(s) -> Symbol.Map.find s r
-        | _ -> failwith "record error"
+        | _ -> Error.runtime_error "record error"
       end
 
   | _ -> node
@@ -651,13 +652,45 @@ and do_eval node env env_len =
 let eval node = eval_limit := -1; do_eval node Env.empty 0
 
 let eval_limited node limit =
-  eval_limit := limit;
-  let r = do_eval node Env.empty 0
+  let cleanup () =
+    Stack.iter (fun x -> x := 0) refstack;
+    Stack.clear refstack;
   in
-  Stack.iter (fun x -> x := 0) refstack;
-  Stack.clear refstack;
-  r
+  eval_limit := limit;
+  try
+    let r = do_eval node Env.empty 0
+    in
+    cleanup ();
+    r
+  with e ->
+    cleanup ();
+    raise e
 
 let reduce node = eval_limited node 1
 
 let eval_in node env = eval_limit := -1; do_eval node env (Env.length env)
+
+let macro_tmp_id = ref 0
+let extra_macro_args_ref = ref []
+
+let eval_macro symtab node args =
+  let n = 10
+  in
+  let rec mkextra m acc =
+    if m = 0 then
+      acc
+    else
+      let sym = Symtab.find symtab ("__ipl_macro_tmp_" ^ string_of_int !macro_tmp_id)
+      in
+      incr macro_tmp_id;
+      mkextra (m - 1) (Node.Tokens([(Token.Symbol(sym), Lexing.dummy_pos)]) :: acc)
+  in
+  let arglst = List.fold_right (fun x acc -> Node.Cons(x, acc)) args Node.Nil
+  in
+  let mcall = Node.Appl(node, arglst, None)
+  in
+  extra_macro_args_ref := mkextra n [];
+  eval_limit := -1;
+  do_eval mcall Env.empty 0
+
+let extra_macro_args () = !extra_macro_args_ref

@@ -1,6 +1,7 @@
 
-* macros
+* syntax block
 * Logic
 * Improve evaluator efficiency even more
 * In the parser, translate closed lets directly into Delayed nodes (or just do this for lemmas)
+* Don't exit on too many errors in repl mode
 * Improve Node.to_string (use pretty printing from the Format module)

@@ -59,43 +59,79 @@ let ipl_quote lst =
 let xrandom lst =
   match lst with
   | x :: _ -> Bignum.from_int (Random.int (Bignum.to_int x))
-  | _ -> failwith "random: type error"
+  | _ -> Error.runtime_error "random: type error"
 
 (* strings *)
 
 let concat lst =
   match lst with
   | String(b) :: String(a) :: _ -> String(a ^ b)
-  | _ -> failwith "concat: type error"
+  | _ -> Error.runtime_error "concat: type error"
 
 let to_string lst =
   match lst with
   | x :: _ -> String(Node.to_string x)
-  | _ -> failwith "to_string"
+  | _ -> assert false
 
 (* evaluation *)
 
 let eval lst =
   match lst with
   | Quoted(x) :: _ -> Node.mkquoted (Eval.eval x)
-  | _ -> failwith "eval: bad argument"
+  | _ -> Error.runtime_error "eval: bad argument"
 
 let reduce lst =
   match lst with
   | Quoted(x) :: _ -> Node.mkquoted (Eval.reduce x)
-  | _ -> failwith "reduce: bad argument"
+  | _ -> Error.runtime_error "reduce: bad argument"
 
 let eval_limited lst =
   match lst with
   | y :: Quoted(x) :: _ -> Node.mkquoted (Eval.eval_limited x (Bignum.to_int y))
-  | _ -> failwith "eval_limited: bad arguments"
+  | _ -> Error.runtime_error "eval-limited: bad arguments"
 
 (* occurs check *)
 
 let occurs_check lst =
   match lst with
   | y :: x :: _ -> if Quote.occurs_check x y then True else False
-  | _ -> failwith "occurs_check: bad arguments"
+  | _ -> Error.runtime_error "occurs-check: bad arguments"
+
+(* operations on tokens *)
+
+let join_tokens lst =
+  match lst with
+  | Tokens(lst2) :: Tokens(lst1) :: _ -> Tokens(lst1 @ lst2)
+  | _ -> Error.runtime_error "join-tokens: bad arguments"
+
+let split_tokens lst =
+  match lst with
+  | Tokens(toks) :: _ -> List.fold_right (fun x acc -> Cons(Tokens([x]), acc)) toks Nil
+  | _ -> Error.runtime_error "split-tokens: bad argument"
+
+(* runtime errors *)
+
+let runtime_error lst =
+  match lst with
+  | String(s) :: _ -> Error.runtime_error s
+  | _ -> Error.runtime_error "runtime-error: bad arguments"
+
+(* macro support *)
+
+let macro_tmp lst =
+  match lst with
+  | y :: x :: _ ->
+      begin
+        let n = Bignum.to_int x
+        in
+        if n < 0 || n > 9 then
+          Error.runtime_error "bad macro temp number"
+        else
+          match List.nth (List.rev (Eval.extra_macro_args ())) n, y with
+          | Tokens([(tok, _)]), Tokens([(_, pos)]) -> Tokens([(tok, pos)])
+          | r, _ -> r
+      end
+  | _ -> failwith "macro_tmp"
 
 (* public interface *)
 
@@ -165,6 +201,18 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "reduce") (reduce, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval-limited") (eval_limited, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "occurs-check") (occurs_check, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "join-tokens") (join_tokens, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "split-tokens") (split_tokens, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "error") (runtime_error, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_macro_tmp") (macro_tmp, 2, CallByValue) in
+
+    let scope =
+      Scope.add_ident scope (Symtab.find symtab "token-tokens-start")
+        (Node.Tokens([(Token.TokensStart, Lexing.dummy_pos)])) in
+
+    let scope =
+      Scope.add_ident scope (Symtab.find symtab "token-tokens-end")
+        (Node.Tokens([(Token.TokensEnd, Lexing.dummy_pos)])) in
 
     scope
   end

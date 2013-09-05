@@ -31,7 +31,7 @@ let to_int x =
   else
     match x with
     | Integer(a) -> int_of_big_int a
-    | _ -> failwith ("not a number: " ^ Node.to_string x)
+    | _ -> Error.runtime_error ("not a number: " ^ Node.to_string x)
 
 let to_big_int x =
   if is_smallint x then
@@ -39,7 +39,7 @@ let to_big_int x =
   else
     match x with
     | Integer(a) -> a
-    | _ -> failwith ("not a number: " ^ Node.to_string x)
+    | _ -> Error.runtime_error ("not a number: " ^ Node.to_string x)
 
 (* NOTE: depends on OCaml implementation *)
 let msb x =

@@ -30,6 +30,9 @@ type t =
   | Force
   | Lazy
   | Leave
+  | Paste
+  | TokensStart
+  | TokensEnd
   | Newline
   | NewlineSep
   | Eof
@@ -42,32 +45,35 @@ let eq x y =
 
 let to_string x =
   match x with
-  | Symbol(sym) -> "Token.Symbol(" ^ Symbol.to_string sym ^ ")"
-  | Keyword(sym) -> "Token.Keyword(" ^ Symbol.to_string sym ^ ")"
-  | Number(num) -> "Token.Number(" ^ Big_int.string_of_big_int num ^ ")"
-  | String(str) -> "Token.String(\"" ^ str ^ "\")"
-  | Placeholder -> "Token.Placeholder"
-  | Placeholder_generic -> "Token.Placeholder_generic"
-  | Placeholder_ignore -> "Token.Placeholder_ignore"
-  | If -> "Token.If"
-  | Then -> "Token.Then"
-  | Else -> "Token.Else"
-  | True -> "Token.True"
-  | False -> "Token.False"
-  | LeftParen -> "Token.LeftParen"
-  | RightParen -> "Token.RightParen"
-  | LeftParenSqr -> "Token.LeftParenSqr"
-  | RightParenSqr -> "Token.RightParenSqr"
-  | LeftParenCurl -> "Token.LeftParenCurl"
-  | RightParenCurl -> "Token.RightParenCurl"
-  | LetEager -> "Token.LetEager"
-  | LetLazy -> "Token.LetLazy"
-  | LetCBN -> "Token.LetCBN"
-  | Sep -> "Token.Sep"
-  | Lambda -> "Token.Lambda"
-  | Force -> "Token.Force"
-  | Lazy -> "Token.Lazy"
-  | Leave -> "Token.Leave"
-  | Newline -> "Token.Newline"
-  | NewlineSep -> "Token.NewlineSep"
-  | Eof -> "Token.Eof"
+  | Symbol(sym) -> Symbol.to_string sym
+  | Keyword(sym) -> Symbol.to_string sym
+  | Number(num) -> Big_int.string_of_big_int num
+  | String(str) -> "\"" ^ str ^ "\""
+  | Placeholder -> "%"
+  | Placeholder_generic -> "%%"
+  | Placeholder_ignore -> "%_"
+  | If -> "if"
+  | Then -> "then"
+  | Else -> "else"
+  | True -> "true"
+  | False -> "false"
+  | LeftParen -> "("
+  | RightParen -> ")"
+  | LeftParenSqr -> "["
+  | RightParenSqr -> "]"
+  | LeftParenCurl -> "{"
+  | RightParenCurl -> "}"
+  | LetEager -> "let"
+  | LetLazy -> "let&"
+  | LetCBN -> "let&#"
+  | Sep -> ";"
+  | Lambda -> "\\"
+  | Force -> "!"
+  | Lazy -> "&"
+  | Leave -> "&#"
+  | Paste -> "#"
+  | TokensStart -> "#<"
+  | TokensEnd -> ">#"
+  | Newline -> "\n"
+  | NewlineSep -> "\n;"
+  | Eof -> "EOF"

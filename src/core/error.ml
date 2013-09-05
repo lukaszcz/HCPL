@@ -5,6 +5,11 @@
 
 open Lexing
 
+exception RuntimeError of string
+
+(* 'rec' to prevent inlining *)
+let rec runtime_error msg = raise (RuntimeError(msg))
+
 let err_count = Array.make 4 0
 
 let max_error_count = 20

@@ -21,7 +21,10 @@ rule read_token symtab = parse
   | '\\'                           { Token.Lambda }
   | '!'                            { Token.Force }
   | '&'                            { Token.Lazy }
-  | '#'                            { Token.Leave }
+  | "&#"                           { Token.Leave }
+  | '#'                            { Token.Paste }
+  | "#<"                           { Token.TokensStart }
+  | ">#"                           { Token.TokensEnd }
   | "%%"                           { Token.Placeholder_generic }
   | "%_"                           { Token.Placeholder_ignore }
   | '%'                            { Token.Placeholder }
@@ -44,7 +47,7 @@ rule read_token symtab = parse
   | "let"                          { Token.LetEager }
   | "let!"                         { Token.LetEager }
   | "let&"                         { Token.LetLazy }
-  | "let#"                         { Token.LetCBN }
+  | "let&#"                        { Token.LetCBN }
   | '\"'                           { string "" lexbuf }
   | "/*"                           { comment symtab 0 lexbuf }
   | id as s                        { Token.Symbol(Symtab.find symtab s) }

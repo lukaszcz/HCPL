@@ -99,7 +99,7 @@ let traverse f node acc =
                     do_traverse f x acc2
                   end
             | Var(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-              True | False | Placeholder | Ignore | Nil ->
+              True | False | Placeholder | Ignore | Nil | Tokens(_) ->
                 acc2
             | _ -> Debug.print (to_string node); failwith "unknown node"
         end
@@ -207,7 +207,7 @@ let transform g f node0 =
                     node
                   end
             | Var(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-              True | False | Placeholder | Ignore | Nil ->
+              True | False | Placeholder | Ignore | Nil | Tokens(_) ->
                 f node
             | _ -> Debug.print (to_string node); failwith "unknown node"
         end

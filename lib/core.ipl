@@ -47,9 +47,47 @@ syntax operator $. is right, binary, prio $>;
 
 let neg = \x . 0 - x;
 let /=  = \x \y . not (x = y);
-let when = \#x \#y . if x then y else ();
+let when = \&#x \&#y . if x then y else ();
 let >> = \x \f . f x;
-let << = \#f . f;
+let << = \&#f . f;
 let $> = >>;
 let $< = <<;
 let $. = <<;
+
+macro unique-id = \args { #< #$0 ># };
+
+let macro-fun = \f f;
+
+let join-tokens-list = \toks {
+   match toks with
+   | %h :: %t ->
+      join-tokens h (join-tokens-list t)
+   | [] -> #< >#
+};
+
+let mk-tokens = \toks {
+   join-tokens (join-tokens token-tokens-start (join-tokens-list toks)) token-tokens-end
+};
+
+let mk-apply = \f \args {
+   let aux = \lst {
+      match lst with
+      | %h :: %t ->
+         let r = aux t
+         in
+         #< #h #r >#
+      | [] -> #< >#
+   };
+   let z = aux args
+   in
+   #< #f #z >#
+};
+
+macro mk-macro-call = \args {
+   match args with
+   | [%x, %y] ->
+      let z = mk-tokens [x]
+      in
+      #<mk-apply #z #y>#
+   | %_ -> error "bad arguments"
+};

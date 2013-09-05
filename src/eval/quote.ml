@@ -24,7 +24,7 @@ let quote node =
         else if is_const node then
           node
         else
-          failwith "cannot quote a non-constant value"
+          Error.runtime_error "cannot quote a non-constant value"
 
   and do_quote node env env_len env_gap =
     match node with
@@ -130,4 +130,4 @@ let occurs_check node1 node2 =
           true
       end
   | _ ->
-      failwith "expected a quoted value as the first argument of occurs-check"
+      Error.runtime_error "expected a quoted value as the first argument of occurs-check"

@@ -3,6 +3,11 @@
    Copyright (C) 2013 by Łukasz Czajka
 *)
 
+exception RuntimeError of string
+
+(* runtime_error msg raises RuntimeError(msg) *)
+val runtime_error : string -> 'a
+
 val pos_to_string : Lexing.position option -> string
 
 val note : Lexing.position option -> string (* message *) -> unit

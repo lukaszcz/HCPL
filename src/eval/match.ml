@@ -10,6 +10,11 @@ exception Unknown
 
 type match_quoted_mode_t = ModeMatch | ModeEq | ModeQuotedEq
 
+let rec check_tokens_eq lst1 lst2 =
+  match lst1, lst2 with
+  | ((tok1, _) :: t1), ((tok2, _) :: t2) when Token.eq tok1 tok2 -> true
+  | _ -> false
+
 let rec do_match_quoted node pat acc (mode : match_quoted_mode_t) =
   let node = Node.normalize node in
   let pat = Node.normalize pat in
@@ -134,6 +139,12 @@ let rec do_match_quoted node pat acc (mode : match_quoted_mode_t) =
             | Cons(a, b) -> do_match_quoted b y (do_match_quoted a x acc mode) mode
             | _ -> raise Exit
           end
+      | Tokens(x) ->
+          begin
+            match node with
+            | Tokens(y) -> if check_tokens_eq x y then acc else raise Exit
+            | _ -> raise Exit
+          end
       | Quoted(x) ->
           begin
             match node with
@@ -253,7 +264,7 @@ let rec do_match_quoted node pat acc (mode : match_quoted_mode_t) =
             | _ -> raise Exit
           end
       | _ ->
-          failwith "bad pattern"
+          Error.runtime_error "bad pattern"
   end
 
 let rec do_match node pat acc =
@@ -288,6 +299,12 @@ let rec do_match node pat acc =
         | Record(y) when x = y -> acc
         | _ -> raise Exit
       end
+  | Tokens(x) ->
+      begin
+        match node with
+        | Tokens(y) when check_tokens_eq x y -> acc
+        | _ -> raise Exit
+      end
   | Quoted(x) ->
       begin
         match node with
@@ -299,7 +316,7 @@ let rec do_match node pat acc =
     BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
     Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | LambdaClosure(_)
     ->
-      failwith "bad pattern"
+      Error.runtime_error "bad pattern"
   | _ ->
       begin
         if is_smallint pat then

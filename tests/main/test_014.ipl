@@ -1,0 +1,70 @@
+
+// macros
+
+macro mlet = \args {
+   match args with
+   | [%a, %b] -> #< let #a = #b >#
+   | %_ -> error "bad arguments"
+}
+
+mlet f (\x {
+   x + 5
+});
+
+mlet x 10;
+
+print (f x); // 15
+
+macro xlet = \args {
+   match args with
+   | [%a, %b, %c] -> #< (\#a #c) #b >#
+   | %_ -> error "bad arguments"
+}
+
+xlet x (x + 3) {
+   print x; // 13
+   xlet x (f x) {
+      print x; // 18
+   }
+};
+
+macro add-fact = \args {
+   match args with
+   | [%a, %b] ->
+      #< xlet facts (#a :: facts) #b >#
+   | %_ -> error "bad arguments"
+}
+
+macro is-fact = \args {
+   match args with
+   | [%a] ->
+      #<
+         let #$0 = \x \lst {
+            if lst = [] then
+               false
+            else if hd lst = x then
+               true
+            else
+               #$0 x (tl lst)
+         };
+         #$0 #a facts
+      >#
+   | %_ -> error "bad arguments"
+}
+
+let facts = [];
+
+symbol A;
+symbol B;
+symbol C;
+
+add-fact '(A B) {
+   add-fact '(B C) {
+      add-fact '(A C) {
+         print (is-fact '(A A));
+         print (is-fact '(B C));
+         print (is-fact '(B A));
+         print (is-fact '(A B));
+      }
+   }
+}

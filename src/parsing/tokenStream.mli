@@ -10,6 +10,7 @@ exception Eof
 
 val empty : t
 val cons : Token.t -> Lexing.position -> t -> t
+val putback : t -> (Token.t * Lexing.position) list -> t
 val token : t -> Token.t
 val position : t -> Lexing.position
 val next : t -> t

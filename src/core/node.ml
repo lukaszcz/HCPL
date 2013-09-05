@@ -49,6 +49,7 @@ type t =
   | Integer of Big_int.big_int
   | String of string
   | Record of t Symbol.Map.t
+  | Tokens of (Token.t * Lexing.position) list
   | Quoted of t
 
   (* used only by the evaluator *)
@@ -173,7 +174,7 @@ let is_immediate node = match node with
     BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     -> false
   | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-    True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
+    True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
     LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
     -> true
 
@@ -187,7 +188,7 @@ let is_immed node = match node with
     BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     -> false
   | Integer(_) | String(_) | Record(_) | Sym(_) |
-    True | False | Placeholder | Ignore | Cons(_) | Nil | Quoted(_) |
+    True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
     LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
     -> true
 
@@ -285,7 +286,7 @@ let mkquoted node =
     node
   else
     match node with
-    | Integer(_) | String(_) | Sym(_) | Quoted(_) -> node
+    | Integer(_) | String(_) | Sym(_) | Tokens(_) | Quoted(_) -> node
     | _ -> Quoted(node)
 
 let call_type_to_string call_type =
@@ -338,6 +339,11 @@ let to_string node =
               prn x (limit - 1) ^ "; " ^ prn_progn y
           | _ -> prn node (limit - 1)
         in
+        let rec prn_tokens lst =
+          match lst with
+          | h :: t -> Token.to_string (fst h) ^ " " ^ prn_tokens t
+          | [] -> ""
+        in
         if is_smallint node then
           string_of_int (smallint_value node)
         else
@@ -366,6 +372,7 @@ let to_string node =
           | Sym(sym) -> Symbol.to_string sym
           | True -> "true"
           | False -> "false"
+          | Tokens(lst) -> "#< " ^ prn_tokens lst ^ ">#"
           | Quoted(x) -> "'" ^ prn x (limit - 1)
           | Placeholder -> "%%"
           | Ignore -> "%_"
@@ -395,7 +402,7 @@ let to_string node =
           | BOr(x, y) -> "(" ^ prn x (limit - 1) ^ " or " ^ prn y (limit - 1) ^ ")"
           | BMatch(x, branches) -> "(match " ^ prn x (limit - 1) ^ " with" ^ prn_match branches ^ ")"
           | BRecordGet(x, y) -> "(" ^ prn x (limit - 1) ^ "." ^ prn y (limit - 1) ^ ")"
-          | _ -> failwith "unknown node"
+          | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 -> failwith "unknown node"
       end
   in
   prn node 20

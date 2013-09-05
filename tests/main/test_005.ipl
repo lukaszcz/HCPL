@@ -1,9 +1,9 @@
 
 // call by name test
 
-let g = \#x { print x; g };
+let g = \&#x { print x; g };
 
-let f0 = \#x \!y {
+let f0 = \&#x \!y {
    if = x 0 then
       y
    else {
@@ -12,7 +12,7 @@ let f0 = \#x \!y {
    }
 };
 
-let f1 = \#x \#y {
+let f1 = \&#x \&#y {
    if = x 0 then
       y
    else {
@@ -21,7 +21,7 @@ let f1 = \#x \#y {
    }
 };
 
-let h = \#x { print 7; print x; + x x; };
+let h = \&#x { print 7; print x; + x x; };
 let he = \!x { print 7; print x; + x x; };
 
 f0 5 g;
@@ -29,12 +29,12 @@ print 7;
 f1 5 g;
 print (h {print 2; 3});
 print (he {print 2; 3});
-print (he #{print 2; 3});
+print (he &#{print 2; 3});
 
 let! x = {print 8; 9};
 print (h x);
 
-let# y = {print 8; 9};
+let&# y = {print 8; 9};
 print (h y);
 
 print (h {print 8; 9});
