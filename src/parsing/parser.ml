@@ -457,6 +457,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   (* symbols begin *)
 
   let sym_dot = Symtab.find symtab "."
+  and sym_dot_dot = Symtab.find symtab ".."
   and sym_colon = Symtab.find symtab ":"
   and sym_comma = Symtab.find symtab ","
   and sym_eq = Symtab.find symtab "="
@@ -1400,7 +1401,9 @@ m4_changequote([`],['])
                new_ident_scope
                (new_frame
                   (ident_lambda ++ discard (maybe ret_atype) ++
-                     (symbol sym_dot +! (catch_errors expr)
+                     (symbol sym_dot_dot +! (catch_errors progn)
+                     ^||
+                      symbol sym_dot +! (catch_errors expr)
                      ^||
                      token Token.LeftParenCurl +! new_scope (catch_errors (progn ++ token Token.RightParenCurl))
                      ^||
