@@ -12,7 +12,7 @@ open Lexing
 
 let oper = ['-' '+' '=' '~' '`' '@' '#' '$' '%' '^' '*' '|' '/' '?' '.' ':' '<' '>']
 let id0 = ['a'-'z' 'A'-'Z' '_' '$']['-' 'a'-'z' 'A'-'Z' '_' '$' '0'-'9']*['?' '!' '@' '#' '$' '&' '%' '^' '~' '*' ''']?
-let id = id0('.'id0)* | oper+
+let id = id0('.'id0)*('.'oper+)? | oper+
 let special_oper = [',' '@' ''']
 
 rule read_token symtab = parse

@@ -462,6 +462,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_eq = Symtab.find symtab "="
   and sym_in = Symtab.find symtab "in"
   and sym_is = Symtab.find symtab "is"
+  and sym_from = Symtab.find symtab "from"
   and sym_at = Symtab.find symtab "@"
   and sym_macro = Symtab.find symtab "macro"
   and sym_sym = Symtab.find symtab "sym"
@@ -660,33 +661,33 @@ m4_changequote([`],['])
         | Ident(sym) :: _ ->
             begin
               let empty_module_tuple =
-                (Symbol.Map.empty, [], Node.Record(Symbol.Map.empty))
+                (Symbol.Map.empty, [], [], Node.Record(Symbol.Map.empty))
               in
-              let (identtab, lst2, node) =
+              let (identtab, syntax, lst2, node) =
                 try
                   let node = Scope.find_ident scope sym
                   in
                   match node with
-                  | Node.Record(identtab) -> (identtab, [], node)
+                  | Node.Record(identtab) -> (identtab, [], [], node)
                   | _ ->
                       Error.error (Node.Attrs.get_pos attrs) "expected a constant module";
                       empty_module_tuple
                 with Not_found ->
                   try
-                    let (identtab, node) =
+                    let (identtab, syntax, node) =
                       Loader.load_module (Symbol.to_string sym)
                         (fun lexbuf ->
                           let (node, scope) =
                             do_parse_lexbuf false lexbuf (Scope.enter_module (Scope.push initial_scope) sym)
                           in
-                          (Scope.identtab scope, node))
+                          (Scope.identtab scope, Scope.get_syntax scope, node))
                     in
                     let module_node = mkmodule scope sym node (Scope.frame initial_scope)
                     in
                     if Node.is_module_closed node then
-                      (identtab, [Program(module_node)], Node.Record(identtab))
+                      (identtab, syntax, [Program(module_node)], Node.Record(identtab))
                     else
-                      (identtab, [Program(module_node)], module_node)
+                      (identtab, syntax, [Program(module_node)], module_node)
                   with
                   | Not_found ->
                       Error.error (Node.Attrs.get_pos attrs) "module not found";
@@ -696,14 +697,14 @@ m4_changequote([`],['])
                         ("circular module dependencies: " ^ Utils.list_to_string Symbol.to_string lst);
                       empty_module_tuple
               in
-              let scope2 = f sym node identtab attrs scope
+              let scope2 = f sym node identtab syntax attrs scope
               in
               cont (lst2, attrs, strm, scope2)
             end
         | _ -> assert false)
 
     and add_idents f =
-      (fun sym module_node identtab attrs scope ->
+      (fun sym module_node identtab syntax attrs scope ->
         Symbol.Map.fold
           (fun k node scope ->
             let node2 =
@@ -720,6 +721,13 @@ m4_changequote([`],['])
           identtab
           scope
       )
+
+    and add_syntax sym module_node identtab syntax attrs scope =
+      Scope.add_syntax scope syntax
+    in
+
+    let add_idents_and_syntax f sym module_node identtab syntax attrs scope =
+      Scope.add_syntax (add_idents f sym module_node identtab syntax attrs scope) syntax
 
     and read_macro_args strm scope =
       let rec read_raw_tokens strm acc =
@@ -914,7 +922,7 @@ m4_changequote([`],['])
     and statement () =
       recursive
         begin
-          xlet ^|| macrodef ^|| symdef ^|| syntax ^|| import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^|| expr
+          xlet ^|| macrodef ^|| symdef ^|| syntax ^|| import_syntax ^|| import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^|| expr
         end
 
     and xlet () =
@@ -1200,11 +1208,15 @@ m4_changequote([`],['])
         >>
       return (Program(Node.Nil))
 
+    and import_syntax =
+      rule (keyword sym_import ++ keyword sym_syntax +!
+              maybe (symbol sym_from) ++ catch_errors name ++ (load_module add_syntax))
+
     and import =
       rule (keyword sym_import +! catch_errors name ++ (load_module (add_idents join_syms)))
 
     and xopen =
-      rule (keyword sym_open +! catch_errors name ++ (load_module (add_idents (fun _ k -> k))))
+      rule (keyword sym_open +! catch_errors name ++ (load_module (add_idents_and_syntax (fun _ k -> k))))
 
     and xinclude =
       rule
@@ -1256,10 +1268,11 @@ m4_changequote([`],['])
                             mkmodule scope2 (unique_module_id ()) node (Scope.frame scope2)
                           in
                           let identtab = Scope.identtab scope2
+                          and syntax = Scope.get_syntax scope2
                           in
                           let m2 =
                             if Node.is_module_closed node then
-                              Node.Record(identtab)
+                              Node.Record(identtab) (* TODO: syntax *)
                             else
                               m
                           in
@@ -1267,7 +1280,7 @@ m4_changequote([`],['])
                             try
                               let scope4 = Scope.add_ident (Scope.add_ident scope module_name m2) sym m2
                               in
-                              add_idents join_syms sym m2 identtab attrs scope4
+                              add_idents join_syms sym m2 identtab syntax attrs scope4
                             with Scope.Duplicate_ident ->
                               Error.error (Node.Attrs.get_pos attrs) "duplicate identifier";
                               scope
@@ -1323,11 +1336,13 @@ m4_changequote([`],['])
               statement () (lst, attrs, strm2, scope) cont)
 
     and macro_expand =
-      symbol sym_macro_expand ++
-        (fun () (lst, attrs, strm, scope) cont ->
+      symbol sym_macro_expand +!
+        ((fun () (lst, attrs, strm, scope) cont ->
           handle_macro scope strm
             (fun strm2 node ->
               cont (Program(node) :: lst, attrs, strm2, scope)))
+         ^||
+         fail "syntax error" [Program(Node.Nil)])
 
     and appl () =
       recursive

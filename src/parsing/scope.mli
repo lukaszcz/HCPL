@@ -72,3 +72,6 @@ val add_block : t -> Symbol.t (* begin symbol *) -> Symbol.t (* end symbol *) ->
 (* returns the block end symbol for a given block start symbol; raises
    Not_found if the argument is not a valid block start symbol *)
 val get_block_end : t -> Symbol.t -> Symbol.t
+
+val get_syntax : t -> Syntax.t list
+val add_syntax : t -> Syntax.t list -> t

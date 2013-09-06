@@ -7,5 +7,5 @@ type identtab_t = Node.t Symbol.Map.t
 
 (* raises Not_found if module not found *)
 val load_module : string (* module name *) ->
-  (Lexing.lexbuf -> identtab_t * Node.t) (* text file parser *) ->
-    identtab_t * Node.t
+  (Lexing.lexbuf -> identtab_t * Syntax.t list * Node.t) (* text file parser *) ->
+    identtab_t * Syntax.t list * Node.t
