@@ -11,6 +11,7 @@ type t = { identtab : identtab_t; frame : int; scopenum : int;
            is_repl_mode : bool; opertab : Opertab.t;
            modules : Symbol.t list; module_mode : bool;
            placeholders : Symbol.t list ref; match_mode : bool;
+           blocks : Symbol.t Symbol.Map.t;
            mutable line_num : int }
 
 exception Duplicate_ident
@@ -26,6 +27,7 @@ let empty = { identtab = Symbol.Map.empty;
               module_mode = false;
               placeholders = ref [];
               match_mode = false;
+              blocks = Symbol.Map.empty;
               line_num = 0 }
 
 let empty_repl = { empty with is_repl_mode = true }
@@ -181,3 +183,12 @@ let drop_oper scope sym =
   let tab = Opertab.drop scope.opertab sym
   in
   { scope with opertab = tab }
+
+let add_block scope beg_sym end_sym =
+  let blocks2 = Symbol.Map.add beg_sym end_sym scope.blocks
+  and kwds2 = Symbol.Set.add end_sym (Symbol.Set.add beg_sym scope.permanent_keywords)
+  in
+  { scope with blocks = blocks2; permanent_keywords = kwds2 }
+
+let get_block_end scope beg_sym =
+  Symbol.Map.find beg_sym scope.blocks

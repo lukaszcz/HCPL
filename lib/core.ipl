@@ -45,6 +45,8 @@ syntax operator $> is right, binary, after <<;
 syntax operator $< is right, binary, prio $>;
 syntax operator $. is right, binary, prio $>;
 
+syntax block begin end;
+
 let neg = \x . 0 - x;
 let /=  = \x \y . not (x = y);
 let when = \&#x \&#y . if x then y else ();

@@ -67,3 +67,8 @@ val pop_frame : t -> t
 val rewrite : t -> Node.t list -> Node.t
 val add_oper : t -> Symbol.t -> Opertab.prio_t -> int (* assoc *) -> int (* arity *) -> t
 val drop_oper : t -> Symbol.t -> t
+
+val add_block : t -> Symbol.t (* begin symbol *) -> Symbol.t (* end symbol *) -> t
+(* returns the block end symbol for a given block start symbol; raises
+   Not_found if the argument is not a valid block start symbol *)
+val get_block_end : t -> Symbol.t -> Symbol.t

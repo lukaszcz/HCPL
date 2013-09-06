@@ -463,8 +463,6 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_in = Symtab.find symtab "in"
   and sym_is = Symtab.find symtab "is"
   and sym_at = Symtab.find symtab "@"
-  and sym_begin = Symtab.find symtab "begin"
-  and sym_end = Symtab.find symtab "end"
   and sym_macro = Symtab.find symtab "macro"
   and sym_sym = Symtab.find symtab "sym"
 m4_changequote(`[',`]')
@@ -485,6 +483,7 @@ m4_changequote([`],['])
 
   and sym_syntax = Symtab.find symtab "syntax"
   and sym_drop = Symtab.find symtab "drop"
+  and sym_block = Symtab.find symtab "block"
   and sym_operator = Symtab.find symtab "operator"
   and sym_left = Symtab.find symtab "left"
   and sym_right = Symtab.find symtab "right"
@@ -762,14 +761,21 @@ m4_changequote([`],['])
         in
         match tok with
         | Token.Keyword(sym) ->
-            if Symbol.eq sym sym_begin then
-              let (lst, strm2) =
-                read_in_parens (Scope.strm_next scope strm)
-                  (Token.Keyword(sym_begin)) (Token.Keyword(sym_end)) 0 [(tok, pos)]
-              in
-              aux strm2 (Node.Tokens(List.rev lst) :: acc)
-            else
-              (List.rev acc, strm)
+            begin
+              try
+                let end_sym = Scope.get_block_end scope sym
+                in
+                let (lst, strm2) =
+                  read_in_parens (Scope.strm_next scope strm)
+                    (Token.Keyword(sym)) (Token.Keyword(end_sym)) 0 [(tok, pos)]
+                in
+                aux strm2 (Node.Tokens(List.rev lst) :: acc)
+              with
+                Not_found ->
+                  if Symbol.eq sym sym_match then
+                    Error.error (Some pos) "complex macro arguments should be enclosed in parentheses";
+                  (List.rev acc, strm)
+            end
         | Token.Symbol(sym) when Symbol.eq sym sym_quote || Symbol.eq sym sym_quote2 ->
             begin
               let strm2 = Scope.strm_next scope strm
@@ -1041,7 +1047,7 @@ m4_changequote([`],['])
     and syntax () =
       recursive
         begin
-          keyword sym_syntax +! catch_errors (operator ^|| drop)
+          keyword sym_syntax +! catch_errors (operator ^|| syntax_block ^|| drop)
         end
 
     and operator () =
@@ -1157,6 +1163,17 @@ m4_changequote([`],['])
                       scope
                       lst)))
         end
+
+    and syntax_block =
+      rule
+        (discard
+           (symbol sym_block +! name ++ name ++
+              change_scope
+              (fun lst attrs scope ->
+                match lst with
+                | [Ident(beg_sym); Ident(end_sym)] ->
+                    Scope.add_block scope beg_sym end_sym
+                | _ -> assert false)))
 
     and name_list () =
       recursive
@@ -1335,7 +1352,7 @@ m4_changequote([`],['])
       recursive
         begin
           lambda ^|| cond ^||
-          keyword sym_begin +! new_scope (catch_errors (progn ++ keyword sym_end)) ^||
+          block ^||
           lparen +! new_scope (catch_errors (progn ++ rparen)) ^||
           lparen_curl +! new_scope (catch_errors (progn ++ rparen_curl)) ^||
           token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(Node.optimize (get_singleton_node lst)))) ^||
@@ -1393,6 +1410,25 @@ m4_changequote([`],['])
                 Program(Node.Cond(x, y, z, attrs))
             | _ -> assert false)
         end
+
+    and block () ((lst, attrs, strm, scope) as state) cont =
+      match Scope.strm_token scope strm with
+      | Token.Keyword(beg_sym) ->
+          begin
+            try
+              let end_sym = Scope.get_block_end scope beg_sym
+              and state2 = (lst, attrs, Scope.strm_next scope strm, scope)
+              in
+              raise
+                (ParseSuccess(
+                 fun () ->
+                   (new_scope (catch_errors (progn ++ keyword end_sym))) () state2 cont
+                ))
+            with
+              Not_found ->
+                fail "expected block start" [] () state cont
+          end
+      | _ -> fail "expected block start" [] () state cont
 
     and quoted () =
       recursive
@@ -1683,7 +1719,7 @@ m4_changequote([`],['])
   in
 
   let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include;
-                  sym_match; sym_begin; sym_end; sym_macro]
+                  sym_match; sym_macro]
   and builtins = [(fun x -> Core_builtins.declare_builtins x symtab)]
   in
   let scope0 =

@@ -1,5 +1,5 @@
 
-* syntax block
+* export syntax from modules
 * Logic
 * Improve evaluator efficiency even more
 * In the parser, translate closed lets directly into Delayed nodes (or just do this for lemmas)
