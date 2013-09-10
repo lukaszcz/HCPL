@@ -91,7 +91,7 @@ let quote node =
     | Closure(x, env2, env2_len) ->
         do_quote x env2 env2_len 0
     | Delayed(r) ->
-        assert (Config.is_unsafe_mode ());
+        (* assert (Config.is_unsafe_mode ()); *)
         Delayed(ref (do_quote !r env env_len env_gap))
     | Lambda(body, frame, call_type, seen, attrs) ->
         let env2_gap = if frame >= env_len then frame - env_len else 0

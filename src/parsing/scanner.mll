@@ -49,7 +49,8 @@ rule read_token symtab = parse
   | "let&"                         { Token.LetLazy }
   | "let&#"                        { Token.LetCBN }
   | '\"'                           { string "" lexbuf }
-  | "/*"                           { comment symtab 0 lexbuf }
+  | '/'('*')+'/'                   { read_token symtab lexbuf }
+  | '/'('*')+                      { comment symtab 0 lexbuf }
   | id as s                        { Token.Symbol(Symtab.find symtab s) }
   | [' ' '\t' '\r']+               { read_token symtab lexbuf }
   | "//"[^'\n']*                   { read_token symtab lexbuf }

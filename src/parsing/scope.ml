@@ -5,7 +5,7 @@
 
 type identtab_t = (Node.t * int) Symbol.Map.t
       (* (node, scopenum) map *)
-type syntaxtab_t = (Syntax.t * int) Symbol.Map.t
+type syntaxlst_t = (Syntax.t * int) list
       (* (syntax list, scopenum) map *)
 
 type t = { identtab : identtab_t; frame : int; scopenum : int;
@@ -14,7 +14,7 @@ type t = { identtab : identtab_t; frame : int; scopenum : int;
            modules : Symbol.t list; module_mode : bool;
            placeholders : Symbol.t list ref; match_mode : bool;
            blocks : Symbol.t Symbol.Map.t;
-           syntaxtab : syntaxtab_t;
+           syntaxlst : syntaxlst_t;
            mutable line_num : int }
 
 exception Duplicate_ident
@@ -31,7 +31,7 @@ let empty = { identtab = Symbol.Map.empty;
               placeholders = ref [];
               match_mode = false;
               blocks = Symbol.Map.empty;
-              syntaxtab = Symbol.Map.empty;
+              syntaxlst = [];
               line_num = 0 }
 
 let empty_repl = { empty with is_repl_mode = true }
@@ -181,40 +181,44 @@ let rewrite scope lst =
 let add_oper scope sym prio assoc arity =
   let tab = Opertab.add scope.opertab sym prio assoc arity
   in
-  let stab =
-    Symbol.Map.add sym (Syntax.Oper(sym, prio, assoc, arity), scope.scopenum) scope.syntaxtab
+  let slst = (Syntax.Oper(sym, prio, assoc, arity), scope.scopenum) :: scope.syntaxlst
   in
-  { scope with opertab = tab; syntaxtab = stab }
+  { scope with opertab = tab; syntaxlst = slst }
 
 let drop_oper scope sym =
   let tab = Opertab.drop scope.opertab sym
   in
-  let stab = Symbol.Map.remove sym scope.syntaxtab
+  let slst =
+    List.filter
+      (fun x ->
+        match x with
+        | (Syntax.Oper(opsym, _, _, _), _) when Symbol.eq sym opsym -> false
+        | _ -> true)
+      scope.syntaxlst
   in
-  { scope with opertab = tab; syntaxtab = stab }
+  { scope with opertab = tab; syntaxlst = slst }
 
 let add_block scope beg_sym end_sym =
   let blocks2 = Symbol.Map.add beg_sym end_sym scope.blocks
   and kwds2 = Symbol.Set.add end_sym (Symbol.Set.add beg_sym scope.permanent_keywords)
   in
-  let stab =
-    Symbol.Map.add beg_sym (Syntax.Block(beg_sym, end_sym), scope.scopenum) scope.syntaxtab
+  let slst = (Syntax.Block(beg_sym, end_sym), scope.scopenum) :: scope.syntaxlst
   in
-  { scope with blocks = blocks2; permanent_keywords = kwds2; syntaxtab = stab }
+  { scope with blocks = blocks2; permanent_keywords = kwds2; syntaxlst = slst }
 
 let get_block_end scope beg_sym =
   Symbol.Map.find beg_sym scope.blocks
 
 let get_syntax scope =
-  Symbol.Map.fold
-    (fun _ (s, scnum) acc ->
+  List.fold_left
+    (fun acc (s, scnum) ->
       if scnum <> scope.scopenum then
         acc
       else
         s :: acc
     )
-    scope.syntaxtab
     []
+    scope.syntaxlst
 
 let rec add_syntax scope lst =
   match lst with

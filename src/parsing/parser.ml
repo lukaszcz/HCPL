@@ -400,6 +400,15 @@ let max_lambda_body_frame_ref node frame0 =
               NodeUtils.Skip(max (frame - 1) m)
             else
               NodeUtils.Skip(aux body (gap + 1) (cframe + 1) m)
+        | Node.BMatch(x, branches) ->
+            let rec aux2 lst acc =
+              match lst with
+              | (x, y, z, args_num) :: t ->
+                  aux2 t (aux z (gap + args_num) (cframe + args_num) (aux y gap cframe (aux x gap cframe m)))
+              | [] ->
+                  acc
+            in
+            NodeUtils.Skip(aux2 branches (aux x gap cframe m))
         | Node.LambdaClosure(_) | Node.Closure(_) ->
             NodeUtils.Skip(m)
         | _ -> NodeUtils.Continue(m)
@@ -413,24 +422,37 @@ let correct_lambda node =
     let shift = frame - frame2
     in
     let body2 =
-      NodeUtils.transform
-        (fun x ->
-          match x with
-          | Node.Lambda(body, frame3, call_type, _, attrs) ->
-              if frame3 >= cframe then
-                NodeUtils.Skip(aux body frame3 (frame3 - shift) call_type attrs (gap + 1) cframe)
-              else
-                NodeUtils.Skip(x)
-          | _ -> NodeUtils.Continue(x))
-        (fun x ->
-          match x with
-          | Node.Var(n) ->
-              if n >= gap then
-                Node.Var(n - shift)
-              else
-                Node.Var(n)
-          | _ -> x)
-        body
+      let rec aux2 node gap cframe =
+        NodeUtils.transform
+          (fun x ->
+            match x with
+            | Node.Lambda(body, frame3, call_type, _, attrs) ->
+                if frame3 >= cframe then
+                  NodeUtils.Skip(aux body frame3 (frame3 - shift) call_type attrs (gap + 1) cframe)
+                else
+                  NodeUtils.Skip(x)
+            | Node.BMatch(x, branches) ->
+                let rec aux3 lst acc =
+                  match lst with
+                  | (x, y, z, n) :: t ->
+                      aux3 t ((aux2 x gap cframe, aux2 y gap cframe, aux2 z (gap + n) (cframe + n), n) :: acc)
+                  | [] ->
+                      acc
+                in
+                NodeUtils.Skip(Node.BMatch(aux2 x gap cframe, List.rev (aux3 branches [])))
+            | _ ->
+                NodeUtils.Continue(x))
+          (fun x ->
+            match x with
+            | Node.Var(n) ->
+                if n >= gap then
+                  Node.Var(n - shift)
+                else
+                  Node.Var(n)
+            | _ -> x)
+          node
+      in
+      aux2 body gap cframe
     in
     Node.Lambda(body2, frame2, call_type, ref 0, attrs)
   in
@@ -578,7 +600,7 @@ m4_changequote([`],['])
                   let msg =
                     "duplicate identifier '" ^ Symbol.to_string sym ^
                     match mpos with
-                    | Some(_) -> "', previous declaration at '" ^ Error.pos_to_string mpos
+                    | Some(_) -> "', previous declaration at " ^ Error.pos_to_string mpos
                     | None -> "'"
                   in
                   Error.error (Some pos) msg;
@@ -709,9 +731,12 @@ m4_changequote([`],['])
         Symbol.Map.fold
           (fun k node scope ->
             let node2 =
-              match module_node with
-              | Node.Record(_) -> node
-              | _ -> Node.BRecordGet(module_node, Node.Sym(k))
+              if Node.is_closed node then
+                node
+              else
+                match module_node with
+                | Node.Record(_) -> node
+                | _ -> Node.BRecordGet(module_node, Node.Sym(k))
             in
             try
               Scope.add_ident scope (f sym k) node2
@@ -968,10 +993,10 @@ m4_changequote([`],['])
                         let scope2 = Scope.replace_ident scope sym node
                         in
                         let scope3 =
-                        if Node.is_immediate value2 then
-                          scope2
-                        else
-                          Scope.push_frame scope2
+                          if Node.is_immediate value2 then
+                            scope2
+                          else
+                            Scope.push_frame scope2
                         in
                         cont ([Program(value2); Ident(sym); x], attrs, strm, scope3)
                     | _ -> Debug.print (sexp_list_to_string lst); assert false
@@ -1038,13 +1063,15 @@ m4_changequote([`],['])
                               scope
                             end
                           else
+                            let node2 = Node.Lambda(body, frame, call_type, ref 0,
+                                                    Node.Attrs.set_attr lam_attrs sym_macro Node.True)
+                            in
                             try
-                              Scope.add_ident scope sym (Node.Lambda(body, frame, call_type, ref 0,
-                                                                     Node.Attrs.set_attr lam_attrs sym_macro Node.True))
+                              Scope.add_ident scope sym node2
                             with
                               Scope.Duplicate_ident ->
                                 Error.error (Node.Attrs.get_pos attrs) ("macro '" ^ Symbol.to_string sym  ^ "' already defined");
-                                scope
+                                Scope.replace_ident scope sym node2
                         end
                     | _ -> failwith "macrodef 2"
                   end

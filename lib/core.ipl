@@ -43,7 +43,8 @@ syntax operator << is left, binary, prio >>;
 
 syntax operator $> is right, binary, after <<;
 syntax operator $< is right, binary, prio $>;
-syntax operator $. is right, binary, prio $>;
+
+syntax operator $. is right, binary, after $>;
 
 syntax block begin end;
 
@@ -85,11 +86,13 @@ let mk-apply = \f \args {
    #< #f #z >#
 };
 
-macro mk-macro-call = \args {
+macro mk-call = \args {
    match args with
    | [%x, %y] ->
       let z = mk-tokens [x]
       in
       #<mk-apply #z #y>#
-   | %_ -> error "bad arguments"
+   | %_ -> error "mk-macro-call: bad arguments"
 };
+
+macro mk-macro-call = \args { mk-call mk-call args }

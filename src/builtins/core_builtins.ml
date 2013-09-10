@@ -133,6 +133,14 @@ let macro_tmp lst =
       end
   | _ -> failwith "macro_tmp"
 
+let unique_int_token =
+  let id = ref 0
+  in
+  fun lst ->
+    match lst with
+    | Nil :: _ -> incr id; Node.Tokens([(Token.Number(Big_int.big_int_of_int !id), Lexing.dummy_pos)])
+    | _ -> Error.runtime_error "unique-int-token: expected '()' as the sole argument"
+
 (* public interface *)
 
 let declare_builtins scope symtab =
@@ -205,6 +213,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "split-tokens") (split_tokens, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "error") (runtime_error, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_macro_tmp") (macro_tmp, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "unique-int-token") (unique_int_token, 1, CallByValue) in
 
     let scope =
       Scope.add_ident scope (Symtab.find symtab "token-tokens-start")

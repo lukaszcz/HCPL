@@ -198,6 +198,15 @@ let is_smallint (node : t) =
   else
     false
 
+(* true if the node is closed, false if it _might_ not be *)
+let is_closed (node : t) =
+  if is_immed node then
+    true
+  else
+    match node with
+    | Lambda(_, 0, _, _, _) -> true
+    | _ -> false
+
 let smallint_value (node : t) = assert (is_smallint node); (Obj.magic node) asr 1
 
 let is_smallint_value v = v <= max_int asr 1 && v >= min_int asr 1
@@ -383,8 +392,10 @@ let to_string node =
                 "(" ^ prn x (limit - 1) ^ ", " ^ prn y (limit - 1) ^ ")"
           | Nil -> "()"
           | Delayed(_) -> "<delayed>"
-          | Closure(body, _, _) -> "(closure: " ^ prn body (limit - 1) ^ ")"
-          | LambdaClosure(body, _, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
+          | Closure(body, env, _) ->
+              "(closure " ^ Utils.list_to_string (fun x -> prn x (limit - 1)) env ^ ": " ^ prn body (limit - 1) ^ ")"
+          | LambdaClosure(body, env, frm, call_type, _, attrs) ->
+              "closure " ^ Utils.list_to_string (fun x -> prn x (limit - 1)) env ^ ": " ^ lambda_str body frm attrs call_type
           | BEq(x, y) -> "(" ^ prn x (limit - 1) ^ " = " ^ prn y (limit - 1) ^ ")"
           | BGt(x, y) -> "(" ^ prn x (limit - 1) ^ " > " ^ prn y (limit - 1) ^ ")"
           | BGe(x, y) -> "(" ^ prn x (limit - 1) ^ " >= " ^ prn y (limit - 1) ^ ")"
