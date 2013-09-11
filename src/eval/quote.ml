@@ -24,7 +24,9 @@ let quote node =
         else if is_const node then
           node
         else
-          Error.runtime_error "cannot quote a non-constant value"
+          begin
+            Error.runtime_error "cannot quote a non-constant value"
+          end
 
   and do_quote node env env_len env_gap =
     match node with

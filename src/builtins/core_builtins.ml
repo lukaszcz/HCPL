@@ -78,16 +78,19 @@ let to_string lst =
 let eval lst =
   match lst with
   | Quoted(x) :: _ -> Node.mkquoted (Eval.eval x)
+  | x :: _ when Node.is_quoted x -> x
   | _ -> Error.runtime_error "eval: bad argument"
 
 let reduce lst =
   match lst with
   | Quoted(x) :: _ -> Node.mkquoted (Eval.reduce x)
+  | x :: _ when Node.is_quoted x -> x
   | _ -> Error.runtime_error "reduce: bad argument"
 
 let eval_limited lst =
   match lst with
   | y :: Quoted(x) :: _ -> Node.mkquoted (Eval.eval_limited x (Bignum.to_int y))
+  | _ :: x :: _ when Node.is_quoted x -> x
   | _ -> Error.runtime_error "eval-limited: bad arguments"
 
 (* occurs check *)

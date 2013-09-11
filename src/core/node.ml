@@ -298,6 +298,14 @@ let mkquoted node =
     | Integer(_) | String(_) | Sym(_) | Tokens(_) | Quoted(_) -> node
     | _ -> Quoted(node)
 
+let is_quoted node =
+  if is_const node then
+    true
+  else
+    match node with
+    | Integer(_) | String(_) | Sym(_) | Tokens(_) | Quoted(_) -> true
+    | _ -> false
+
 let call_type_to_string call_type =
   match call_type with
   | CallByValue -> "!"

@@ -80,7 +80,12 @@ let identtab scope =
       if scnum <> scope.scopenum then
         acc
       else
-        Symbol.Map.add sym node acc
+        let node2 =
+          match node with
+          | Node.Var(i) -> Node.Var(scope.frame - i)
+          | _ -> node
+        in
+        Symbol.Map.add sym node2 acc
     )
     scope.identtab
     Symbol.Map.empty

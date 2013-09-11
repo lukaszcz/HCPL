@@ -404,7 +404,7 @@ let max_lambda_body_frame_ref node frame0 =
             let rec aux2 lst acc =
               match lst with
               | (x, y, z, args_num) :: t ->
-                  aux2 t (aux z (gap + args_num) (cframe + args_num) (aux y gap cframe (aux x gap cframe m)))
+                  aux2 t (aux z (gap + args_num) (cframe + args_num) (aux y (gap + args_num) (cframe + args_num) (aux x gap cframe acc)))
               | [] ->
                   acc
             in
@@ -418,28 +418,28 @@ let max_lambda_body_frame_ref node frame0 =
   aux node 1 frame0 (-1)
 
 let correct_lambda node =
-  let rec aux body frame frame2 call_type attrs gap cframe =
+  let rec aux body frame frame2 call_type attrs gap frame0 =
     let shift = frame - frame2
     in
     let body2 =
-      let rec aux2 node gap cframe =
+      let rec aux2 node gap =
         NodeUtils.transform
           (fun x ->
             match x with
             | Node.Lambda(body, frame3, call_type, _, attrs) ->
-                if frame3 >= cframe then
-                  NodeUtils.Skip(aux body frame3 (frame3 - shift) call_type attrs (gap + 1) cframe)
+                if frame3 >= frame0 then
+                  NodeUtils.Skip(aux body frame3 (frame3 - shift) call_type attrs (gap + 1) frame0)
                 else
                   NodeUtils.Skip(x)
             | Node.BMatch(x, branches) ->
                 let rec aux3 lst acc =
                   match lst with
                   | (x, y, z, n) :: t ->
-                      aux3 t ((aux2 x gap cframe, aux2 y gap cframe, aux2 z (gap + n) (cframe + n), n) :: acc)
+                      aux3 t ((aux2 x gap, aux2 y (gap + n), aux2 z (gap + n), n) :: acc)
                   | [] ->
                       acc
                 in
-                NodeUtils.Skip(Node.BMatch(aux2 x gap cframe, List.rev (aux3 branches [])))
+                NodeUtils.Skip(Node.BMatch(aux2 x gap, List.rev (aux3 branches [])))
             | _ ->
                 NodeUtils.Continue(x))
           (fun x ->
@@ -452,7 +452,7 @@ let correct_lambda node =
             | _ -> x)
           node
       in
-      aux2 body gap cframe
+      aux2 body gap
     in
     Node.Lambda(body2, frame2, call_type, ref 0, attrs)
   in
@@ -1256,7 +1256,11 @@ m4_changequote([`],['])
                   begin
                     let maybe_lexbuf =
                       try
-                        let lexbuf = Lexing.from_channel (open_in str)
+                        let lexbuf =
+                          try
+                            Lexing.from_channel (open_in str)
+                          with _ ->
+                            Lexing.from_channel (open_in (Config.stdlib_path () ^ Config.dir_sep () ^ str))
                         in
                         lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p
                                                     with
