@@ -73,6 +73,8 @@ type t =
   | Placeholder
   | Unboxed5
   | Ignore
+  | Unboxed6
+  (* without the last UnboxedX value the compiler may generate wrong code *)
 
 and attrs_t = { mutable name : Symbol.t option; pos : Lexing.position option;
                 attr_map : (t Symbol.Map.t) option; node_type : t option }
@@ -175,7 +177,7 @@ let is_immediate node = match node with
     -> false
   | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
-    LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
+    LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6
     -> true
 
 (* true if node is immediate and closed, false if it _might_ not be *)
@@ -189,7 +191,7 @@ let is_immed node = match node with
     -> false
   | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
-    LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
+    LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6
     -> true
 
 let is_smallint (node : t) =
@@ -421,7 +423,7 @@ let to_string node =
           | BOr(x, y) -> "(" ^ prn x (limit - 1) ^ " or " ^ prn y (limit - 1) ^ ")"
           | BMatch(x, branches) -> "(match " ^ prn x (limit - 1) ^ " with" ^ prn_match branches ^ ")"
           | BRecordGet(x, y) -> "(" ^ prn x (limit - 1) ^ "." ^ prn y (limit - 1) ^ ")"
-          | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 -> failwith "unknown node"
+          | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 -> failwith "unknown node"
       end
   in
   prn node 20

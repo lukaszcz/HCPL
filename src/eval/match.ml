@@ -264,7 +264,7 @@ let rec do_match_quoted node pat acc (mode : match_quoted_mode_t) =
             | _ -> raise Exit
           end
       | _ ->
-          Error.runtime_error "bad pattern"
+          Error.runtime_error ("bad pattern: " ^ Node.to_string pat)
   end
 
 let rec do_match node pat acc =
@@ -316,7 +316,7 @@ let rec do_match node pat acc =
     BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
     Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | LambdaClosure(_)
     ->
-      Error.runtime_error "bad pattern"
+      Error.runtime_error ("bad pattern: " ^ Node.to_string pat)
   | _ ->
       begin
         if is_smallint pat then

@@ -17,3 +17,13 @@ let option_to_string f opt =
   match opt with
   | Some(x) -> "Some(" ^ f x ^ ")"
   | None -> "None"
+
+let try_finally f cleanup =
+  try
+    let r = f ()
+    in
+    cleanup ();
+    r
+  with e ->
+    cleanup ();
+    raise e

@@ -86,7 +86,7 @@ m4_define(`ACCESS_VAR', `
         do_eval a env2 env2_len
     | Delayed(r) ->
         do_eval_delayed r
-    | _ -> assert (is_immed x || (match x with Lambda(_, 0, _, _, _) -> true | _ -> false)); x
+    | _ -> (*assert (is_immed x || (match x with Lambda(_, 0, _, _, _) -> true | _ -> false));*) x
            (* TODO: this need not be true, e.g.: let x = hd 3; This should be fixed!!! *)
   end
 ')
@@ -104,7 +104,7 @@ m4_define(`EVAL', `
       -> do_eval $1 $2 $3
     | Integer(_) | String(_) | Record(_) | Sym(_) |
       True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
-      LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5
+      LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6
       -> $1
   end
 ')
@@ -146,12 +146,16 @@ and do_eval node env env_len =
             let arg = EVAL(y, env, env_len)
             in
             if check_limit times_entered then
-              let env2 = pop_to env env_len frame
-              and env2_len = frame
-              in
-              do_eval body (arg :: env2) (env2_len + 1)
+              begin
+                let env2 = pop_to env env_len frame
+                and env2_len = frame
+                in
+                do_eval body (arg :: env2) (env2_len + 1)
+              end
             else
-              Appl(x, arg, attrs)
+              begin
+                Appl(x, arg, attrs)
+              end
 
         | Lambda(body, frame, call_type, times_entered, _) ->
             begin
@@ -649,22 +653,25 @@ and do_eval node env env_len =
 
   | _ -> node
 
-let eval node = eval_limit := -1; do_eval node Env.empty 0
+let eval node =
+  let prev_limit = !eval_limit
+  in
+  let cleanup () =
+    eval_limit := prev_limit;
+  in
+  eval_limit := -1;
+  Utils.try_finally (fun () -> do_eval node Env.empty 0) cleanup
 
 let eval_limited node limit =
+  let prev_limit = !eval_limit
+  in
   let cleanup () =
     Stack.iter (fun x -> x := 0) refstack;
     Stack.clear refstack;
+    eval_limit := prev_limit;
   in
   eval_limit := limit;
-  try
-    let r = do_eval node Env.empty 0
-    in
-    cleanup ();
-    r
-  with e ->
-    cleanup ();
-    raise e
+  Utils.try_finally (fun () -> do_eval node Env.empty 0) cleanup
 
 let reduce node = eval_limited node 1
 
@@ -690,7 +697,6 @@ let eval_macro symtab node args =
   let mcall = Node.Appl(node, arglst, None)
   in
   extra_macro_args_ref := mkextra n [];
-  eval_limit := -1;
-  do_eval mcall Env.empty 0
+  eval mcall
 
 let extra_macro_args () = !extra_macro_args_ref
