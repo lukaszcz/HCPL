@@ -50,8 +50,12 @@ let load_module lst =
 
 let ipl_quote lst =
   match lst with
-  | x :: _ ->
-      Quote.quote x
+  | [Closure(x, env, _)] ->
+      Quote.quote x env
+  | [LambdaClosure(body, env, env_len, call_type, times_entered, attrs)] ->
+      Quote.quote (Lambda(body, env_len, call_type, times_entered, attrs)) env
+  | [x] ->
+      Quote.quote x Env.empty
   | _ -> assert false
 
 (* random *)

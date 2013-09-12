@@ -5,23 +5,23 @@ let g = \x (`a, x)
 
 let f = \x {
    match x with
-   | g 5 -> 1
-   | g (g 5) -> 2
-   | g (g (g 5)) -> 3
+   | g 35 -> 1
+   | g (g 35) -> 2
+   | g (g (g 35)) -> 3
    | %_ -> 4
 };
 
-print (g 5); // (`a, 5)
-print (g (g 5)); // (`a, (`a, 5)
-print (f (g 5)); // 1
-print (f (g (g 5))); // 2
-print (f (g (g (g 5)))); // 3
-print (f (g (g (g (g 5))))); // 4
-print (reduce '(g 5)); // '(`a, 5)
-print (f (g (g 5))); // 2
-print (reduce '(g (g 5))); // '(g (`a, 5))
-print (reduce (reduce '(g (g 5)))); // '(`a, (`a, 5))
-print (f (g 5)); // 1
-print (f (g (g 5))); // 2
-print (f (g (g (g 5)))); // 3
-print (f (g (g (g (g 5))))); // 4
+print (g 35); // (`a, 35)
+print (g (g 35)); // (`a, (`a, 35)
+print (f (g 35)); // 1
+print (f (g (g 35))); // 2
+print (f (g (g (g 35)))); // 3
+print (f (g (g (g (g 35))))); // 4
+print (reduce '(g 35)); // '(`a, 35)
+print (f (g (g 35))); // 2
+print (reduce '(g (g 35))); // '(g (`a, 35))
+print (reduce (reduce '(g (g 35)))); // '(`a, (`a, 35))
+print (f (g 35)); // 1
+print (f (g (g 35))); // 2
+print (f (g (g (g 35)))); // 3
+print (f (g (g (g (g 35))))); // 4

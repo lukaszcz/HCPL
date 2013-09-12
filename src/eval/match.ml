@@ -40,7 +40,20 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
               if node == pat then acc else raise Exit
             end
           else
-            (Node.mkquoted (if nenv_len = 0 || Node.is_closed node then node else Closure(node, nenv, nenv_len))) :: acc
+            let node2 =
+              if nenv_len = 0 || Node.is_closed node then
+                node
+              else if List.hd nenv = Dummy then
+                begin
+                  if Node.is_closed node || Config.is_unsafe_mode () then
+                    node
+                  else
+                    Error.runtime_error "cannot match a value possibly containing free variables"
+                end
+              else
+                Closure(node, nenv, nenv_len)
+            in
+            (Node.mkquoted node2) :: acc
         end
       else if pat == Ignore then
         begin
@@ -51,7 +64,7 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
           else
             acc
         end
-      else if node == pat then
+      else if node == pat && penv_len = 0 && nenv_len = 0 then
         acc
       else if mode = ModeEq && not (is_immediate node && is_immediate pat) then
         begin
@@ -104,12 +117,18 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
         | Lambda(body, frame, _, _, _) ->
             begin
               match node with
-              | Lambda(body2, frame2, _, _, _) when frame = frame2 ->
+              | Lambda(body2, frame2, _, _, _)->
                   assert (frame <= penv_len);
-                  assert (frame <= nenv_len);
-                  do_match_quoted body2 body
-                    (Dummy :: Env.pop_n penv (penv_len - frame)) (frame + 1)
-                    (Dummy :: Env.pop_n nenv (nenv_len - frame)) (frame + 1) acc mode
+                  assert (frame2 <= nenv_len);
+                  let penv2 = Env.pop_n penv (penv_len - frame)
+                  and nenv2 = Env.pop_n nenv (nenv_len - frame2)
+                  in
+                  if (penv2 <> [] && List.hd penv2 = Dummy) || (nenv2 <> [] && List.hd nenv2 = Dummy) then
+                    raise Exit
+                  else
+                    do_match_quoted body2 body
+                      (Dummy :: penv2) (frame + 1)
+                      (Dummy :: nenv2) (frame2 + 1) acc mode
               | _ ->
                   raise Exit
             end
@@ -122,7 +141,7 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
                 | Var(m) when m = n -> acc
                 | _ -> raise Exit
               else
-                do_match_quoted pat2 node penv penv_len nenv nenv_len acc mode
+                do_match_quoted node pat2 penv penv_len nenv nenv_len acc mode
             end
         | Integer(x) ->
             begin
@@ -329,6 +348,7 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
             Error.runtime_error ("bad pattern: " ^ Node.to_string pat)
     end
   in
+  (* Debug.print ("do_match_quoted: " ^ Node.to_string pat ^ ", " ^ Node.to_string node); *)
   match node with
   | Var(n) ->
       let node2 = Env.nth nenv n

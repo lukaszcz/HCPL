@@ -43,7 +43,9 @@ match q1 with
 
 let h = \x . '(g x);
 
-print (h 3);
+match (h 3) with
+| '(g 3) -> print "OK"
+| %_ -> print "ZONK";
 
 match q1 with
 | h 1 -> print "ZONK"
@@ -59,11 +61,16 @@ match q1 with
 
 let hh = \f \x . '(f x);
 
-print (hh 'g 10);
-print (hh 'f 10);
+match (hh 'g 10) with
+| '(g 10) -> print "OK"
+| %_ -> print "ZONK";
+
+match (hh 'f 10) with
+| '(f 10) -> print "OK"
+| %_ -> print "ZONK";
 
 match hh '\x (x + 7) 10 with
 | 'f -> print "zonk"
 | hh 'g 3 -> print "zonk"
 | '(f 10) -> print "OK"
-| %_ -> print "zonk";
+| %_ -> print "ZONK";

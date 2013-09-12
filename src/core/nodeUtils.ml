@@ -104,15 +104,7 @@ let traverse f node acc =
             | _ -> Debug.print (to_string node); failwith "unknown node"
         end
   in
-  try
-    let ret = do_traverse f node acc
-    in
-    cleanup ();
-    ret
-  with
-    e ->
-      cleanup ();
-      raise e
+  Utils.try_finally (fun () -> do_traverse f node acc) cleanup
 
 let transform g f node0 =
   let proxies = Stack.create ()
@@ -212,11 +204,4 @@ let transform g f node0 =
             | _ -> Debug.print (to_string node); failwith "unknown node"
         end
   in
-  try
-    let ret = do_transform g f node0
-    in
-    cleanup ();
-    ret
-  with e ->
-    cleanup ();
-    raise e
+  Utils.try_finally (fun () -> do_transform g f node0) cleanup

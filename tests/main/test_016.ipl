@@ -1,0 +1,21 @@
+
+// reduce, eval & quoting test
+
+let f = '\x x;
+let g = '\x (f x + 1);
+let h = '\x (g x + 1);
+
+print (eval '(f 300));
+print (eval '(g 300));
+print (eval '(h 300));
+
+print (reduce '(f 300));
+print (reduce '(g 300));
+print (reduce '(h 300));
+
+symbol VAR;
+
+let v = '(VAR 1);
+let k = '\x (x v);
+
+print (k = '\x (x (VAR 1)));
