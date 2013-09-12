@@ -1,0 +1,547 @@
+/* logic.ipl: Basic illative logic constructs.
+ *
+ * Copyright (C) 2013 by Lukasz Czajka
+ */
+
+syntax operator -> is right, binary, after appl;
+
+syntax operator in is left, binary, after =;
+syntax operator : is left, binary, after =;
+syntax operator => is right, binary, after or;
+syntax operator <=> is right, binary, after =>;
+
+syntax block proof qed;
+
+let error2 = \p \msg { error (msg ^ ": " ^ (to_string p)) }
+
+symbol Type
+symbol Prop
+
+symbol ALL
+symbol EX
+symbol ASSM
+symbol VAR
+
+let in = \x \y . y x
+let : = (in)
+let -> = \t1 \t2 \f (ALL t1 \x . f x in t2)
+let => = \x \y . (not x) or y
+let <=> = \x \y . (x => y) and (y => x)
+let proof-of = \x (`ipl-proof, x)
+let goal = \p . match p with proof-of %x -> x | %_ -> error2 p "expected a proof"
+
+/*********************************************************************************/
+/* helper functions & macros */
+
+let eq = \x \y {
+   let aux = \x \y \lim {
+      if x = y then
+         true
+      else if lim = 0 then
+         eval-limited x 1000 = eval-limited y 1000
+      else {
+        let rx = reduce x
+        let ry = reduce y
+        in
+        if rx = y or x = ry then
+           true
+        else
+           aux rx ry (lim - 1)
+      }
+   };
+   aux x y 4
+}
+
+let occurs-in-assms = \x \assms {
+   let aux = \lst {
+      match lst with
+      | %h :: %t -> if occurs-check x h then true else aux t
+      | [] -> false
+   };
+   aux assms
+}
+
+let mk-raw-apply = \f \args { mk-apply f (#< assms ># :: args) }
+
+macro mk-raw-call = \args {
+   match args with
+   | [%x, %y] ->
+      let z = mk-tokens [x]
+      in
+      #< mk-raw-apply #z #y >#
+   | %_ ->
+      error "mk-raw-call: wrong arguments"
+}
+
+/*********************************************************************************/
+/* basic proof methods */
+
+let pexpand = \a \p {
+   if eq (goal p) (reduce a) then
+      proof-of a
+   else
+      error2 (p, a) "cannot expand"
+}
+
+let preduce = \p {
+   proof-of (reduce (goal p))
+}
+
+let peval = \p {
+   proof-of (eval (goal p))
+}
+
+let make-assumption-raw = \assms \phi \f {
+   let p = f (phi :: assms)
+   in
+   match p with
+   | proof-of %x -> proof-of '(ASSM phi x)
+   | %_ -> error2 p "expected a proof"
+}
+
+macro make-assumption = \args {
+   match args with
+   | [%a, %b] ->
+      #< make-assumption-raw assms #a \assms { #b } >#
+   | [%a, #< in >#, %b] ->
+      #< make-assumption-raw assms #a \assms { #b } >#
+   | [%a] ->
+      #< make-assumption-raw assms #a \assms .. >#
+   | %_ -> error "make-assumption: wrong arguments"
+}
+
+macro suppose = \args { mk-macro-call make-assumption args }
+
+let impl-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | ('(%b in Prop), '(ASSM %a %x)) ->
+      if eq a b then
+         proof-of '(a => x)
+      else
+         error2 p1 "impl-intro: bad typing derivation"
+   | %_ -> error2 (p1, p2) "impl-intro: expected a typing derivation and a supposition"
+}
+
+let impl-elim = \p1 \p2 {
+   let form = goal p2
+   in
+   match goal p1 with
+   | '(form => %p) -> proof-of p
+   | %_ -> error2 p1 "impl-elim: expected implication"
+}
+
+let impl-type-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | ('(%phi1 in Prop), '(ASSM %phi2 (%psi in Prop))) ->
+      if eq phi1 phi2 then
+         proof-of '((phi1 => psi) in Prop)
+      else
+         error2 phi2 "impl-type-intro: wrong argument"
+   | %_ -> error2 (p1, p2) "impl-type-intro: wrong arguments"
+}
+
+let impl-type-elim = \p {
+   match goal p with
+   | '((%a => %_) in Prop) -> proof-of '(a in Prop)
+   | %_ -> error2 p "impl-type-elim: wrong argument"
+}
+
+macro assume-with = \args {
+   match args with
+   | [%a, %t, %b] ->
+      #< impl-intro #t (suppose #a #b) >#
+   | [%a, %t, #< in >#, %b] ->
+      #< impl-intro #t (suppose #a #b) >#
+   | [%a, %t] ->
+      #< impl-intro #t << make-assumption-raw assms #a \assms .. >#
+   | %_ ->
+      error "assume-with: wrong arguments"
+}
+
+macro assume = \args {
+   match args with
+   | [%a, %b] ->
+      #< assume-with (auto-type '(#a in Prop)) #b >#
+   | [%a, #< in >#, %b] ->
+      #< assume-with (auto-type '(#a in Prop)) #b >#
+   | [%a] ->
+      #< assume-with (auto-type '(#a in Prop)) >#
+   | %_ ->
+      error "assume: wrong arguments"
+}
+
+let forall-intro-raw = \assms \p1 \p2 {
+   match goal p1, goal p2 with
+   | ('(%a1 in Type), '(ASSM ((VAR %n1) in %a2) (%phi (VAR %n2)))) when eq a1 a2 and n1 = n2 ->
+      if occurs-in-assms '(VAR n1) assms or occurs-check '(VAR n1) a1 then
+         error2 (p1, p2) "forall-intro: the variable quantified over cannot occur in the assumptions"
+      else
+         proof-of '(ALL a1 phi)
+   | %_ -> error2 (p1, p2) "forall-intro: wrong arguments"
+}
+
+macro forall-intro = \args { mk-raw-call forall-intro-raw args }
+
+let forall-elim = \p1 \p2 {
+   match goal p1, goal p2 with
+   | ('(ALL %a %phi), '(%t in %a1)) when eq a a1 ->
+      proof-of '(phi t)
+   | %_ -> error2 (p1, p2) "forall-elim: wrong arguments"
+}
+
+let forall-type-intro-raw = \assms \p1 \p2 {
+   match goal p1, goal p2 with
+   | ('(%a1 in Type), '(ASSM ((VAR %n1) in %a2) (%phi (VAR %n2) in Prop))) when eq a1 a2 and n1 = n2 ->
+      if occurs-in-assms '(VAR n1) assms or occurs-check '(VAR n1) a1 then
+         error2 (p1, p2) "forall-type-intro: the variable quantified over cannot occur in the assumptions"
+      else
+         proof-of '(ALL %a1 %phi in Prop)
+   | %_ -> error2 (p1, p2) "forall-type-intro: wrong arguments"
+}
+
+macro forall-type-intro = \args { mk-raw-call forall-type-intro-raw args }
+
+/* assumption: '(VAR varid) does not occur in assms */
+let forall-fix-raw = \assms \varid \p \f {
+   match goal p with
+   | '(%a in Type) ->
+      begin
+         let p1 = f '(VAR varid) ('((VAR varid) in a) :: assms)
+         in
+         match goal p1 with
+         | '(%phi (VAR varid)) -> proof-of '(ALL a phi)
+         | %_ -> error2 p1 "forall-fix: bad proof"
+      end
+   | %_ -> error2 p "forall-fix: bad typing"
+}
+
+macro fix-with = \args {
+   match args with
+   | [%x, %p] ->
+      let varid = unique-int-token ()
+      in
+      #< forall-fix-raw assms #varid #p \#x \assms .. >#
+   | [%x, %p1, %p2] ->
+      let varid = unique-int-token ()
+      in
+      #< forall-fix-raw assms #varid #p1 (\#x \assms { #p2 }) >#
+   | [%x, %p1, #< in >#, %p2] ->
+      let varid = unique-int-token ()
+      in
+      #< forall-fix-raw assms #varid #p1 (\#x \assms { #p2 }) >#
+   | %_ -> error "fix: bad arguments"
+}
+
+macro fix = \args {
+   match args with
+   | [%x, #< : >#, %a] ->
+      mk-macro-call fix-with [x, #< (auto-type '(#a in Type)) >#]
+   | [%x, #< : >#, %a, %p] ->
+      mk-macro-call fix-with [x, #< (auto-type '(#a in Type)) >#, p]
+   | [%x, #< : >#, %a, #< in >#, %p] ->
+      mk-macro-call fix-with [x, #< (auto-type '(#a in Type)) >#, p]
+   | %_ -> error "fix: bad arguments (maybe you forgot parentheses around the type)"
+}
+
+let exists-intro = \p1 \p2 \p3 {
+   match (goal p1, goal p2, goal p3) with
+   | ('(%a in Type), '(%t in %a1), '(%phi %t1)) when eq a a1 and eq t t1 ->
+      '(EX a phi)
+   | %_ -> error2 (p1, p2, p3) "exists-intro: wrong arguments"
+}
+
+let exists-elim-raw = \assms \p1 \p2 {
+   match (goal p1, goal p2) with
+   | ('(EX %a %phi), '(ASSM ((VAR %n) in %a1) (ASSM (%phi1 (VAR %n1)) %psi))) when eq phi phi1 and n = n1 and eq a a1 ->
+      if occurs-in-assms '(VAR n) assms or occurs-check '(VAR n) a or occurs-check '(VAR n) psi then
+         error2 (p1, p2) "exists-elim: the variable quantified over cannot occur in the assumptions or in the conclusion"
+      else
+         proof-of psi
+   | %_ -> error2 (p1, p2) "exists-elim: wrong arguments"
+}
+
+macro exists-elim = \args { mk-raw-call exists-elim-raw args }
+
+let exists-obtain = \assms \v \p \f {
+   match goal p with
+   | '(EX %alpha %phi) ->
+      begin
+         let p1 = f '(VAR v) (phi :: '((VAR v) in alpha) :: assms)
+         in
+         let psi = goal p1
+         in
+         if occurs-check '(VAR v) psi then
+            error2 psi "exists-obtain: the variable quantified over cannot occur in the conclusion"
+         else
+            proof-of psi
+      end
+   | %_ -> error2 p "exists-obtain: wrong argument"
+}
+
+macro obtain = \args {
+   let v = unique-int-token ()
+   in
+   match args with
+   | [%name, #< from >#, %p, #< in >#, %b] ->
+      #< exists-obtain assms #v #p (\#name \assms #b) >#
+   | [%name, #< from >#, %p, %b] ->
+      #< exists-obtain assms #v #p (\#name \assms #b) >#
+   | [%name, #< from >#, %p] ->
+      #< exists-obtain assms #v #p << \#name \assms .. >#
+   | [%name, %p, %b] ->
+      #< exists-obtain assms #v #p (\#name \assms #b) >#
+   | [%name, %p] ->
+      #< exists-obtain assms #v #p << \#name \assms .. >#
+   | %_ -> error "obtain: wrong arguments"
+}
+
+let exists-type-intro-raw = \assms \p1 \p2 {
+   match goal p1, goal p2 with
+   | ('(%a1 in Type), '(ASSM ((VAR %n1) in %a2) (%phi (VAR %n2) in Prop))) when eq a1 a2 and n1 = n2 ->
+      if occurs-in-assms '(VAR n1) assms or occurs-check '(VAR n1) a1 then
+         error2 (p1, p2) "exists-type-intro: the variable quantified over cannot occur in the assumptions"
+      else
+         proof-of '(EX %a1 %phi in Prop)
+   | %_ -> error2 (p1, p2) "exists-type-intro: wrong arguments"
+}
+
+macro exists-type-intro = \args { mk-raw-call exists-type-intro-raw args }
+
+let or-intro-left = \p \right {
+   let left = goal p
+   in
+   proof-of '(left or right)
+}
+
+let or-intro-right = \p \left {
+   let right = goal p
+   in
+   proof-of '(left or right)
+}
+
+let or-elim = \p \p1 \p2 {
+   match (goal p, goal p1, goal p2) with
+   | ('(%a or %b), '(ASSM %a1 %c), '(ASSM %b1 %c1)) when eq a a1 and eq b b1 and eq c c1 ->
+      proof-of c
+   | %_ -> error2 (p, p1, p2) "or-elim: wrong arguments"
+}
+
+let or-type-intro = \p1 \p2 {
+   match (goal p1, goal p2) with
+   | ('(%phi in Prop), '(%psi in Prop)) -> proof-of '((phi or psi) in Prop)
+   | %_ -> error2 (p1, p2) "or-type-intro: wrong arguments"
+}
+
+let and-intro = \p1 \p2 {
+   let a = goal p1
+   let b = goal p2
+   in
+   proof-of '(a and b)
+}
+
+let and-elim-left = \p {
+   match p with
+   | '(%a and %_) -> proof-of a
+   | %_ -> error2 p "and-elim-left: wrong argument"
+}
+
+let and-elim-right = \p {
+   match p with
+   | '(%_ and %b) -> proof-of b
+   | %_ -> error2 p "and-elim-right: wrong argument"
+}
+
+let and-type-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a in Prop), '(%b in Prop) -> proof-of '((a and b) in Prop)
+   | %_ -> error2 (p1, p2) "and-type-intro: wrong arguments"
+}
+
+let false-elim = \phi \p {
+   match p with
+   | proof-of false -> proof-of phi
+   | %_ -> error2 p "false-elim: wrong argument"
+}
+
+let not-intro = \p1 \p2 {
+   match (goal p1, goal p2) with
+   | ('(%a in Prop), '(ASSM %a1 false)) when eq a a1 ->
+      proof-of '(not a)
+   | %_ -> error2 (p1, p2) "not-intro: wrong arguments"
+}
+
+let not-elim = \p1 \p2 {
+   match (goal p1, goal p2) with
+   | ('%a, '(not %a1)) when eq a a1 ->
+      proof-of false
+   | %_ -> error2 (p1, p2) "not-elim: wrong arguments"
+}
+
+let not-type-intro = \p {
+   match goal p with
+   | '(%g in Prop) -> proof-of '((not g) in Prop)
+   | %_ -> error2 p "not-type-intro: wrong argument"
+}
+
+let not-type-elim = \p {
+   match goal p with
+   | '((not %a) in Prop) -> proof-of '(a in Prop)
+   | %_ -> error2 p "not-type-elim: wrong argument"
+}
+
+let contradiction = \p {
+   match goal p with
+   | '(not (not %x)) -> proof-of x
+   | '((not %x) => false) -> proof-of x
+   | %_ -> error2 p "contradiction: wrong argument"
+}
+
+let prop-intro = \p {
+   let phi = goal p
+   in
+   proof-of '(phi in Prop)
+}
+
+let prop-type-intro = proof-of '(Prop in Type)
+
+let fun-type-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a in Type), '(%b in Type) -> '((a -> b) in Type)
+   | %_ -> error2 (p1, p2) "fun-type-intro: wrong arguments"
+}
+
+let equal-intro = \a \b {
+   if eq a b then
+      proof-of '(a = b)
+   else
+      error2 (a, b) "equal-intro: not equal"
+}
+
+let equal-elim = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a = %b), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
+   | %_ -> error2 (p1, p2) "equal-elim: wrong arguments"
+}
+
+let equal-sym = \p {
+   match goal p with
+   | '(%a = %b) -> proof-of '(b = a)
+   | %_ -> error2 p "equal-sym: wrong argument"
+}
+
+let equal-trans = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a = %b), '(%b1 = %c) when eq b b1 -> proof-of '(a = c)
+   | %_ -> error2 (p1, p2) "equal-trans: wrong arguments"
+}
+
+let equal-cong = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a = %b), '(%c = %d) -> proof-of '(a c = b d)
+   | %_ -> error2 (p1, p2) "equal-cong: wrong arguments"
+}
+
+let bool-ext-true = \p {
+   let g = goal p
+   in
+   proof-of '(g = true)
+}
+
+let bool-ext-false = \p {
+   match goal p with
+   | '(not %a) -> '(a = false)
+   | %_ -> error2 p "bool-ext-false: wrong argument"
+}
+
+let assumption-raw = \assms \a {
+   let aux = \lst {
+      match lst with
+      | %h :: %t -> if eq h a then proof-of a else aux t
+      | [] -> error2 a "not an assumption"
+   };
+   aux assms
+}
+
+macro assumption = \args {
+   match args with
+   | [%a] -> #< assumption-raw assms #a >#
+   | %_ -> error "assumption: wrong arguments"
+}
+
+macro assm = \args { mk-macro-call assumption args }
+
+let fact-raw = \facts \phi {
+   let aux = \lst {
+      match lst with
+      | %h :: %t -> if eq h phi then proof-of phi else aux t
+      | [] -> error2 phi "not a proven fact"
+   };
+   aux facts
+}
+
+macro fact = \args {
+   match args with
+   | [%phi] -> #< fact-raw facts #phi >#
+   | %_ -> error "fact: wrong arguments"
+}
+
+let false-prop-intro = proof-of '(false in Prop)
+let true-prop-intro = proof-of '(true in Prop)
+
+let true-intro = proof-of true
+
+/*********************************************************************************/
+
+let assms = []
+let facts = []
+
+/*********************************************************************************/
+
+let verify = \p \phi {
+   match p with
+   | proof-of phi -> ()
+   | %_ -> error2 p ("not a proof of " ^ to_string phi)
+}
+
+/*********************************************************************************/
+/* convenience macros */
+
+macro var-intro = \args {
+   let v = unique-int-token ()
+   in
+   match args with
+   | [%x, %b] ->
+      #< ((\#x #b) '(VAR #v)) >#
+   | [%x, #< in >#, %b] ->
+      #< ((\#x #b) '(VAR #v)) >#
+   | [%x] ->
+      #< '(VAR #v) >> \#x .. >#
+   | %_ -> error "var-intro: wrong arguments"
+}
+
+macro lemma = \args {
+   match args with
+   | [%name, %formula, %xproof] ->
+      #<
+         let #$0 = #formula;
+         let #name = { let thesis = #$0; #xproof };
+         verify #name #$0;
+         (#name :: facts) >> \facts ..
+      >#
+   | [%formula, %xproof] ->
+      #<
+         let #$0 = #formula;
+         let #$1 = { let thesis = #$0; #xproof };
+         verify #$1 #$0;
+         (#$1 :: facts) >> \facts ..
+      >#
+   | %_ -> error "lemma: wrong arguments"
+}
+
+macro theorem = \args { mk-macro-call lemma args }
+
+macro axiom = \args {
+   match args with
+   | [%phi] -> #< (#phi :: facts) >> \facts .. >#
+   | %_ -> error "axiom: wrong arguments"
+}

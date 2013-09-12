@@ -1,6 +1,7 @@
 
 * Logic
 * lift & subst
+* CAppl
 * Logic automation
 * More logic (induction, sets etc)
 * Improve evaluator efficiency even more

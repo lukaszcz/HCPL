@@ -30,6 +30,16 @@ do
 done
 echo " DONE"
 
+echo -n "Running logic tests"
+for t in tests/logic/test_*.ipl
+do
+    ./ipl -R lib/core.ipl -I tests/main $t > test.out
+    diff -q tests/logic/`basename $t .ipl`.out test.out
+    rm test.out
+    echo -n "."
+done
+echo " DONE"
+
 echo -n "Running slow tests (this may take a few minutes)"
 for t in tests/slow/test_*.ipl
 do

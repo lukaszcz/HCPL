@@ -1,0 +1,22 @@
+
+// basic logic
+
+open Logic;
+
+lemma
+   '(ALL Prop \p . ALL Prop \q . p => (not p => q))
+proof
+   fix-with p prop-type-intro;
+   pexpand '((\p . ALL Prop \q . p => (not p => q)) p) {
+      fix-with q prop-type-intro;
+      pexpand '((\q . p => (not p => q)) q) {
+         assume-with p (assumption '(p in Prop));
+         assume-with '(not p) (not-type-intro (assumption '(p in Prop)));
+         false-elim q {
+            not-elim (assumption p) (assumption '(not p))
+         }
+      }
+   }
+qed;
+
+print "OK";
