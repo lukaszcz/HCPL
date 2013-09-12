@@ -64,7 +64,7 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
           else
             acc
         end
-      else if node == pat && penv_len = 0 && nenv_len = 0 then
+      else if node == pat && (Node.is_closed node || (penv_len = 0 && nenv_len = 0)) then
         acc
       else if mode = ModeEq && not (is_immediate node && is_immediate pat) then
         begin
@@ -117,14 +117,18 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
         | Lambda(body, frame, _, _, _) ->
             begin
               match node with
-              | Lambda(body2, frame2, _, _, _)->
+              | Lambda(body2, frame2, _, _, _) ->
                   assert (frame <= penv_len);
                   assert (frame2 <= nenv_len);
                   let penv2 = Env.pop_n penv (penv_len - frame)
                   and nenv2 = Env.pop_n nenv (nenv_len - frame2)
                   in
-                  if (penv2 <> [] && List.hd penv2 = Dummy) || (nenv2 <> [] && List.hd nenv2 = Dummy) then
-                    raise Exit
+                  if frame <> frame2 &&
+                    ((penv2 <> [] && List.hd penv2 = Dummy) ||
+                    (nenv2 <> [] && List.hd nenv2 = Dummy)) then
+                    begin
+                      raise Exit
+                    end
                   else
                     do_match_quoted body2 body
                       (Dummy :: penv2) (frame + 1)
@@ -348,7 +352,8 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
             Error.runtime_error ("bad pattern: " ^ Node.to_string pat)
     end
   in
-  (* Debug.print ("do_match_quoted: " ^ Node.to_string pat ^ ", " ^ Node.to_string node); *)
+  (* Debug.print ("do_match_quoted: " ^ Utils.list_to_string Node.to_string penv ^ " " ^ Node.to_string pat ^ ", " ^
+               Utils.list_to_string Node.to_string nenv ^ " " ^ Node.to_string node); *)
   match node with
   | Var(n) ->
       let node2 = Env.nth nenv n
