@@ -10,9 +10,7 @@ open Node
    Invariants:
       - nodes stored in environments are closed
       - do_eval returns a closed node
-      - quoted nodes (i.e. inside Quoted(_)) are closed // TODO: this is not an invariant
-      - quoted nodes do not contain any Closure, LambdaClosure or
-        Delayed nodes unless Config.is_unsafe_mode () returns true
+      - quoted nodes (i.e. inside Quoted(_)) are closed
 *)
 
 let pop_to env env_len frm =
@@ -32,16 +30,16 @@ let pop_to env env_len frm =
     end
 
 let do_close x env env_len =
-    match x with
-    | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) |
-      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-      BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
-      ->
-        Closure(x, env, env_len)
-    | Lambda(body, frame, call_type, times_entered, attrs) ->
-        LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
-    | Var(n) -> assert (n < env_len); Env.nth env n
-    | _ -> x
+  match x with
+  | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) |
+    BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+    ->
+      Closure(x, env, env_len)
+  | Lambda(body, frame, call_type, times_entered, attrs) ->
+      LambdaClosure(body, Env.pop_n env (env_len - frame), frame, call_type, times_entered, attrs)
+  | Var(n) -> assert (n < env_len); Env.nth env n
+  | _ -> x
 
 let rec do_delay x env env_len =
    match x with
@@ -68,6 +66,7 @@ m4_define(`EVAL_DELAYED', `
         end
     | x ->
         begin
+          (* Debug.print ("delayed: " ^ Node.to_string x); *)
           assert (is_immed x || (match x with Lambda(_, 0, _, _, _) -> true | _ -> false));
           x
         end
@@ -104,7 +103,7 @@ m4_define(`EVAL', `
       -> do_eval $1 $2 $3
     | Integer(_) | String(_) | Record(_) | Sym(_) |
       True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
-      LambdaClosure(_)| Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6
+      LambdaClosure(_) | Dummy | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 | Unboxed7
       -> $1
   end
 ')
@@ -136,6 +135,7 @@ let check_limit times_entered =
 let rec do_eval_delayed r =
   EVAL_DELAYED(r)
 and do_eval node env env_len =
+  (* Debug.print ("do_eval " ^ Utils.list_to_string Node.to_string env ^ ": " ^ Node.to_string node); *)
   match node with
   | Appl(x, y, attrs) ->
       begin
