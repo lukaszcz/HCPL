@@ -11,4 +11,5 @@ val empty : t
 val nth : t -> int -> Node.t
 val push : t -> Node.t -> t
 val pop_n : t -> int -> t
+val push_n : t -> Node.t -> int -> t
 val length : t -> int

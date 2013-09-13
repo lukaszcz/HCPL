@@ -10,6 +10,8 @@ exception Unknown
    list of values matched to placeholders if the match is successful *)
 val xmatch : Node.t (* node *) -> Node.t (* pattern *) -> Node.t list (* accumulator *) -> Node.t list
 
-(* equal and equal_quoted raise Unknown if equality cannot be established *)
+(* 'equal' and 'equal_quoted' raise Unknown if equality cannot be
+   established; arguments to 'equal' should be closed, and at least
+   one argument to equal_quoted should be closed *)
 val equal : Node.t -> Node.t -> bool
 val equal_quoted : Node.t -> Node.t -> bool

@@ -172,11 +172,14 @@ macro assume = \args {
 
 let forall-intro-raw = \assms \p1 \p2 {
    match goal p1, goal p2 with
-   | ('(%a1 in Type), '(ASSM ((VAR %n1) in %a2) (%phi (VAR %n2)))) when eq a1 a2 and n1 = n2 ->
-      if occurs-in-assms '(VAR n1) assms or occurs-check '(VAR n1) a1 then
+   | ('(%a1 in Type), '(ASSM ((VAR %n) in %a2) %app)) when eq a1 a2 ->
+      if occurs-in-assms '(VAR n) assms or occurs-check '(VAR n) a1 then
          error2 (p1, p2) "forall-intro: the variable quantified over cannot occur in the assumptions"
-      else
-         proof-of '(ALL a1 phi)
+      else {
+         match lift app '(VAR n) with
+         | '(%phi (VAR n)) -> proof-of '(ALL a1 phi)
+         | %_ -> error2 p2 "forall-intro: bad proof"
+      }
    | %_ -> error2 (p1, p2) "forall-intro: wrong arguments"
 }
 
@@ -191,11 +194,14 @@ let forall-elim = \p1 \p2 {
 
 let forall-type-intro-raw = \assms \p1 \p2 {
    match goal p1, goal p2 with
-   | ('(%a1 in Type), '(ASSM ((VAR %n1) in %a2) (%phi (VAR %n2) in Prop))) when eq a1 a2 and n1 = n2 ->
-      if occurs-in-assms '(VAR n1) assms or occurs-check '(VAR n1) a1 then
+   | ('(%a1 in Type), '(ASSM ((VAR %n) in %a2) (%app in Prop))) when eq a1 a2 ->
+      if occurs-in-assms '(VAR n) assms or occurs-check '(VAR n) a1 then
          error2 (p1, p2) "forall-type-intro: the variable quantified over cannot occur in the assumptions"
-      else
-         proof-of '(ALL %a1 %phi in Prop)
+      else {
+         match lift app '(VAR n) with
+         | '(%phi (VAR n)) -> proof-of '(ALL a1 phi in Prop)
+         | %_ -> error2 p2 "forall-type-intro: bad proof"
+      }
    | %_ -> error2 (p1, p2) "forall-type-intro: wrong arguments"
 }
 
@@ -208,7 +214,7 @@ let forall-fix-raw = \assms \varid \p \f {
       begin
          let p1 = f '(VAR varid) ('((VAR varid) in a) :: assms)
          in
-         match goal p1 with
+         match lift (goal p1) '(VAR varid) with
          | '(%phi (VAR varid)) -> proof-of '(ALL a phi)
          | %_ -> error2 p1 "forall-fix: bad proof"
       end
@@ -252,21 +258,25 @@ let exists-intro = \p1 \p2 \p3 {
 
 let exists-elim-raw = \assms \p1 \p2 {
    match (goal p1, goal p2) with
-   | ('(EX %a %phi), '(ASSM ((VAR %n) in %a1) (ASSM (%phi1 (VAR %n1)) %psi))) when eq phi phi1 and n = n1 and eq a a1 ->
+   | ('(EX %a %phi), '(ASSM ((VAR %n) in %a1) (ASSM %app %psi))) when eq a a1 ->
       if occurs-in-assms '(VAR n) assms or occurs-check '(VAR n) a or occurs-check '(VAR n) psi then
          error2 (p1, p2) "exists-elim: the variable quantified over cannot occur in the assumptions or in the conclusion"
-      else
-         proof-of psi
+      else {
+         match lift app '(VAR n) with
+         | '(%phi1 (VAR n)) when eq phi phi1 -> proof-of psi
+         | %_ -> error2 p2 "exists-elim: bad proof"
+      }
    | %_ -> error2 (p1, p2) "exists-elim: wrong arguments"
 }
 
 macro exists-elim = \args { mk-raw-call exists-elim-raw args }
 
+/* assumption: '(VAR v) does not occur in assms */
 let exists-obtain = \assms \v \p \f {
    match goal p with
    | '(EX %alpha %phi) ->
       begin
-         let p1 = f '(VAR v) (phi :: '((VAR v) in alpha) :: assms)
+         let p1 = f '(VAR v) ('(phi (VAR v)) :: '((VAR v) in alpha) :: assms)
          in
          let psi = goal p1
          in
@@ -297,11 +307,14 @@ macro obtain = \args {
 
 let exists-type-intro-raw = \assms \p1 \p2 {
    match goal p1, goal p2 with
-   | ('(%a1 in Type), '(ASSM ((VAR %n1) in %a2) (%phi (VAR %n2) in Prop))) when eq a1 a2 and n1 = n2 ->
-      if occurs-in-assms '(VAR n1) assms or occurs-check '(VAR n1) a1 then
+   | ('(%a1 in Type), '(ASSM ((VAR %n) in %a2) (%app in Prop))) when eq a1 a2 ->
+      if occurs-in-assms '(VAR n) assms or occurs-check '(VAR n) a1 then
          error2 (p1, p2) "exists-type-intro: the variable quantified over cannot occur in the assumptions"
-      else
-         proof-of '(EX %a1 %phi in Prop)
+      else {
+         match lift app '(VAR n) with
+         | '(%phi (VAR n)) -> proof-of '(EX a1 phi in Prop)
+         | %_ -> error2 p2 "exists-type-intro: bad proof"
+      }
    | %_ -> error2 (p1, p2) "exists-type-intro: wrong arguments"
 }
 
@@ -498,9 +511,10 @@ let facts = []
 /*********************************************************************************/
 
 let verify = \p \phi {
-   match p with
-   | proof-of phi -> ()
-   | %_ -> error2 p ("not a proof of " ^ to_string phi)
+   if eq (goal p) phi then
+      ()
+   else
+      error2 p ("not a proof of " ^ to_string phi)
 }
 
 /*********************************************************************************/

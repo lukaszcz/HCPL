@@ -1,13 +1,14 @@
-(* nodeUtils.ml: Node utilities implementation. Node graph traversal and transformation.
+(* traversal.ml: Node graph traversal and transformation implementation.
 
    Copyright (C) 2013 by Łukasz Czajka
+
 *)
 
 open Node
 
 type 'a result_t = Skip of 'a | Continue of 'a
 
-let traverse f node acc =
+let traverse0 f node acc =
   let proxies = Stack.create ()
   in
   let cleanup () =
@@ -108,7 +109,7 @@ let traverse f node acc =
   in
   Utils.try_finally (fun () -> do_traverse f node acc) cleanup
 
-let transform g f node0 =
+let transform0 g f node0 =
   let proxies = Stack.create ()
   in
   let cleanup () =
@@ -211,3 +212,112 @@ let transform g f node0 =
           end
   in
   Utils.try_finally (fun () -> do_transform g f node0) cleanup
+
+let traverse f node acc =
+  let rec aux node env env_len acc =
+    traverse0
+      (fun node acc ->
+        match node with
+        | Var(n) ->
+            if n < env_len then
+              begin
+                let x = Env.nth env n
+                in
+                if x = Dummy then
+                  Continue(acc)
+                else
+                  Skip(aux x env env_len acc)
+              end
+            else
+              Continue(acc)
+        | Lambda(body, frame, call_type, times_entered, attrs) ->
+            begin
+              assert (frame <= env_len);
+              let env2 = Env.pop_n env (env_len - frame)
+              in
+              match f node acc with
+              | Skip(acc2) -> Skip(acc2)
+              | Continue(acc2) ->
+                  Skip(aux body (Dummy :: env2) (frame + 1) acc2)
+            end
+        | BMatch(x, branches) ->
+            let rec aux2 lst acc =
+              match lst with
+              | (x, y, z, n) :: t ->
+                  let env2 = Env.push_n env Dummy n
+                  and env2_len = env_len + n
+                  in
+                  aux2 t (aux z env2 env2_len
+                            (aux y env2 env2_len
+                               (aux x env env_len acc)))
+              | [] -> Skip(acc)
+            in
+            aux2 branches (aux x env env_len acc)
+        | Closure(x, env, env_len) ->
+            Skip(aux x env env_len acc)
+        | LambdaClosure(body, env, env_len, call_type, times_entered, attrs) ->
+            Skip(aux body (Dummy :: env) (env_len + 1) acc)
+        | _ ->
+            Continue(acc))
+      node
+      acc
+  in
+  aux node [] 0 acc
+
+let transform g f node =
+  let rec aux node env env_len frames_num =
+    transform0
+      (fun node ->
+        match g node frames_num with
+        | Skip(node) -> Skip(node)
+        | Continue(node) ->
+            begin
+              match node with
+              | Var(n) ->
+                  if n < env_len then
+                    begin
+                      let x = Env.nth env n
+                      in
+                      if x = Dummy then
+                        Continue(node)
+                      else
+                        Skip(aux x env env_len frames_num)
+                    end
+                  else
+                    Continue(node)
+              | Lambda(body, frame, call_type, times_entered, attrs) ->
+                  assert (frame <= env_len);
+                  let env2 = Env.pop_n env (env_len - frame)
+                  and env2_len = frame + 1
+                  in
+                  let rec cntfnum lst acc =
+                    match lst with
+                    | Dummy :: t -> cntfnum t (acc + 1)
+                    | _ -> acc
+                  in
+                  let fnum = cntfnum env2 0
+                  in
+                  Skip(f (Lambda(aux body (Dummy :: env2) env2_len (fnum + 1), fnum, call_type, times_entered, attrs)))
+              | BMatch(x, branches) ->
+                  let rec aux2 lst acc =
+                    match lst with
+                    | (x, y, z, n) :: t ->
+                        let env2 = Env.push_n env Dummy n
+                        and env2_len = env_len + n
+                        and fnum2 = frames_num + n
+                        in
+                        aux2 t ((aux x env env_len frames_num, aux y env2 env2_len fnum2, aux z env2 env2_len fnum2, n) :: acc)
+                    | [] -> List.rev acc
+                  in
+                  Skip(f (BMatch(aux x env env_len frames_num, aux2 branches [])))
+              | Closure(x, env2, env2_len) ->
+                  Skip(aux x env2 env2_len 0)
+              | LambdaClosure(body, env, env_len, call_type, times_entered, attrs) ->
+                  Skip(aux (Lambda(body, 0, call_type, times_entered, attrs)) env env_len 0)
+              | _ ->
+                  Continue(node)
+            end)
+      f
+      node
+  in
+  aux node [] 0 0

@@ -1,10 +1,12 @@
 
-* Logic
-* lift & subst
+* eta-reduce
 * CAppl
-* Logic automation
+* ex & all
+* Typing automation
 * More logic (induction, sets etc)
+* auto tactic
 * Improve evaluator efficiency even more
+* Improve quoted match / equal efficiency
 * In the parser, translate closed lets directly into Delayed nodes (or just do this for lemmas)
 * Don't exit on too many errors in repl mode
 * Don't inherit identifiers from opened modules by default

@@ -49,4 +49,10 @@ let rec pop_n env n =
   else
     env
 
+let rec push_n env x n =
+  if n = 0 then
+    env
+  else
+    push_n (x :: env) x (n - 1)
+
 let length env = List.length env

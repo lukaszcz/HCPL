@@ -1,6 +1,7 @@
-(* core_builtins.mli: Core builtins implementation.
+(* core_builtins.ml: Core builtins implementation.
 
    Copyright (C) 2013 by Łukasz Czajka
+
 *)
 
 open Node
@@ -46,7 +47,7 @@ let load_module lst =
       end
   | _ -> Debug.print (Utils.list_to_string Node.to_string lst); assert false
 
-(* quoting *)
+(* quoting etc *)
 
 let ipl_quote lst =
   match lst with
@@ -56,6 +57,16 @@ let ipl_quote lst =
       Quote.quote (Lambda(body, env_len, call_type, times_entered, attrs)) env
   | [x] ->
       Quote.quote x Env.empty
+  | _ -> assert false
+
+let subst lst =
+  match lst with
+  | z :: y :: x :: _ -> Quote.subst x y z
+  | _ -> assert false
+
+let lift lst =
+  match lst with
+  | y :: x :: _ -> Quote.lift x y
   | _ -> assert false
 
 (* random *)
@@ -209,6 +220,8 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "quote") (ipl_quote, 1, CallByName) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "'") (ipl_quote, 1, CallByName) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "subst") (subst, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "lift") (lift, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "random") (xrandom, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "^") (concat, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in

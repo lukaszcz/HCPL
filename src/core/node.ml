@@ -310,6 +310,12 @@ let is_quoted node =
     | Integer(_) | String(_) | Sym(_) | Tokens(_) | Quoted(_) -> true
     | _ -> false
 
+let unquote node =
+  assert (is_quoted node);
+  match node with
+  | Quoted(x) -> x
+  | _ -> node
+
 let call_type_to_string call_type =
   match call_type with
   | CallByValue -> "!"

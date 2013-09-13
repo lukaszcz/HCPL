@@ -16,12 +16,6 @@ let rec check_tokens_eq lst1 lst2 =
   | _ -> false
 
 let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_quoted_mode_t) =
-  let rec push_n lst x n =
-    if n = 0 then
-      lst
-    else
-      push_n (x :: lst) x (n - 1)
-  in
   let do_match_indeed () =
     let node = Node.normalize node in
     let pat = Node.normalize pat in
@@ -118,35 +112,43 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
             begin
               match node with
               | Lambda(body2, frame2, _, _, _) ->
-                  assert (frame <= penv_len);
-                  assert (frame2 <= nenv_len);
-                  let penv2 = Env.pop_n penv (penv_len - frame)
-                  and nenv2 = Env.pop_n nenv (nenv_len - frame2)
-                  in
-                  if frame <> frame2 &&
-                    ((penv2 <> [] && List.hd penv2 = Dummy) ||
-                    (nenv2 <> [] && List.hd nenv2 = Dummy)) then
+                  if frame > penv_len || frame2 > nenv_len then
                     begin
                       raise Exit
                     end
                   else
-                    do_match_quoted body2 body
-                      (Dummy :: penv2) (frame + 1)
-                      (Dummy :: nenv2) (frame2 + 1) acc mode
+                    begin
+                      let penv2 = Env.pop_n penv (penv_len - frame)
+                      and nenv2 = Env.pop_n nenv (nenv_len - frame2)
+                      in
+                      if frame <> frame2 &&
+                        ((penv2 <> [] && List.hd penv2 = Dummy) ||
+                        (nenv2 <> [] && List.hd nenv2 = Dummy)) then
+                        begin
+                          raise Exit
+                        end
+                      else
+                        do_match_quoted body2 body
+                          (Dummy :: penv2) (frame + 1)
+                          (Dummy :: nenv2) (frame2 + 1) acc mode
+                    end
               | _ ->
                   raise Exit
             end
         | Var(n) ->
-            begin
-              let pat2 = Env.nth penv n
-              in
-              if pat2 = Dummy then
-                match node with
-                | Var(m) when m = n -> acc
-                | _ -> raise Exit
-              else
-                do_match_quoted node pat2 penv penv_len nenv nenv_len acc mode
-            end
+            if n >= penv_len then
+              raise Exit
+            else
+              begin
+                let pat2 = Env.nth penv n
+                in
+                if pat2 = Dummy then
+                  match node with
+                  | Var(m) when m = n -> acc
+                  | _ -> raise Exit
+                else
+                  do_match_quoted node pat2 penv penv_len nenv nenv_len acc mode
+              end
         | Integer(x) ->
             begin
               match node with
@@ -323,8 +325,13 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
                       if num <> num2 then
                         raise Exit
                       else
-                        do_match_quoted n3 p3 (push_n penv Dummy num) (penv_len + num) (push_n nenv Dummy num) (nenv_len + num)
-                          (do_match_quoted n2 p2 (push_n penv Dummy num) (penv_len + num) (push_n nenv Dummy num) (nenv_len + num)
+                        let penv2 = Env.push_n penv Dummy num
+                        and penv2_len = penv_len + num
+                        and nenv2 = Env.push_n nenv Dummy num
+                        and nenv2_len = nenv_len + num
+                        in
+                        do_match_quoted n3 p3 penv2 penv2_len nenv2 nenv2_len
+                          (do_match_quoted n2 p2 penv2 penv2_len nenv2 nenv2_len
                              (do_match_quoted n1 p1 penv penv_len nenv nenv_len a mode) mode) mode
                     )
                     (do_match_quoted nx px penv penv_len nenv nenv_len acc mode) nlst plst
@@ -356,12 +363,17 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
                Utils.list_to_string Node.to_string nenv ^ " " ^ Node.to_string node); *)
   match node with
   | Var(n) ->
-      let node2 = Env.nth nenv n
-      in
-      if node2 = Dummy then
-        do_match_indeed ()
+      if n >= nenv_len then
+        raise Exit
       else
-        do_match_quoted node2 pat penv penv_len nenv nenv_len acc mode
+        begin
+          let node2 = Env.nth nenv n
+          in
+          if node2 = Dummy then
+            do_match_indeed ()
+          else
+            do_match_quoted node2 pat penv penv_len nenv nenv_len acc mode
+        end
   | Closure(node2, env2, env2_len) ->
       do_match_quoted node2 pat penv penv_len env2 env2_len acc mode
   | LambdaClosure(body, env2, env2_len, call_type, times_entered, attrs) ->
