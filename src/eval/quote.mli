@@ -14,3 +14,5 @@ val subst : Node.t -> Node.t -> Node.t -> Node.t
 (* lift node node1 = (\x . (subst node node1 x)) node1 *)
 val lift : Node.t -> Node.t -> Node.t
 val close : Node.t -> Node.t
+val get_free_vars : Node.t -> Utils.IntSet.t
+val eta_reduce : Node.t -> Node.t

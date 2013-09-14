@@ -268,7 +268,7 @@ let transform g f node =
   let rec aux node env env_len frames_num =
     transform0
       (fun node ->
-        match g node frames_num with
+        match g node env env_len frames_num with
         | Skip(node) -> Skip(node)
         | Continue(node) ->
             begin

@@ -1,0 +1,12 @@
+
+// reduce-eta
+
+let f = \x . if x = 0 then 1 else x * f (x - 1)
+
+let expand-eta = \f '\x . f x;
+
+print (reduce-eta '(\x . (\y y) x) = '\y y);
+print (reduce-eta '(\x . f x) = 'f);
+print (reduce-eta (expand-eta 'f) = 'f);
+print (reduce-eta (reduce-eta (expand-eta (expand-eta 'f))) = 'f);
+print (reduce-eta (reduce-eta (reduce-eta (expand-eta (expand-eta (expand-eta 'f))))) = 'f);

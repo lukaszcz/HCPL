@@ -74,6 +74,11 @@ let close lst =
   | x :: _ -> Quote.close x
   | _ -> assert false
 
+let reduce_eta lst =
+  match lst with
+  | x :: _ -> Quote.eta_reduce x
+  | _ -> assert false
+
 (* random *)
 
 let xrandom lst =
@@ -228,6 +233,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "subst") (subst, 3, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "lift") (lift, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "close") (close, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "reduce-eta") (reduce_eta, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "random") (xrandom, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "^") (concat, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in

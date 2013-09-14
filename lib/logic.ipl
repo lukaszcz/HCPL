@@ -42,14 +42,16 @@ let eq = \x \y {
       else {
         let rx = reduce x
         let ry = reduce y
+        let ex = reduce-eta x
+        let ey = reduce-eta y
         in
-        if rx = y or x = ry then
+        if rx = y or x = ry or ex = y or ex = ry or x = ey or rx = ey then
            true
         else
            aux rx ry (lim - 1)
       }
    };
-   aux x y 4
+   aux x y 2
 }
 
 let occurs-in-assms = \x \assms {

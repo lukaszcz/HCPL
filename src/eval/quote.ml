@@ -6,14 +6,6 @@ Copyright (C) 2013 by Łukasz Czajka
 
 open Node
 
-module OrderedType =
-  struct
-    type t = int
-    let compare = compare
-  end
-
-module IntSet = Set.Make(OrderedType)
-
 let max_lambda_body_frame_ref node frame0 =
   let rec aux node gap cframe acc =
     Traversal.traverse0
@@ -100,9 +92,37 @@ let correct_lambda node =
   | _ -> node
 
 let do_close node env env_len =
+  let rec fix_node_in_env node =
+    match node with
+    | Quoted(x) -> x
+    | Integer(_) | String(_) | Record(_) | Sym(_) | Cons(_) ->
+        node
+    | _ ->
+        (* NOTE: the following check is necessary to ensure consistency of the logic *)
+        if Config.is_unsafe_mode () then
+          node
+        else if is_const node then
+          node
+        else
+          begin
+            Error.runtime_error "cannot quote a non-constant value"
+          end
+  in
   Traversal.transform
-    (fun node _ ->
+    (fun node env env_len _ ->
       match node with
+      | Var(n) ->
+          if n < env_len then
+            begin
+              let x = Env.nth env n
+              in
+              if x = Dummy then
+                Traversal.Continue(node)
+              else
+                Traversal.Continue(fix_node_in_env x)
+            end
+          else
+            Traversal.Continue(node)
       | Lambda(_, 0, _, _, _) -> Traversal.Skip(node)
       | Quoted(x) -> Traversal.Continue(x)
       | _ ->
@@ -152,7 +172,7 @@ let subst node node1 node2 =
     and node2 = Node.unquote node2
     in
     Traversal.transform
-      (fun x _ -> Traversal.Continue(x))
+      (fun x _ _ _ -> Traversal.Continue(x))
       (fun x ->
         if Match.equal_quoted x node1 then
           node2
@@ -169,7 +189,7 @@ let lift node node1 =
     in
     let rec aux node =
       Traversal.transform
-        (fun x frames_num ->
+        (fun x _ _ frames_num ->
           if Match.equal_quoted x unode1 then
             begin
               Traversal.Skip(Var(frames_num))
@@ -192,6 +212,52 @@ let lift node node1 =
 
 let close node =
   if Node.is_quoted node then
-    do_close node [] 0
+    Node.mkquoted (do_close node [] 0)
   else
     Error.runtime_error "the argument of 'close' should be quoted"
+
+let get_free_vars node =
+  let rec aux node frame0 cframe set =
+    Traversal.traverse0
+      (fun x set ->
+        match x with
+        | Var(n) ->
+            if cframe - n < frame0 then
+              Traversal.Continue(Utils.IntSet.add (cframe - n) set)
+            else
+              Traversal.Continue(set)
+        | Lambda(body, frame, _, _, _) ->
+            if frame = 0 then
+              Traversal.Skip(set)
+            else
+              Traversal.Skip(aux body (min frame0 frame) frame set)
+        | BMatch(x, branches) ->
+            let rec aux2 lst set =
+              match lst with
+              | (x, y, z, n) :: t ->
+                  aux2 t (aux x frame0 cframe
+                            (aux y frame0 (cframe + n)
+                               (aux z frame0 (cframe + n) set)))
+              | [] -> Traversal.Skip(set)
+            in
+            aux2 branches (aux x frame0 cframe set)
+        | Closure(_) | LambdaClosure(_) ->
+            Traversal.Skip(set)
+        | _ ->
+            Traversal.Continue(set)
+      )
+      node set
+  in
+  aux node 0 (-1) Utils.IntSet.empty
+
+let eta_reduce node =
+  if Node.is_quoted node then
+    match Node.unquote node with
+    | Lambda(Appl(x, Var(frame1), _), frame2, _, _, _)
+      when
+        frame1 = frame2 &&
+        not (Utils.IntSet.mem frame1 (get_free_vars x)) ->
+          Node.mkquoted (do_close (Closure(x, [], 0)) [] 0)
+    | _ -> node
+  else
+    Error.runtime_error "'reduce-eta' expects a quoted argument"
