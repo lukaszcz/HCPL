@@ -1,0 +1,9 @@
+
+let x = 3 + 4;
+
+let f = \y . x;
+
+let g = \y \z . x;
+
+print (f ());
+print (g () ());

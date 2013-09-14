@@ -7,12 +7,13 @@ Copyright (C) 2013 by Łukasz Czajka
 open Node
 
 let max_lambda_body_frame_ref node frame0 =
-  let rec aux node gap cframe acc =
+  let rec aux node cframe acc =
+    assert (cframe >= frame0);
     Traversal.traverse0
       (fun x m ->
         match x with
         | Node.Var(n) ->
-            if n >= gap then
+            if cframe - n < frame0 then
               Traversal.Continue(max (cframe - n) m)
             else
               Traversal.Continue(m)
@@ -20,64 +21,60 @@ let max_lambda_body_frame_ref node frame0 =
             if frame < frame0 then
               Traversal.Skip(max (frame - 1) m)
             else
-              Traversal.Skip(aux body (gap + 1) (cframe + 1) m)
+              Traversal.Skip(aux body frame m)
         | Node.BMatch(x, branches) ->
             let rec aux2 lst acc =
               match lst with
               | (x, y, z, args_num) :: t ->
-                  aux2 t (aux z (gap + args_num) (cframe + args_num)
-                            (aux y (gap + args_num) (cframe + args_num)
-                               (aux x gap cframe acc)))
+                  aux2 t (aux z (cframe + args_num)
+                            (aux y (cframe + args_num)
+                               (aux x cframe acc)))
               | [] ->
                   acc
             in
-            Traversal.Skip(aux2 branches (aux x gap cframe m))
+            Traversal.Skip(aux2 branches (aux x cframe m))
         | Node.LambdaClosure(_) | Node.Closure(_) ->
             Traversal.Skip(m)
         | _ -> Traversal.Continue(m)
       )
       node acc
   in
-  aux node 1 frame0 (-1)
+  aux node frame0 (-1)
 
 let correct_lambda node =
-  let rec aux body frame frame2 call_type attrs gap frame0 =
-    let shift = frame - frame2
+  (* shift frame0 to frame0 - shift *)
+  let shift_frames node shift frame0 =
+    let rec aux node cframe =
+      Traversal.transform0
+        (fun x ->
+          match x with
+          | Node.Lambda(body, frame3, call_type, _, attrs) ->
+              if frame3 >= frame0 then
+                Traversal.Skip(Node.Lambda(aux body frame3, frame3 - shift, call_type, ref 0, attrs))
+              else
+                Traversal.Skip(x)
+          | Node.BMatch(x, branches) ->
+              let rec aux2 lst acc =
+                match lst with
+                | (x, y, z, n) :: t ->
+                    aux2 t ((aux x cframe, aux y (cframe + n), aux z (cframe + n), n) :: acc)
+                | [] ->
+                    acc
+              in
+              Traversal.Skip(Node.BMatch(aux x cframe, List.rev (aux2 branches [])))
+          | _ ->
+              Traversal.Continue(x))
+        (fun x ->
+          match x with
+          | Node.Var(n) ->
+              if cframe - n < frame0 then
+                Node.Var(n - shift)
+              else
+                Node.Var(n)
+          | _ -> x)
+        node
     in
-    let body2 =
-      let rec aux2 node gap =
-        Traversal.transform0
-          (fun x ->
-            match x with
-            | Node.Lambda(body, frame3, call_type, _, attrs) ->
-                if frame3 >= frame0 then
-                  Traversal.Skip(aux body frame3 (frame3 - shift) call_type attrs (gap + 1) frame0)
-                else
-                  Traversal.Skip(x)
-            | Node.BMatch(x, branches) ->
-                let rec aux3 lst acc =
-                  match lst with
-                  | (x, y, z, n) :: t ->
-                      aux3 t ((aux2 x gap, aux2 y (gap + n), aux2 z (gap + n), n) :: acc)
-                  | [] ->
-                      acc
-                in
-                Traversal.Skip(Node.BMatch(aux2 x gap, List.rev (aux3 branches [])))
-            | _ ->
-                Traversal.Continue(x))
-          (fun x ->
-            match x with
-            | Node.Var(n) ->
-                if n >= gap then
-                  Node.Var(n - shift)
-                else
-                  Node.Var(n)
-            | _ -> x)
-          node
-      in
-      aux2 body gap
-    in
-    Node.Lambda(body2, frame2, call_type, ref 0, attrs)
+    aux node frame0
   in
   match node with
   | Node.Lambda(body, frame, call_type, _, attrs) ->
@@ -85,7 +82,8 @@ let correct_lambda node =
       in
       if frame2 <> frame then
         begin
-          aux body frame frame2 call_type attrs 1 frame
+          assert (frame2 < frame);
+          Node.Lambda(shift_frames body (frame - frame2) frame, frame2, call_type, ref 0, attrs)
         end
       else
         node
@@ -136,13 +134,70 @@ let do_close node env env_len =
       | _ -> node)
     (if env_len = 0 then node else Closure(node, env, env_len))
 
+let close node =
+  if Node.is_quoted node then
+    Node.mkquoted (do_close node [] 0)
+  else
+    Error.runtime_error "the argument of 'close' should be quoted"
+
+let get_free_vars node =
+  let rec aux node frame0 cframe set =
+    Traversal.traverse0
+      (fun x set ->
+        match x with
+        | Var(n) ->
+            if cframe - n < frame0 then
+              Traversal.Continue(Utils.IntSet.add (cframe - n) set)
+            else
+              Traversal.Continue(set)
+        | Lambda(body, frame, _, _, _) ->
+            if frame = 0 then
+              Traversal.Skip(set)
+            else
+              Traversal.Skip(aux body (min frame0 frame) frame set)
+        | BMatch(x, branches) ->
+            let rec aux2 lst set =
+              match lst with
+              | (x, y, z, n) :: t ->
+                  aux2 t (aux x frame0 cframe
+                            (aux y frame0 (cframe + n)
+                               (aux z frame0 (cframe + n) set)))
+              | [] -> Traversal.Skip(set)
+            in
+            aux2 branches (aux x frame0 cframe set)
+        | Closure(_) | LambdaClosure(_) ->
+            Traversal.Skip(set)
+        | _ ->
+            Traversal.Continue(set)
+      )
+      node set
+  in
+  aux node 0 (-1) Utils.IntSet.empty
+
+let eta_reduce node =
+  if Node.is_quoted node then
+    match Node.unquote node with
+    | Lambda(Appl(x, Var(frame1), _), frame2, _, _, _)
+      when
+        frame1 = frame2 &&
+        not (Utils.IntSet.mem frame1 (get_free_vars x)) ->
+          Node.mkquoted (do_close (Closure(x, [], 0)) [] 0)
+    | _ -> node
+  else
+    Error.runtime_error "'reduce-eta' expects a quoted argument"
+
 let quote node env =
   let env_len = Env.length env
   in
   if env_len = 0 || Node.is_closed node then
     Node.mkquoted node
   else
-    Node.mkquoted (do_close node env env_len)
+    begin
+      let node2 = do_close node env env_len
+      in
+      assert (Utils.IntSet.is_empty (get_free_vars node2));
+      Node.mkquoted node2
+    end
 
 let occurs_check node1 node2 =
   if Node.is_quoted node1 && Node.is_quoted node2 then
@@ -206,58 +261,8 @@ let lift node node1 =
     in
     let node2 = aux node
     in
+    assert (Utils.IntSet.is_empty (get_free_vars (Lambda(node2, 0, CallByValue, ref 0, None))));
+    assert (Utils.IntSet.is_empty (get_free_vars unode1));
     Quoted(Appl(Lambda(node2, 0, CallByValue, ref 0, None), unode1, None))
   else
     Error.runtime_error "arguments of 'lift' should be quoted"
-
-let close node =
-  if Node.is_quoted node then
-    Node.mkquoted (do_close node [] 0)
-  else
-    Error.runtime_error "the argument of 'close' should be quoted"
-
-let get_free_vars node =
-  let rec aux node frame0 cframe set =
-    Traversal.traverse0
-      (fun x set ->
-        match x with
-        | Var(n) ->
-            if cframe - n < frame0 then
-              Traversal.Continue(Utils.IntSet.add (cframe - n) set)
-            else
-              Traversal.Continue(set)
-        | Lambda(body, frame, _, _, _) ->
-            if frame = 0 then
-              Traversal.Skip(set)
-            else
-              Traversal.Skip(aux body (min frame0 frame) frame set)
-        | BMatch(x, branches) ->
-            let rec aux2 lst set =
-              match lst with
-              | (x, y, z, n) :: t ->
-                  aux2 t (aux x frame0 cframe
-                            (aux y frame0 (cframe + n)
-                               (aux z frame0 (cframe + n) set)))
-              | [] -> Traversal.Skip(set)
-            in
-            aux2 branches (aux x frame0 cframe set)
-        | Closure(_) | LambdaClosure(_) ->
-            Traversal.Skip(set)
-        | _ ->
-            Traversal.Continue(set)
-      )
-      node set
-  in
-  aux node 0 (-1) Utils.IntSet.empty
-
-let eta_reduce node =
-  if Node.is_quoted node then
-    match Node.unquote node with
-    | Lambda(Appl(x, Var(frame1), _), frame2, _, _, _)
-      when
-        frame1 = frame2 &&
-        not (Utils.IntSet.mem frame1 (get_free_vars x)) ->
-          Node.mkquoted (do_close (Closure(x, [], 0)) [] 0)
-    | _ -> node
-  else
-    Error.runtime_error "'reduce-eta' expects a quoted argument"

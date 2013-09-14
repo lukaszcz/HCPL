@@ -25,7 +25,7 @@ symbol VAR
 let in = \x \y . y x
 let : = (in)
 let -> = \t1 \t2 \f (ALL t1 \x . f x in t2)
-let => = \x \y . (not x) or y
+let => = \x \y . if x then y else true
 let <=> = \x \y . (x => y) and (y => x)
 let proof-of = \x (`ipl-proof, x)
 let goal = \p . match p with proof-of %x -> x | %_ -> error2 p "expected a proof"
@@ -522,7 +522,7 @@ let facts = []
 
 let verify = \p \phi {
    if eq (goal p) phi then
-      ()
+      p
    else
       error2 p ("not a proof of " ^ to_string phi)
 }
