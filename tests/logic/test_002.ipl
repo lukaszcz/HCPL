@@ -1,0 +1,125 @@
+
+// propositional logic
+
+open Logic;
+
+lemma
+   '(ALL Prop \p . p => p)
+proof
+   fix-with p prop-type-intro;
+   assume-with p (assm '(p in Prop));
+   assm p
+qed;
+
+print "OK1";
+
+lemma
+   '(ALL Prop \p . ALL Prop \q . ALL Prop \r . (p => q) => ((q => r) => (p => r)))
+proof
+   fix-with p prop-type-intro;
+   fix-with q prop-type-intro;
+   fix-with r prop-type-intro;
+   assume-with '(p => q) (impl-type-intro (assm '(p in Prop)) (assm '(q in Prop)));
+   assume-with '(q => r) (impl-type-intro (assm '(q in Prop)) (assm '(r in Prop)));
+   assume-with p (assm '(p in Prop));
+   impl-elim (assm '(p => q)) (assm p) >>
+   impl-elim (assm '(q => r))
+qed;
+
+print "OK2";
+
+lemma
+   '(ALL Prop \p . ALL Prop \q . p => (q => p))
+proof
+   fix-with p prop-type-intro;
+   fix-with q prop-type-intro;
+   assume-with p (assm '(p in Prop));
+   assume-with q (assm '(q in Prop));
+   assm p
+qed;
+
+print "OK3";
+
+lemma
+   '(ALL Prop \p . ALL Prop \q . ALL Prop \r . (p => (q => r)) => (p => q) => p => r)
+proof
+   fix-with p prop-type-intro;
+   fix-with q prop-type-intro;
+   fix-with r prop-type-intro;
+   assume-with '(p => (q => r))
+      (impl-type-intro
+         (assm '(p in Prop))
+         (impl-type-intro
+            (assm '(q in Prop))
+            (assm '(r in Prop))));
+   assume-with '(p => q) (impl-type-intro (assm '(p in Prop)) (assm '(q in Prop)));
+   assume-with p (assm '(p in Prop));
+   $1: verify '(q => r) << impl-elim (assm '(p => (q => r))) (assm p);
+   $2: verify q << impl-elim (assm '(p => q)) (assm p);
+   impl-elim $1 $2
+qed;
+
+print "OK4";
+
+lemma
+   '(ALL Prop \p . ALL Prop \q . ALL Prop \r . (p => r) => (q => r) => p or q => r)
+proof
+   fix-with p prop-type-intro;
+   fix-with q prop-type-intro;
+   fix-with r prop-type-intro;
+   assume-with '(p => r) (impl-type-intro (assm '(p in Prop)) (assm '(r in Prop)));
+   assume-with '(q => r) (impl-type-intro (assm '(q in Prop)) (assm '(r in Prop)));
+   assume-with '(p or q) (or-type-intro (assm '(p in Prop)) (assm '(q in Prop)));
+   or-elim (assm '(p or q)) {
+      suppose p;
+      impl-elim (assm '(p => r)) (assm p)
+   }{
+      suppose q;
+      impl-elim (assm '(q => r)) (assm q)
+   }
+qed;
+
+print "OK5";
+
+lemma
+   '(ALL Prop \p . ALL Prop \q . ALL Prop \r . (r => p) => (r => q) => r => p and q)
+proof
+   fix-with p prop-type-intro;
+   fix-with q prop-type-intro;
+   fix-with r prop-type-intro;
+   assume-with '(r => p) (impl-type-intro (assm '(r in Prop)) (assm '(p in Prop)));
+   assume-with '(r => q) (impl-type-intro (assm '(r in Prop)) (assm '(q in Prop)));
+   assume-with r (assm '(r in Prop));
+   and-intro (impl-elim (assm '(r => p)) (assm r)) (impl-elim (assm '(r => q)) (assm r))
+qed;
+
+print "OK6";
+
+lemma
+   '(ALL Prop \p . ALL Prop \q . ALL Prop \r . p and (q and r) <=> (p and q) and r)
+proof
+   fix-with p prop-type-intro;
+   fix-with q prop-type-intro;
+   fix-with r prop-type-intro;
+   equiv-intro {
+      assume-with '(p and (q and r))
+         (and-type-intro
+            (assm '(p in Prop))
+            (and-type-intro (assm '(q in Prop)) (assm '(r in Prop))));
+      $p: and-elim-left (assm '(p and (q and r)));
+      $q: and-elim-left (and-elim-right (assm '(p and (q and r))));
+      $r: and-elim-right (and-elim-right (assm '(p and (q and r))));
+      and-intro (and-intro $p $q) $r
+   }{
+      assume-with '((p and q) and r)
+         (and-type-intro
+            (and-type-intro (assm '(p in Prop)) (assm '(q in Prop)))
+            (assm '(r in Prop)));
+      $r: and-elim-right (assm '((p and q) and r));
+      $p: and-elim-left (and-elim-left (assm '((p and q) and r)));
+      $q: and-elim-right (and-elim-left (assm '((p and q) and r)));
+      and-intro $p (and-intro $q $r)
+   }
+qed;
+
+print "OK7";

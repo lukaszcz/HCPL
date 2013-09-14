@@ -142,11 +142,12 @@ let impl-elim = \p1 \p2 {
 
 let impl-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
-   | ('(%phi1 in Prop), '(ASSM %phi2 (%psi in Prop))) ->
+   | '(%phi1 in Prop), '(ASSM %phi2 (%psi in Prop)) ->
       if eq phi1 phi2 then
          proof-of '((phi1 => psi) in Prop)
       else
          error2 phi2 "impl-type-intro: wrong argument"
+   | '(%phi in Prop), '(%psi in Prop) -> proof-of '((phi => psi) in Prop)
    | %_ -> error2 (p1, p2) "impl-type-intro: wrong arguments"
 }
 
@@ -349,9 +350,11 @@ let or-elim = \p \p1 \p2 {
    | %_ -> error2 (p, p1, p2) "or-elim: wrong arguments"
 }
 
+let cases = or-elim
+
 let or-type-intro = \p1 \p2 {
-   match (goal p1, goal p2) with
-   | ('(%phi in Prop), '(%psi in Prop)) -> proof-of '((phi or psi) in Prop)
+   match goal p1, goal p2 with
+   | '(%phi in Prop), '(%psi in Prop) -> proof-of '((phi or psi) in Prop)
    | %_ -> error2 (p1, p2) "or-type-intro: wrong arguments"
 }
 
@@ -363,13 +366,13 @@ let and-intro = \p1 \p2 {
 }
 
 let and-elim-left = \p {
-   match p with
+   match goal p with
    | '(%a and %_) -> proof-of a
    | %_ -> error2 p "and-elim-left: wrong argument"
 }
 
 let and-elim-right = \p {
-   match p with
+   match goal p with
    | '(%_ and %b) -> proof-of b
    | %_ -> error2 p "and-elim-right: wrong argument"
 }
@@ -378,6 +381,24 @@ let and-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%a in Prop), '(%b in Prop) -> proof-of '((a and b) in Prop)
    | %_ -> error2 (p1, p2) "and-type-intro: wrong arguments"
+}
+
+let equiv-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%phi => %psi), '(%psi1 => %phi1) when eq phi phi1 and eq psi psi1 -> proof-of '(phi <=> psi)
+   | %_ -> error2 (p1, p2) "equiv-intro: wrong arguments"
+}
+
+let equiv-type-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%phi in Prop), '(%psi in Prop) -> proof-of '((phi <=> psi) in Prop)
+   | %_ -> error2 (p1, p2) "equiv-type-intro: wrong arguments"
+}
+
+let equiv-elim = \p1 \p2 {
+   match goal p1 with
+   | '(%phi <=> %psi) when eq phi (goal p2) -> proof-of psi
+   | '(%phi <=> %psi) when eq psi (goal p2) -> proof-of phi
 }
 
 let false-elim = \phi \p {
@@ -513,6 +534,8 @@ let true-prop-intro = proof-of '(true in Prop)
 
 let true-intro = proof-of true
 
+let faith = \phi { proof-of phi }
+
 /*********************************************************************************/
 
 let assms = []
@@ -520,7 +543,7 @@ let facts = []
 
 /*********************************************************************************/
 
-let verify = \p \phi {
+let verify = \phi \p {
    if eq (goal p) phi then
       p
    else
@@ -549,14 +572,14 @@ macro lemma = \args {
       #<
          let #$0 = #formula;
          let #name = { let thesis = #$0; #xproof };
-         verify #name #$0;
+         verify #$0 #name;
          (#name :: facts) >> \facts ..
       >#
    | [%formula, %xproof] ->
       #<
          let #$0 = #formula;
          let #$1 = { let thesis = #$0; #xproof };
-         verify #$1 #$0;
+         verify #$0 #$1;
          (#$1 :: facts) >> \facts ..
       >#
    | %_ -> error "lemma: wrong arguments"
