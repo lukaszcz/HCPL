@@ -115,7 +115,7 @@ let reduce lst =
 let eval_limited lst =
   match lst with
   | y :: Quoted(x) :: _ -> Node.mkquoted (Eval.eval_limited x (Bignum.to_int y))
-  | _ :: x :: _ when Node.is_quoted x -> x
+  | y :: x :: _ when Node.is_quoted x && Bignum.is_number y -> x
   | _ -> Error.runtime_error "eval-limited: bad arguments"
 
 (* occurs check *)

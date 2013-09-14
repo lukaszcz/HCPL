@@ -89,8 +89,16 @@ let preduce = \p {
    proof-of (reduce (goal p))
 }
 
+let preduce-eta = \p {
+   proof-of (reduce-eta (goal p))
+}
+
 let peval = \p {
    proof-of (eval (goal p))
+}
+
+let peval-limited = \p \lim {
+   proof-of (eval-limited (goal p) lim)
 }
 
 let make-assumption-raw = \assms \phi \f {

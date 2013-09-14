@@ -41,6 +41,8 @@ let to_big_int x =
     | Integer(a) -> a
     | _ -> Error.runtime_error ("not a number: " ^ Node.to_string x)
 
+let is_number x = is_smallint x || (match x with Integer(_) -> true | _ -> false)
+
 (* NOTE: depends on OCaml implementation *)
 let msb x =
   let rec loop x bit =
