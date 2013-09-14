@@ -69,6 +69,11 @@ let lift lst =
   | y :: x :: _ -> Quote.lift x y
   | _ -> assert false
 
+let close lst =
+  match lst with
+  | x :: _ -> Quote.close x
+  | _ -> assert false
+
 (* random *)
 
 let xrandom lst =
@@ -222,6 +227,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "'") (ipl_quote, 1, CallByName) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "subst") (subst, 3, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "lift") (lift, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "close") (close, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "random") (xrandom, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "^") (concat, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in

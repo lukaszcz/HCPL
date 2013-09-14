@@ -99,81 +99,30 @@ let correct_lambda node =
         node
   | _ -> node
 
+let do_close node env env_len =
+  Traversal.transform
+    (fun node _ ->
+      match node with
+      | Lambda(_, 0, _, _, _) -> Traversal.Skip(node)
+      | Quoted(x) -> Traversal.Continue(x)
+      | _ ->
+          if Node.is_immed node then
+            Traversal.Skip(node)
+          else
+            Traversal.Continue(node))
+    (fun node ->
+      match node with
+      | Quoted(x) -> x
+      | _ -> node)
+    (if env_len = 0 then node else Closure(node, env, env_len))
+
 let quote node env =
-  let rec fix_node_in_env node =
-    match node with
-    | Quoted(x) -> x
-    | Integer(_) | String(_) | Record(_) | Sym(_) ->
-        node
-    | Cons(a, b) ->
-        if Config.is_unsafe_mode () then
-          node
-        else
-          Cons(fix_node_in_env a, fix_node_in_env b)
-    | _ ->
-        (* NOTE: the following check is necessary to ensure consistency of the logic *)
-        if Config.is_unsafe_mode () then
-          node
-        else if is_const node then
-          node
-        else
-          begin
-            Error.runtime_error "cannot quote a non-constant value"
-          end
-  in
-  let rec get_free_vars node frame0 cframe set =
-    Traversal.traverse0
-      (fun x set ->
-        match x with
-        | Var(n) ->
-            if cframe - n < frame0 then
-              Traversal.Continue(IntSet.add (cframe - n) set)
-            else
-              Traversal.Continue(set)
-        | Lambda(body, frame, _, _, _) ->
-            if frame = 0 then
-              Traversal.Skip(set)
-            else
-              Traversal.Skip(get_free_vars body (min frame0 frame) frame set)
-        | BMatch(x, branches) ->
-            let rec aux lst set =
-              match lst with
-              | (x, y, z, n) :: t ->
-                  aux t (get_free_vars x frame0 cframe
-                           (get_free_vars y frame0 (cframe + n)
-                              (get_free_vars z frame0 (cframe + n) set)))
-              | [] -> Traversal.Skip(set)
-            in
-            aux branches (get_free_vars x frame0 cframe set)
-        | Closure(_) | LambdaClosure(_) ->
-            Traversal.Skip(set)
-        | _ ->
-            Traversal.Continue(set)
-      )
-      node set
-  in
-  let rec filter lst set n acc =
-    match lst with
-    | h :: t ->
-        if IntSet.mem n set then
-          filter t set (n + 1) (h :: acc)
-        else
-          filter t set (n + 1) (Nil :: acc)
-    | [] -> acc
-  in
   let env_len = Env.length env
   in
   if env_len = 0 || Node.is_closed node then
     Node.mkquoted node
   else
-    let set = get_free_vars node env_len (env_len - 1) IntSet.empty
-    in
-    if IntSet.is_empty set then
-      Node.mkquoted node
-    else
-      let env2 = filter (List.rev env) set 0 []
-      in
-      Node.mkquoted (Closure(node, List.map fix_node_in_env env2, env_len))
+    Node.mkquoted (do_close node env env_len)
 
 let occurs_check node1 node2 =
   if Node.is_quoted node1 && Node.is_quoted node2 then
@@ -195,7 +144,7 @@ let occurs_check node1 node2 =
         true
     end
   else
-    Error.runtime_error "arguments of occurs-check should be quoted"
+    Error.runtime_error "arguments of 'occurs-check' should be quoted"
 
 let subst node node1 node2 =
   if Node.is_quoted node && Node.is_quoted node1 && Node.is_quoted node2 then
@@ -212,7 +161,7 @@ let subst node node1 node2 =
       )
       node
   else
-    Error.runtime_error "arguments of subst should be quoted"
+    Error.runtime_error "arguments of 'subst' should be quoted"
 
 let lift node node1 =
   if Node.is_quoted node && Node.is_quoted node1 then
@@ -239,4 +188,10 @@ let lift node node1 =
     in
     Quoted(Appl(Lambda(node2, 0, CallByValue, ref 0, None), unode1, None))
   else
-    Error.runtime_error "arguments of lift should be quoted"
+    Error.runtime_error "arguments of 'lift' should be quoted"
+
+let close node =
+  if Node.is_quoted node then
+    do_close node [] 0
+  else
+    Error.runtime_error "the argument of 'close' should be quoted"

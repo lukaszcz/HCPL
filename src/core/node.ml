@@ -208,7 +208,7 @@ let is_closed (node : t) =
     true
   else
     match node with
-    | Lambda(_, 0, _, _, _) -> true
+    | Lambda(_, 0, _, _, _) | Closure(_) -> true
     | _ -> false
 
 let smallint_value (node : t) = assert (is_smallint node); (Obj.magic node) asr 1
