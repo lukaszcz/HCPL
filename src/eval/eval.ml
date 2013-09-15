@@ -278,7 +278,7 @@ and do_eval node env env_len =
 
   | Builtin(func, args_num, _) ->
       assert (args_num >= env_len);
-      do_eval (func env) (Env.pop_n env args_num) (env_len - args_num)
+      func env
 
   (* inlined builtins *)
 
@@ -653,14 +653,7 @@ and do_eval node env env_len =
 
   | _ -> node
 
-let eval node =
-  let prev_limit = !eval_limit
-  in
-  let cleanup () =
-    eval_limit := prev_limit;
-  in
-  eval_limit := -1;
-  Utils.try_finally (fun () -> do_eval node Env.empty 0) cleanup
+let eval node = do_eval node Env.empty 0
 
 let eval_limited node limit =
   let prev_limit = !eval_limit
@@ -673,9 +666,18 @@ let eval_limited node limit =
   eval_limit := limit;
   Utils.try_finally (fun () -> do_eval node Env.empty 0) cleanup
 
+let eval_unlimited node =
+  let prev_limit = !eval_limit
+  in
+  let cleanup () =
+    eval_limit := prev_limit;
+  in
+  eval_limit := -1;
+  Utils.try_finally (fun () -> do_eval node Env.empty 0) cleanup
+
 let reduce node = eval_limited node 1
 
-let eval_in node env = eval_limit := -1; do_eval node env (Env.length env)
+let eval_in node env = do_eval node env (Env.length env)
 
 let macro_tmp_id = ref 0
 let extra_macro_args_ref = ref []

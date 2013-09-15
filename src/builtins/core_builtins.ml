@@ -118,6 +118,12 @@ let eval_limited lst =
   | y :: x :: _ when Node.is_quoted x && Bignum.is_number y -> x
   | _ -> Error.runtime_error "eval-limited: bad arguments"
 
+let eval_unlimited lst =
+  match lst with
+  | Quoted(x) :: _ -> Node.mkquoted (Eval.eval_unlimited x)
+  | x :: _ when Node.is_quoted x -> x
+  | _ -> Error.runtime_error "eval-unlimited: bad arguments"
+
 (* occurs check *)
 
 let occurs_check lst =
@@ -240,6 +246,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval") (eval, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "reduce") (reduce, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval-limited") (eval_limited, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval-unlimited") (eval_unlimited, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "occurs-check") (occurs_check, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "join-tokens") (join_tokens, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "split-tokens") (split_tokens, 1, CallByValue) in
