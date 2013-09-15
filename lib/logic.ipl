@@ -337,10 +337,16 @@ let or-intro-left = \p \right {
    proof-of '(left or right)
 }
 
-let or-intro-right = \p \left {
+let or-intro-right = \left \p {
    let right = goal p
    in
    proof-of '(left or right)
+}
+
+let or-intro = \x \y {
+   match x with
+   | proof-of %phi -> or-intro-left x y
+   | %_ -> or-intro-right x y
 }
 
 let or-elim = \p \p1 \p2 {
@@ -349,8 +355,6 @@ let or-elim = \p \p1 \p2 {
       proof-of c
    | %_ -> error2 (p, p1, p2) "or-elim: wrong arguments"
 }
-
-let cases = or-elim
 
 let or-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
@@ -417,6 +421,8 @@ let not-intro = \p1 \p2 {
 let not-elim = \p1 \p2 {
    match (goal p1, goal p2) with
    | ('%a, '(not %a1)) when eq a a1 ->
+      proof-of false
+   | ('(not %a), '%a1) when eq a a1 ->
       proof-of false
    | %_ -> error2 (p1, p2) "not-elim: wrong arguments"
 }
@@ -529,8 +535,8 @@ macro fact = \args {
    | %_ -> error "fact: wrong arguments"
 }
 
-let false-prop-intro = proof-of '(false in Prop)
-let true-prop-intro = proof-of '(true in Prop)
+let false-type-intro = proof-of '(false in Prop)
+let true-type-intro = proof-of '(true in Prop)
 
 let true-intro = proof-of true
 

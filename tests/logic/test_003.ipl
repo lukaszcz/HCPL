@@ -1,0 +1,57 @@
+
+// more propositional logic (raw proof style)
+
+open Logic;
+
+lemma
+   '(ALL Prop \p . p or false <=> p)
+proof
+   forall-intro prop-type-intro {
+      var-intro p;
+      suppose '(p in Prop);
+      equiv-intro {
+         impl-intro (or-type-intro (assm '(p in Prop)) false-type-intro) {
+            suppose '(p or false);
+            or-elim (assm '(p or false)) {
+               suppose p;
+               assm p
+            }{
+               suppose false;
+               false-elim p (assm false)
+            }
+         }
+      }{
+         impl-intro (assm '(p in Prop)) {
+            suppose p;
+            or-intro-left (assm p) false
+         }
+      }
+   }
+qed;
+
+print "OK1";
+
+lemma
+   '(ALL Prop \p . p or not p)
+proof
+   forall-intro prop-type-intro {
+      var-intro p;
+      suppose '(p in Prop);
+      contradiction {
+         assume-with '(not (p or not p))
+            (not-type-intro
+               (or-type-intro
+                  (assm '(p in Prop))
+                  (not-type-intro (assm '(p in Prop)))));
+         not-intro (assm '(p in Prop)) {
+            suppose p;
+            or-intro (assm p) '(not p) >>
+            not-elim (assm '(not (p or not p)))
+         } >>
+         or-intro p >>
+         not-elim (assm '(not (p or not p)))
+      }
+   }
+qed;
+
+print "OK2";
