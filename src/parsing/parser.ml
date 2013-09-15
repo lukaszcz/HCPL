@@ -1681,7 +1681,8 @@ m4_changequote([`],['])
 
   let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include;
                   sym_match; sym_macro]
-  and builtins = [(fun x -> Core_builtins.declare_builtins x symtab)]
+  and builtins = [(fun x -> Core_builtins.declare_builtins x symtab);
+                  (fun x -> List_builtins.declare_builtins x symtab)]
   in
   let scope0 =
     List.fold_left

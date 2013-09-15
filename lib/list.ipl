@@ -1,0 +1,18 @@
+
+let length = __ipl_list_length
+let nth = __ipl_list_nth
+let head = __ipl_list_head
+let tail = __ipl_list_tail
+let take = \x \y (head y x)
+let put = __ipl_list_put
+let rev = __ipl_list_rev
+let append = __ipl_list_append
+let rev_append = __ipl_list_rev_append
+let map = __ipl_list_map
+let rev_map = __ipl_list_rev_map
+let filter = __ipl_list_filter
+let foldl = __ipl_list_foldl
+let foldr = __ipl_list_foldr
+let fold = foldl
+let forall = __ipl_list_forall
+let exists = __ipl_list_exists

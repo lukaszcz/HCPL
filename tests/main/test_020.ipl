@@ -1,0 +1,41 @@
+
+// List module test
+
+import List
+
+let gen = \m1 \m2 {
+   let aux = \n \acc {
+      if n < m1 then
+         acc
+      else
+         aux (n - 1) (n :: acc)
+   };
+   aux m2 []
+}
+
+let fact = \n . if n = 0 then 1 else n * fact (n - 1);
+
+let lst1 = gen -1000 1000;
+let lst2 = gen 0 105;
+let lst3 = gen 0 5;
+let lst4 = gen 6 10;
+
+print (List.length lst1);
+print (List.nth lst1 1000);
+print (List.filter (\x . x > 100) lst2);
+print (List.filter (\x . x < 10) lst2);
+print (List.filter (\x . x < 10 and x > 0) lst1);
+print (List.foldl (\x \acc . x + acc) lst1 0);
+print (List.foldr (\x \acc . x + acc) lst1 0);
+print (List.append lst3 lst4);
+print (List.tail lst2 3);
+print (List.tail lst1 3);
+print (List.head lst2 3);
+print (List.head lst1 3);
+print (List.forall (\x . x < 0) lst1);
+print (List.forall (\x . x >= 0) lst2);
+print (List.rev lst3);
+print (List.map fact lst3);
+print (List.exists (\x . x > 0) lst1);
+print (List.exists (\x . x < 0) lst2);
+print (List.put 4 10 []);
