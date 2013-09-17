@@ -36,12 +36,14 @@ let is-proof = \p . matches p (proof-of %_)
 /*********************************************************************************/
 /* helper functions & macros */
 
+let eval-limit = 1000
+
 let eq-aux = \f \x \y {
    let aux = \x \y \lim {
       if f x y then
          true
       else if lim = 0 then
-         f (eval-limited x 1000) (eval-limited y 1000)
+         f (eval-limited x eval-limit) (eval-limited y eval-limit)
       else {
         let rx = reduce x
         let ry = reduce y
@@ -143,12 +145,18 @@ let make-assumption-raw = \assms \phi \f {
 
 macro make-assumption = \args {
    match args with
+   | [%a] ->
+      #< make-assumption-raw assms #a \assms .. >#
    | [%a, %b] ->
       #< make-assumption-raw assms #a \assms { #b } >#
    | [%a, #< in >#, %b] ->
       #< make-assumption-raw assms #a \assms { #b } >#
-   | [%a] ->
-      #< make-assumption-raw assms #a \assms .. >#
+   | [%name, #< : >#, %a] ->
+      #< let #$0 = #a; let #name = proof-of #$0; make-assumption-raw assms #$0 \assms .. >#
+   | [%name, #< : >#, %a, %b] ->
+      #< let #$0 = #a; let #name = proof-of #$0; make-assumption-raw assms #$0 \assms { #b } >#
+   | [%name, #< : >#, %a, #< in >#, %b] ->
+      #< let #$0 = #a; let #name = proof-of #$0; make-assumption-raw assms #$0 \assms { #b } >#
    | %_ -> error "make-assumption: wrong arguments"
 }
 
@@ -191,24 +199,48 @@ let impl-type-elim = \p {
 
 macro assume-with = \args {
    match args with
+   | [%a, %t] ->
+      #< impl-intro #t << make-assumption-raw assms #a \assms .. >#
+   | [%name, #< : >#, %a, %t] ->
+      #< let #$0 = #a; let #name = proof-of #$0; impl-intro #t << make-assumption-raw assms #$0 \assms .. >#
    | [%a, %t, %b] ->
       #< impl-intro #t (suppose #a #b) >#
    | [%a, %t, #< in >#, %b] ->
       #< impl-intro #t (suppose #a #b) >#
-   | [%a, %t] ->
-      #< impl-intro #t << make-assumption-raw assms #a \assms .. >#
+   | [%name, #< : >#, %a, %t, %b] ->
+      #< let #$0 = #a in impl-intro #t (suppose #$0 { let #name = proof-of #$0 in #b }) >#
+   | [%name, #< : >#, %a, %t, #< in >#, %b] ->
+      #< let #$0 = #a in impl-intro #t (suppose #$0 { let #name = proof-of #$0 in #b }) >#
    | %_ ->
       error "assume-with: wrong arguments"
 }
 
 macro assume = \args {
    match args with
-   | [%a, %b] ->
-      #< assume-with (auto-type '(#a in Prop)) #b >#
-   | [%a, #< in >#, %b] ->
-      #< assume-with (auto-type '(#a in Prop)) #b >#
    | [%a] ->
-      #< assume-with (auto-type '(#a in Prop)) >#
+      #< let #$0 = #a in assume-with #$0 (auto-type '(#$0 in Prop)) >#
+   | [%name, #< : >#, %a] ->
+      #< let #$0 = #a in assume-with #name : #$0 (auto-type '(#$0 in Prop)) >#
+   | [%a, %b] ->
+      #< let #$0 = #a in assume-with #$0 (auto-type '(#$0 in Prop)) #b >#
+   | [%a, #< in >#, %b] ->
+      #< let #$0 = #a in assume-with #$0 (auto-type '(#$0 in Prop)) #b >#
+   | [%name, #< : >#, %a, %b] ->
+      #< let #$0 = #a in assume-with #name : #$0 (auto-type '(#$0 in Prop)) #b >#
+   | [%name, #< : >#, %a, #< in >#, %b] ->
+      #< let #$0 = #a in assume-with #name : #$0 (auto-type '(#$0 in Prop)) #b >#
+   | [%a, #< with >#, %t, %b] ->
+      #< assume-with #a #t #b >#
+   | [%a, #< with >#, %t, #< in >#, %b] ->
+      #< assume-with #a #t #b >#
+   | [%a, #< with >#, %t] ->
+      #< assume-with #a #t >#
+   | [%name, #< : >#, %a, #< with >#, %t, %b] ->
+      #< assume-with #name : #a #t #b >#
+   | [%name, #< : >#, %a, #< with >#, %t, #< in >#, %b] ->
+      #< assume-with #name : #a #t #b >#
+   | [%name, #< : >#, %a, #< with >#, %t] ->
+      #< assume-with #name : #a #t >#
    | %_ ->
       error "assume: wrong arguments"
 }
@@ -284,12 +316,19 @@ macro fix-with = \args {
 macro fix = \args {
    match args with
    | [%x, #< : >#, %a] ->
-      mk-macro-call fix-with [x, #< (auto-type '(#a in Type)) >#]
+      #< fix-with #x (auto-type '(#a in Type)) >#
    | [%x, #< : >#, %a, %p] ->
-      mk-macro-call fix-with [x, #< (auto-type '(#a in Type)) >#, p]
+      #< fix-with #x (auto-type '(#a in Type)) #p >#
    | [%x, #< : >#, %a, #< in >#, %p] ->
-      mk-macro-call fix-with [x, #< (auto-type '(#a in Type)) >#, p]
-   | %_ -> error "fix: bad arguments (maybe you forgot parentheses around the type)"
+      #< fix-with #x (auto-type '(#a in Type)) #p >#
+   | [%x, #< : >#, %a, #< with >#, %t] ->
+      #< fix-with #x #t >#
+   | [%x, #< : >#, %a, #< with >#, %t, %p] ->
+      #< fix-with #x #t #p >#
+   | [%x, #< : >#, %a, #< with >#, %t, #< in >#, %p] ->
+      #< fix-with #x #t #p >#
+   | %_ ->
+      error "fix: bad arguments (maybe you forgot parentheses around the type)"
 }
 
 let exists-intro = \p1 \p2 \p3 {
@@ -427,8 +466,16 @@ let equiv-intro = \p1 \p2 {
 
 let equiv-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
-   | '(%phi in Prop), '(%psi in Prop) -> proof-of '((phi <=> psi) in Prop)
-   | %_ -> error2 (p1, p2) "equiv-type-intro: wrong arguments"
+   | '(%phi in Prop), '(%psi in Prop) ->
+      proof-of '((phi <=> psi) in Prop)
+   | '(ASSM %psi1 (%phi in Prop)), '(ASSM %phi1 (%psi in Prop)) when eq psi psi1 and eq phi phi1 ->
+      proof-of '((phi <=> psi) in Prop)
+   | '(ASSM %psi1 (%phi in Prop)), '(%psi in Prop) when eq psi psi1 ->
+      proof-of '((phi <=> psi) in Prop)
+   | '(%phi in Prop), '(ASSM %phi1 (%psi in Prop)) when eq phi phi1 ->
+      proof-of '((phi <=> psi) in Prop)
+   | %_ ->
+      error2 (p1, p2) "equiv-type-intro: wrong arguments"
 }
 
 let equiv-elim = \p1 \p2 {
@@ -443,12 +490,23 @@ let false-elim = \phi \p {
    | %_ -> error2 p "false-elim: wrong argument"
 }
 
-let not-intro = \p1 \p2 {
+let not-intro-raw = \p1 \p2 {
    match (goal p1, goal p2) with
    | ('(%a in Prop), '(ASSM %a1 false)) when eq a a1 ->
       proof-of '(not a)
    | %_ -> error2 (p1, p2) "not-intro: wrong arguments"
 }
+
+macro(1) not-intro = \p #<{
+   let #$0 = #p
+   in
+   match goal #$0 with
+   | '(ASSM %a false) ->
+      not-intro-raw (auto-type '(a in Prop)) #$0
+   | '(%a => false) ->
+      proof-of '(not a)
+   | %_ -> error2 #$0 "not-intro: wrong argument"
+}>#
 
 let not-elim = \p1 \p2 {
    match (goal p1, goal p2) with
@@ -473,8 +531,9 @@ let not-type-elim = \p {
 
 let contradiction = \p {
    match goal p with
-   | '(not (not %x)) -> proof-of x
    | '((not %x) => false) -> proof-of x
+   | '(not (not %x)) -> proof-of x
+   | '((%x => false) => false) -> proof-of x
    | %_ -> error2 p "contradiction: wrong argument"
 }
 
@@ -488,7 +547,7 @@ let prop-type-intro = proof-of '(Prop in Type)
 
 let fun-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
-   | '(%a in Type), '(%b in Type) -> '((a -> b) in Type)
+   | '(%a in Type), '(%b in Type) -> proof-of '((a -> b) in Type)
    | %_ -> error2 (p1, p2) "fun-type-intro: wrong arguments"
 }
 
@@ -614,14 +673,14 @@ macro lemma = \args {
          let #$0 = #formula;
          let #name = { let thesis = #$0; #xproof };
          verify #$0 #name;
-         (#name :: facts) >> \facts ..
+         (#$0 :: facts) >> \facts ..
       >#
    | [%formula, %xproof] ->
       #<
          let #$0 = #formula;
          let #$1 = { let thesis = #$0; #xproof };
          verify #$0 #$1;
-         (#$1 :: facts) >> \facts ..
+         (#$0 :: facts) >> \facts ..
       >#
    | %_ -> error "lemma: wrong arguments"
 }
@@ -633,3 +692,25 @@ macro axiom = \args {
    | [%phi] -> #< (#phi :: facts) >> \facts .. >#
    | %_ -> error "axiom: wrong arguments"
 }
+
+let mk-tactic-apply = \f \args { mk-apply f (#< assms ># :: #< facts ># :: args) }
+
+macro(2) mk-tactic-call = \x \y {
+   let z = mk-tokens [x]
+   in
+   #< mk-tactic-apply #z #y >#
+}
+
+macro(2) tactic = \id \eq-tok {
+   if eq-tok /= #< = ># then
+      error "tactic: expected '=' after tactic name"
+   else {
+      let tac-id = join-symbols id (join-symbols #< - ># #< tactic >#);
+      #< macro #id = \args { mk-tactic-call #tac-id args }; let #tac-id = \assms \facts >#
+   }
+}
+
+/*********************************************************************************/
+/* core proof tactics */
+
+include "tactics/auto-type.ipl"

@@ -43,7 +43,7 @@ proof
                (or-type-intro
                   (assm '(p in Prop))
                   (not-type-intro (assm '(p in Prop)))));
-         not-intro (assm '(p in Prop)) {
+         not-intro-raw (assm '(p in Prop)) {
             suppose p;
             or-intro (assm p) '(not p) >>
             not-elim (assm '(not (p or not p)))

@@ -120,32 +120,36 @@ let eval lst =
   match lst with
   | Quoted(x) :: _ -> Node.mkquoted (Eval.eval x)
   | x :: _ when Node.is_quoted x -> x
-  | _ -> Error.runtime_error "eval: bad argument"
+  | x :: _ -> Error.runtime_error ("eval: bad argument: " ^ Node.to_string x)
+  | _ -> assert false
 
 let reduce lst =
   match lst with
   | Quoted(x) :: _ -> Node.mkquoted (Eval.reduce x)
   | x :: _ when Node.is_quoted x -> x
-  | _ -> Error.runtime_error "reduce: bad argument"
+  | x :: _ -> Error.runtime_error ("reduce: bad argument: " ^ Node.to_string x)
+  | _ -> assert false
 
 let eval_limited lst =
   match lst with
   | y :: Quoted(x) :: _ -> Node.mkquoted (Eval.eval_limited x (Bignum.to_int y))
   | y :: x :: _ when Node.is_quoted x && Bignum.is_number y -> x
-  | _ -> Error.runtime_error "eval-limited: bad arguments"
+  | y :: x :: _ -> Error.runtime_error ("eval-limited: bad arguments: " ^ Node.to_string x ^ ", " ^ Node.to_string y)
+  | _ -> assert false
 
 let eval_unlimited lst =
   match lst with
   | Quoted(x) :: _ -> Node.mkquoted (Eval.eval_unlimited x)
   | x :: _ when Node.is_quoted x -> x
-  | _ -> Error.runtime_error "eval-unlimited: bad arguments"
+  | x :: _ -> Error.runtime_error ("eval-unlimited: bad argument: " ^ Node.to_string x)
+  | _ -> assert false
 
 (* occurs check *)
 
 let occurs_check lst =
   match lst with
   | y :: x :: _ -> if Quote.occurs_check x y then True else False
-  | _ -> Error.runtime_error "occurs-check: bad arguments"
+  | _ -> assert false
 
 (* operations on tokens *)
 

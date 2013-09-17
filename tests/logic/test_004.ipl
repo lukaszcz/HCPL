@@ -1,0 +1,98 @@
+
+// propositional logic
+
+open Logic;
+
+lemma peirce_law
+   '(ALL Prop \p . ALL Prop \q . ((p => q) => p) => p)
+proof
+   fix p : Prop;
+   fix q : Prop;
+   assume '((p => q) => p);
+   contradiction {
+      assume '(not p);
+      $1: verify '(p => q) {
+         assume p;
+         not-elim (assm p) (assm '(not p)) >>
+         false-elim q
+      };
+      impl-elim (assm '((p => q) => p)) $1 >>
+      not-elim (assm '(not p))
+   }
+qed;
+
+print "OK1";
+
+lemma distrib_and_or
+   '(ALL Prop \p . ALL Prop \q . ALL Prop \r . p and (q or r) <=> (p and q) or (p and r))
+proof
+   fix p : Prop;
+   fix q : Prop;
+   fix r : Prop;
+   equiv-intro {
+      assume $1: '(p and (q or r));
+      $p: and-elim-left $1;
+      $q_or_r: and-elim-right $1;
+      or-elim $q_or_r {
+         suppose $q: q;
+         or-intro (and-intro $p $q) '(p and r)
+      }{
+         suppose $r: r;
+         or-intro '(p and q) (and-intro $p $r)
+      }
+   }{
+      assume $1: '((p and q) or (p and r));
+      or-elim $1 {
+         suppose $2: '(p and q);
+         $p: and-elim-left $2;
+         $q: and-elim-right $2;
+         and-intro $p (or-intro $q r)
+      }{
+         suppose $2: '(p and r);
+         $p: and-elim-left $2;
+         $r: and-elim-right $2;
+         and-intro $p (or-intro q $r)
+      }
+   }
+qed;
+
+print "OK2";
+
+lemma de_morgan_1
+   '(ALL Prop \p . ALL Prop \q . not (p and q) <=> (not p or not q))
+proof
+   fix p : Prop;
+   fix q : Prop;
+   equiv-intro {
+      assume $1: '(not (p and q));
+      contradiction {
+         assume $2: '(not (not p or not q));
+         $not_p: not-intro {
+            suppose p;
+            $not_q: not-intro {
+               suppose q;
+               not-elim $1 (and-intro (assm p) (assm q))
+            };
+            not-elim $2 (or-intro '(not p) $not_q)
+         };
+         not-elim $2 (or-intro $not_p '(not q))
+      }
+   }{
+      assume $1: '(not p or not q);
+      or-elim $1 {
+         suppose '(not p);
+         not-intro {
+            suppose $2: '(p and q);
+            not-elim (assm '(not p)) (and-elim-left $2)
+         }
+      }{
+         suppose '(not q);
+         not-intro {
+            suppose $2: '(p and q);
+            not-elim (assm '(not q)) (and-elim-right $2)
+         }
+      }
+   }
+qed;
+
+print "OK3";

@@ -1,0 +1,51 @@
+/* auto-type.ipl: Automatic typing proof tactic.
+ *
+ * Copyright (C) 2013 by Lukasz Czajka
+ */
+
+tactic auto-type = \phi {
+   let p = find-known phi;
+   if is-proof p then
+      p
+   else {
+      match phi with
+      | '(true in Prop) ->
+         true-type-intro
+      | '(false in Prop) ->
+         false-type-intro
+      | '((%a and %b) in Prop) ->
+         and-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
+      | '((%a or %b) in Prop) ->
+         or-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
+      | '((%a => %b) in Prop) ->
+         impl-type-intro (auto-type '(a in Prop)) { suppose a; auto-type '(b in Prop) }
+      | '((%a <=> %b) in Prop) ->
+         equiv-type-intro {
+            suppose b;
+            auto-type '(a in Prop)
+         }{
+            suppose a;
+            auto-type '(b in Prop)
+         }
+      | '((not %a) in Prop) ->
+         not-type-intro (auto-type '(a in Prop))
+      | '((ALL %a %b) in Prop) ->
+         forall-type-intro (auto-type '(a in Type)) {
+            var-intro x;
+            suppose '(x in a);
+            auto-type '(b x in Prop)
+         }
+      | '((EX %a %b) in Prop) ->
+         exists-type-intro (auto-type '(a in Type)) {
+            var-intro x;
+            suppose '(x in a);
+            auto-type '(b x in Prop)
+         }
+      | '(Prop in Type) ->
+         prop-type-intro
+      | '((%a -> %b) in Type) ->
+         fun-type-intro (auto-type '(a in Type)) (auto-type '(b in Type))
+      | %_ ->
+         error ("auto-type failed on: " ^ to_string phi)
+   }
+};
