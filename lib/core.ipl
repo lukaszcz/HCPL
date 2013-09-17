@@ -57,6 +57,8 @@ let $> = >>;
 let $< = <<;
 let $. = <<;
 
+let matches = \x \y . xmatch x y \_ true \_ false;
+
 macro unique-id = \args { #< #$0 ># };
 
 let macro-fun = \f f;
@@ -86,13 +88,10 @@ let mk-apply = \f \args {
    #< #f #z >#
 };
 
-macro mk-call = \args {
-   match args with
-   | [%x, %y] ->
-      let z = mk-tokens [x]
-      in
-      #<mk-apply #z #y>#
-   | %_ -> error "mk-macro-call: bad arguments"
+macro(2) mk-call = \x \y {
+   let z = mk-tokens [x]
+   in
+   #<mk-apply #z #y>#
 };
 
 macro mk-macro-call = \args { mk-call mk-call args }

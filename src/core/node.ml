@@ -316,6 +316,17 @@ let unquote node =
   | Quoted(x) -> x
   | _ -> node
 
+let rec list_to_cons lst =
+  match lst with
+  | h :: t -> Cons(h, list_to_cons t)
+  | [] -> Nil
+
+let rec cons_to_list node =
+  match node with
+  | Cons(h, t) -> h :: (cons_to_list t)
+  | Nil -> []
+  | _ -> assert false
+
 let call_type_to_string call_type =
   match call_type with
   | CallByValue -> "!"

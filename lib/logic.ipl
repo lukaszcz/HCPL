@@ -3,6 +3,8 @@
  * Copyright (C) 2013 by Lukasz Czajka
  */
 
+import List;
+
 syntax operator -> is right, binary, after appl;
 
 syntax operator in is left, binary, after =;
@@ -29,29 +31,60 @@ let => = \x \y . if x then y else true
 let <=> = \x \y . (x => y) and (y => x)
 let proof-of = \x (`ipl-proof, x)
 let goal = \p . match p with proof-of %x -> x | %_ -> error2 p "expected a proof"
+let is-proof = \p . matches p (proof-of %_)
 
 /*********************************************************************************/
 /* helper functions & macros */
 
-let eq = \x \y {
+let eq-aux = \f \x \y {
    let aux = \x \y \lim {
-      if x = y then
+      if f x y then
          true
       else if lim = 0 then
-         eval-limited x 1000 = eval-limited y 1000
+         f (eval-limited x 1000) (eval-limited y 1000)
       else {
         let rx = reduce x
         let ry = reduce y
         let ex = reduce-eta x
         let ey = reduce-eta y
         in
-        if rx = y or x = ry or ex = y or ex = ry or x = ey or rx = ey then
+        if f rx y or f x ry or f ex y or f ex ry or f x ey or f rx ey then
            true
         else
            aux rx ry (lim - 1)
       }
    };
    aux x y 2
+}
+
+let eq = eq-aux (=)
+
+let qmatches = eq-aux matches
+
+let is-in-list = \lst \x {
+   List.exists (eq x) lst
+}
+
+let find-in-list = \lst \x {
+   if is-in-list lst x then
+      proof-of x
+   else
+      ()
+}
+
+let check-in-list = \lst \x \emsg {
+   if is-in-list lst x then
+      proof-of x
+   else
+      error2 x emsg
+}
+
+let match-in-list-acc = \lst \pat \acc {
+   List.fold (\h . if qmatches h pat then (proof-of h) :: acc else acc) lst acc
+}
+
+let match-in-list = \lst \pat {
+   match-in-list-acc lst pat []
 }
 
 let occurs-in-assms = \x \assms {
@@ -65,24 +98,23 @@ let occurs-in-assms = \x \assms {
 
 let mk-raw-apply = \f \args { mk-apply f (#< assms ># :: args) }
 
-macro mk-raw-call = \args {
-   match args with
-   | [%x, %y] ->
-      let z = mk-tokens [x]
-      in
-      #< mk-raw-apply #z #y >#
-   | %_ ->
-      error "mk-raw-call: wrong arguments"
+macro(2) mk-raw-call = \x \y {
+   let z = mk-tokens [x]
+   in
+   #< mk-raw-apply #z #y >#
 }
+
 
 /*********************************************************************************/
 /* basic proof methods */
 
 let pexpand = \a \p {
-   if eq (goal p) (reduce a) then
+   let phi = goal p
+   in
+   if eq phi (reduce a) or eq phi (reduce-eta a) then
       proof-of a
    else
-      error2 (p, a) "cannot expand"
+      error2 (phi, a) "cannot expand"
 }
 
 let preduce = \p {
@@ -503,37 +535,40 @@ let bool-ext-false = \p {
    | %_ -> error2 p "bool-ext-false: wrong argument"
 }
 
-let assumption-raw = \assms \a {
-   let aux = \lst {
-      match lst with
-      | %h :: %t -> if eq h a then proof-of a else aux t
-      | [] -> error2 a "not an assumption"
-   };
-   aux assms
-}
-
-macro assumption = \args {
-   match args with
-   | [%a] -> #< assumption-raw assms #a >#
-   | %_ -> error "assumption: wrong arguments"
-}
-
+macro(1) assumption = \a #< check-in-list assms #a "not an assumption" >#
 macro assm = \args { mk-macro-call assumption args }
+macro(1) fact = \phi #< check-in-list facts #phi "not a proven fact" >#
 
-let fact-raw = \facts \phi {
-   let aux = \lst {
-      match lst with
-      | %h :: %t -> if eq h phi then proof-of phi else aux t
-      | [] -> error2 phi "not a proven fact"
-   };
-   aux facts
-}
+macro(1) known = \phi #< {
+   let #$0 = #phi;
+   if is-in-list assms #$0 or is-in-list facts #$0 then
+      proof-of #$0
+   else
+      error2 #$0 "not a known fact"
+} >#
 
-macro fact = \args {
-   match args with
-   | [%phi] -> #< fact-raw facts #phi >#
-   | %_ -> error "fact: wrong arguments"
-}
+macro(1) is-assm = \x #< is-in-list assms #x >#
+macro(1) is-assumption = \x #< is-in-list assms #x >#
+macro(1) is-fact = \x #< is-in-list facts #x >#
+macro(1) is-known = \x #< { let #$0 = #x in is-in-list assms #$0 or is-in-list facts #$0 } >#
+
+macro(1) find-assm = \x #< find-in-list assms #x >#
+macro(1) find-assumption = \x #< find-in-list assms #x >#
+macro(1) find-fact = \x #< find-in-list facts #x >#
+
+macro(1) find-known = \x #<{
+   let #$0 = #x;
+   let #$1 = find-in-list assms #$0;
+   if #$1 = () then
+      find-in-list facts #$0
+   else
+      #$1
+}>#
+
+macro(1) match-assms = \pat #< match-in-list assms #pat >#
+macro match-assumptions = \args { mk-macro-call match-assms args }
+macro(1) match-facts = \pat #< match-in-list facts #pat >#
+macro(1) match-known = \pat #< { let #$0 = #pat in match-in-list-acc facts #$0 (match-in-list assms #$0) } >#
 
 let false-type-intro = proof-of '(false in Prop)
 let true-type-intro = proof-of '(true in Prop)

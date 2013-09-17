@@ -1,9 +1,9 @@
 
-* Don't inherit identifiers from opened modules by default
 * Typing automation
 * ex & all
 * even more logic tests
-* multiple macro expand
+* kate syntax highlighting
+* Don't inherit identifiers from opened modules by default
 * Get rid of quadratic time in join-tokens -- improve token list representation.
 * More logic (induction, sets etc)
 * auto tactic

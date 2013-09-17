@@ -47,6 +47,22 @@ let load_module lst =
       end
   | _ -> Debug.print (Utils.list_to_string Node.to_string lst); assert false
 
+(* matching *)
+
+let xmatch lst =
+  match lst with
+  | u :: z :: y :: x :: _ ->
+      begin
+        let node =
+          try
+            Appl(z, Node.list_to_cons (List.rev (Match.xmatch x y [])), None)
+          with
+            Exit -> Appl(u, Nil, None)
+        in
+        Eval.eval node
+      end
+  | _ -> assert false
+
 (* quoting etc *)
 
 let ipl_quote lst =
@@ -175,6 +191,14 @@ let unique_int_token =
     | Nil :: _ -> incr id; Node.Tokens([(Token.Number(Big_int.big_int_of_int !id), Lexing.dummy_pos)])
     | _ -> Error.runtime_error "unique-int-token: expected '()' as the sole argument"
 
+let join_symbols lst =
+  match lst with
+  | Tokens([(Token.Symbol(y), _)]) :: Tokens([(Token.Symbol(x), pos)]) :: _ ->
+      let symtab = Eval.macro_symtab ()
+      in
+      Tokens([(Token.Symbol(Symtab.find symtab (Symbol.to_string x ^ Symbol.to_string y)), pos)])
+  | _ -> Error.runtime_error "join-symbols: expected two symbol tokens as arguments"
+
 (* public interface *)
 
 let declare_builtins scope symtab =
@@ -234,6 +258,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "xmatch") (xmatch, 4, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "quote") (ipl_quote, 1, CallByName) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "'") (ipl_quote, 1, CallByName) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "subst") (subst, 3, CallByValue) in
@@ -253,6 +278,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "error") (runtime_error, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_macro_tmp") (macro_tmp, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "unique-int-token") (unique_int_token, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "join-symbols") (join_symbols, 2, CallByValue) in
 
     let scope =
       Scope.add_ident scope (Symtab.find symtab "token-tokens-start")

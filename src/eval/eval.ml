@@ -681,8 +681,9 @@ let eval_in node env = do_eval node env (Env.length env)
 
 let macro_tmp_id = ref 0
 let extra_macro_args_ref = ref []
+let macro_symtab_ref = ref None
 
-let eval_macro symtab node args =
+let eval_macro symtab node args args_num =
   let n = 10
   in
   let rec mkextra m acc =
@@ -694,11 +695,32 @@ let eval_macro symtab node args =
       incr macro_tmp_id;
       mkextra (m - 1) (Node.Tokens([(Token.Symbol(sym), Lexing.dummy_pos)]) :: acc)
   in
-  let arglst = List.fold_right (fun x acc -> Node.Cons(x, acc)) args Node.Nil
-  in
-  let mcall = Node.Appl(node, arglst, None)
-  in
   extra_macro_args_ref := mkextra n [];
-  eval mcall
+  macro_symtab_ref := Some(symtab);
+  Utils.try_finally
+    (fun () ->
+      if args_num < 0 then
+        let arglst = Node.list_to_cons args
+        in
+        let mcall = Appl(node, arglst, None)
+        in
+        eval mcall
+      else if args_num = 0 then
+        eval (Appl(node, Nil, None))
+      else
+        let rec mkappl node lst =
+          match lst with
+          | h :: t -> mkappl (Appl(node, h, None)) t
+          | [] -> node
+        in
+        eval (mkappl node args))
+    (fun () ->
+      extra_macro_args_ref := [];
+      macro_symtab_ref := None)
 
 let extra_macro_args () = !extra_macro_args_ref
+
+let macro_symtab () =
+  match !macro_symtab_ref with
+  | Some(symtab) -> symtab
+  | None -> Error.runtime_error "symbol table may be used only during macro evaluation"
