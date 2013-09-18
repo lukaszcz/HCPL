@@ -693,6 +693,42 @@ macro axiom = \args {
    | %_ -> error "axiom: wrong arguments"
 }
 
+let ex-all-aux = \args \quant \msg {
+   match List.split2 (=) args [#< : >#, #< . >#] with
+   | [%lst1, %lst2, %lst3] ->
+      begin
+         let tp =
+            if lst3 = [] then
+               join-tokens-list (List.head lst2 (List.length lst2 - 1))
+            else
+               join-tokens-list lst2
+         in
+         let rest =
+            if lst3 = [] then
+               List.tail lst2 1
+            else
+               join-tokens-list lst3
+         in
+         let aux = \lst {
+            match lst with
+            | [%x] :: %t ->
+               join-tokens #< #quant (#tp) \#x . ># (aux t)
+            | [] -> #< >#
+            | %_ -> error msg
+         };
+         let h = aux (List.split (\x . x = #< , >#) lst1)
+         in
+         #< #h #rest >#
+      end
+   | %_ -> error msg
+}
+
+macro ex = \args { ex-all-aux args #< EX ># "exists: wrong arguments" }
+macro all = \args { ex-all-aux args #< ALL ># "forall: wrong arguments" }
+
+macro exists = \args { mk-macro-call ex args }
+macro forall = \args { mk-macro-call all args }
+
 let mk-tactic-apply = \f \args { mk-apply f (#< assms ># :: #< facts ># :: args) }
 
 macro(2) mk-tactic-call = \x \y {

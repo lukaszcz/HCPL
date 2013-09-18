@@ -1,5 +1,4 @@
 
-* ex & all
 * define 'not' in terms of 'if' (so that eq '(not a) '(a => false))
 * even more logic tests
 * merge facts and assms (?)
@@ -9,6 +8,7 @@
 * stacktrace
 * improve fix & assume syntax (allow omitting brackets around type and get rid of fix-with and assume-with)
 * have, hence, etc
+* even more logic tests
 * Don't inherit identifiers from opened modules by default
 * Get rid of quadratic time in join-tokens -- improve token list representation.
 * More logic (induction, sets etc)

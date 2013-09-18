@@ -1,0 +1,19 @@
+
+// ex & all
+
+open Logic;
+
+lemma
+   '(all p, q : Prop . (p => q) => (not q => not p))
+proof
+   fix p : Prop;
+   fix q : Prop;
+   assume $1: '(p => q);
+   assume $2: '(not q);
+   not-intro {
+      assume $3: p;
+      not-elim $2 (impl-elim $1 $3)
+   }
+qed;
+
+print "OK";
