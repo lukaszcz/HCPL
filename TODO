@@ -1,8 +1,8 @@
 
-* define 'not' in terms of 'if' (so that eq '(not a) '(a => false))
 * even more logic tests
 * merge facts and assms (?)
 * improve forall-type-intro and exists-type-intro
+* reduction under lambda
 * try-with
 * kate syntax highlighting
 * stacktrace

@@ -30,7 +30,6 @@ type t =
   | BConsNE of t * t
   | BFst of t
   | BSnd of t
-  | BNot of t
   | BAnd of t * t
   | BOr of t * t
   | BMatch of t * ((t * t * t * int) list)
@@ -157,7 +156,6 @@ let xfst = Lambda(BFst(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
 let xsnd = Lambda(BSnd(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
 let xhd = Lambda(BFst(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
 let xtl = Lambda(BSnd(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
-let xnot = Lambda(BNot(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
 let xand = Lambda(Lambda(BAnd(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
 let xor = Lambda(Lambda(BOr(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
 
@@ -175,7 +173,7 @@ let is_immediate node = match node with
   | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Closure(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     -> false
   | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
@@ -189,7 +187,7 @@ let is_immed node = match node with
   | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Closure(_) | Lambda(_) | Builtin(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     -> false
   | Integer(_) | String(_) | Record(_) | Sym(_) |
     True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
@@ -284,7 +282,6 @@ let optimize node =
   | Appl(Appl(f, x, _), y, _) when f == cons || f == cons_comma || f == cons_dcolon -> BCons(x, y)
   | Appl(f, x, _) when f == xfst || f == xhd -> BFst(x)
   | Appl(f, x, _) when f == xsnd || f == xtl -> BSnd(x)
-  | Appl(f, x, _) when f == xnot -> BNot(x)
   | Appl(Appl(f, x, _), y, _) when f == xand -> BAnd(x, y)
   | Appl(Appl(f, x, _), y, _) when f == xor -> BOr(x, y)
   | _ -> node1
@@ -437,7 +434,6 @@ let to_string node =
           | BConsNE(x, y) -> "(cons# " ^ prn x (limit - 1) ^ " " ^ prn y (limit - 1) ^ ")"
           | BFst(x) -> "(fst " ^ prn x (limit - 1) ^ ")"
           | BSnd(x) -> "(snd " ^ prn x (limit - 1) ^ ")"
-          | BNot(x) -> "(not " ^ prn x (limit - 1) ^ ")"
           | BAnd(x, y) -> "(" ^ prn x (limit - 1) ^ " and " ^ prn y (limit - 1) ^ ")"
           | BOr(x, y) -> "(" ^ prn x (limit - 1) ^ " or " ^ prn y (limit - 1) ^ ")"
           | BMatch(x, branches) -> "(match " ^ prn x (limit - 1) ^ " with" ^ prn_match branches ^ ")"

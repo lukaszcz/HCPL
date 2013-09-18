@@ -73,8 +73,6 @@ let traverse0 f node acc =
                   do_traverse f x acc2
               | BSnd(x) ->
                   do_traverse f x acc2
-              | BNot(x) ->
-                  do_traverse f x acc2
               | BAnd(x, y) ->
                   do_traverse f y (do_traverse f x acc2)
               | BOr(x, y) ->
@@ -174,8 +172,6 @@ let transform0 g f node0 =
                   f (BFst(do_transform g f x))
               | BSnd(x) ->
                   f (BSnd(do_transform g f x))
-              | BNot(x) ->
-                  f (BNot(do_transform g f x))
               | BAnd(x, y) ->
                   f (BAnd(do_transform g f x, do_transform g f y))
               | BOr(x, y) ->

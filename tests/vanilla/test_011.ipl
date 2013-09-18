@@ -1,6 +1,10 @@
 
 // higher-order recursive functions test
 
+{
+
+let not = \x { if x then false else true };
+
 let f0 = \&f \&g \&x {
    print 6;
    print x;
@@ -33,3 +37,5 @@ let fe = f0 f1 g;
 
 print (f 4);
 print (fe 4);
+
+}

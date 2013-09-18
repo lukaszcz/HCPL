@@ -229,7 +229,6 @@ let declare_builtins scope symtab =
     Node.change_name Node.xsnd (Symtab.find symtab "snd");
     Node.change_name Node.xhd (Symtab.find symtab "hd");
     Node.change_name Node.xtl (Symtab.find symtab "tl");
-    Node.change_name Node.xnot (Symtab.find symtab "not");
     Node.change_name Node.xand (Symtab.find symtab "and");
     Node.change_name Node.xor (Symtab.find symtab "or");
 
@@ -253,7 +252,6 @@ let declare_builtins scope symtab =
     let scope = Scope.add_ident scope (Symtab.find symtab "snd") Node.xsnd in
     let scope = Scope.add_ident scope (Symtab.find symtab "hd") Node.xhd in
     let scope = Scope.add_ident scope (Symtab.find symtab "tl") Node.xtl in
-    let scope = Scope.add_ident scope (Symtab.find symtab "not") Node.xnot in
     let scope = Scope.add_ident scope (Symtab.find symtab "and") Node.xand in
     let scope = Scope.add_ident scope (Symtab.find symtab "or") Node.xor in
 

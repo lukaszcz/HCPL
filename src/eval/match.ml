@@ -293,13 +293,6 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
                   do_match_quoted nx px penv penv_len nenv nenv_len acc mode
               | _ -> raise Exit
             end
-        | BNot(px) ->
-            begin
-              match node with
-              | BNot(nx) ->
-                  do_match_quoted nx px penv penv_len nenv nenv_len acc mode
-              | _ -> raise Exit
-            end
         | BAnd(px, py) ->
             begin
               match node with
@@ -427,7 +420,7 @@ let rec do_match node pat acc =
       end
   | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | Proxy(_) | MakeRecord(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
     Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | LambdaClosure(_)
     ->
       Error.runtime_error ("bad pattern: " ^ Node.to_string pat)

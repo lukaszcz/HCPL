@@ -33,7 +33,7 @@ let do_close x env env_len =
   match x with
   | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     ->
       Closure(x, env, env_len)
   | Lambda(body, frame, call_type, times_entered, attrs) ->
@@ -45,7 +45,7 @@ let rec do_delay x env env_len =
    match x with
    | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | MakeRecord(_) | Proxy(_) |
      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-     BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
      ->
        Delayed(ref (Closure(x, env, env_len)))
    | Closure(_) -> Delayed(ref x)
@@ -99,7 +99,7 @@ m4_define(`EVAL', `
     | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
       MakeRecord(_) | Closure(_) | Lambda(_) | Builtin(_) |
       BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-      BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+      BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
       -> do_eval $1 $2 $3
     | Integer(_) | String(_) | Record(_) | Sym(_) |
       True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
@@ -425,16 +425,6 @@ and do_eval node env env_len =
             end
       end
 
-  | BNot(x) ->
-      begin
-        let x = do_eval x env env_len
-        in
-        match x with
-        | True -> False
-        | False -> True
-        | _ -> BNot(x)
-      end
-
   | BAnd(x, y) ->
       begin
         let x = do_eval x env env_len in
@@ -588,7 +578,7 @@ and do_eval node env env_len =
                   end
               | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | Proxy(_) | MakeRecord(_) |
                 BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-                BConsNE(_) | BFst(_) | BSnd(_) | BNot(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+                BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
                 Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | Integer(_) | String(_) |
                 Record(_) | Tokens(_) | Quoted(_) | LambdaClosure(_)
                 ->
