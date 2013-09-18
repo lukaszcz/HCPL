@@ -421,7 +421,8 @@ let to_string node =
           | Closure(body, env, _) ->
               "(closure " ^ Utils.list_to_string (fun x -> prn x (limit - 1)) env ^ ": " ^ prn body (limit - 1) ^ ")"
           | LambdaClosure(body, env, frm, call_type, _, attrs) ->
-              "(closure " ^ Utils.list_to_string (fun x -> prn x (limit - 1)) env ^ ": " ^ lambda_str body frm attrs call_type ^ ")"
+              "(lambda-closure " ^ Utils.list_to_string (fun x -> prn x (limit - 1)) env ^ ": " ^
+              lambda_str body frm attrs call_type ^ ")"
           | BEq(x, y) -> "(" ^ prn x (limit - 1) ^ " = " ^ prn y (limit - 1) ^ ")"
           | BGt(x, y) -> "(" ^ prn x (limit - 1) ^ " > " ^ prn y (limit - 1) ^ ")"
           | BGe(x, y) -> "(" ^ prn x (limit - 1) ^ " >= " ^ prn y (limit - 1) ^ ")"

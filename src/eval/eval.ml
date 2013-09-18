@@ -234,7 +234,7 @@ and do_eval node env env_len =
                     Appl(x, arg, attrs)
             end
 
-        | _ -> Appl(x, do_close y env env_len, attrs)
+        | _ -> Appl(x, do_eval y env env_len, attrs)
       end
 
   | Cond(x, y, z, attrs) ->
@@ -244,7 +244,7 @@ and do_eval node env env_len =
         match x1 with
         | True -> do_eval y env env_len
         | False -> do_eval z env env_len
-        | _ -> Cond(x1, do_close y env env_len, do_close z env env_len, attrs)
+        | _ -> Cond(x1, do_eval y env env_len, do_eval z env env_len, attrs)
       end
 
   | Var(n) ->

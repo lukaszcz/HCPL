@@ -309,7 +309,7 @@ let transform g f node =
               | Closure(x, env2, env2_len) ->
                   Skip(aux x env2 env2_len 0)
               | LambdaClosure(body, env, env_len, call_type, times_entered, attrs) ->
-                  Skip(aux (Lambda(body, 0, call_type, times_entered, attrs)) env env_len 0)
+                  Skip(aux (Lambda(body, env_len, call_type, times_entered, attrs)) env env_len 0)
               | _ ->
                   Continue(node)
             end)

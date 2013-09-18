@@ -36,27 +36,78 @@ let is-proof = \p . matches p (proof-of %_)
 /*********************************************************************************/
 /* helper functions & macros */
 
+macro var-intro = \args {
+   let v = unique-int-token ()
+   in
+   match args with
+   | [%x, %b] ->
+      #< ((\#x #b) '(VAR #v)) >#
+   | [%x, #< in >#, %b] ->
+      #< ((\#x #b) '(VAR #v)) >#
+   | [%x] ->
+      #< '(VAR #v) >> \#x .. >#
+   | %_ -> error "var-intro: wrong arguments"
+}
+
+let mk-tactic-apply = \f \args { mk-apply f (#< assms ># :: #< facts ># :: args) }
+
+macro(2) mk-tactic-call = \x \y {
+   let z = mk-tokens [x]
+   in
+   #< mk-tactic-apply #z #y >#
+}
+
+macro(2) tactic = \id \eq-tok {
+   if eq-tok /= #< = ># then
+      error "tactic: expected '=' after tactic name"
+   else {
+      let tac-id = join-symbols id (join-symbols #< - ># #< tactic >#);
+      #< macro #id = \args { mk-tactic-call #tac-id args }; let #tac-id = \assms \facts >#
+   }
+}
+
 let eval-limit = 1000
+let eq-limit = 100
 
 let eq-aux = \f \x \y {
-   let aux = \x \y \lim {
-      if f x y then
-         true
-      else if lim = 0 then
-         f (eval-limited x eval-limit) (eval-limited y eval-limit)
-      else {
-        let rx = reduce x
-        let ry = reduce y
-        let ex = reduce-eta x
-        let ey = reduce-eta y
-        in
-        if f rx y or f x ry or f ex y or f ex ry or f x ey or f rx ey then
-           true
-        else
-           aux rx ry (lim - 1)
-      }
+   let aux0 = \x \y \lim0 {
+      let aux = \x \y \lim {
+         if f x y then
+            true
+         else if lim = 0 then {
+            let ex = eval-limited x eval-limit;
+            let ey = eval-limited y eval-limit;
+            if f ex ey then
+               true
+            else {
+               match ex, ey with
+               | '(%a1 %b1), '(%a2 %b2) ->
+                  aux0 a1 a2 (lim0 - 1) and aux0 b1 b2 (lim0 - 1)
+               | '(\x %_), '(\x %_) ->
+                  var-intro x {
+                     aux0 '(ex x) '(ey x) (lim0 - 1)
+                  }
+               | %_ ->
+                  false
+            }
+         } else {
+           let rx = reduce x
+           let ry = reduce y
+           let ex = reduce-eta x
+           let ey = reduce-eta y
+           in
+           if f rx y or f x ry or f ex y or f ex ry or f x ey or f rx ey then
+              true
+           else
+              aux rx ry (lim - 1)
+         }
+      };
+      if lim0 = 0 then
+         false
+      else
+         aux x y 2
    };
-   aux x y 2
+   aux0 x y eq-limit
 }
 
 let eq = eq-aux (=)
@@ -653,19 +704,6 @@ let verify = \phi \p {
 /*********************************************************************************/
 /* convenience macros */
 
-macro var-intro = \args {
-   let v = unique-int-token ()
-   in
-   match args with
-   | [%x, %b] ->
-      #< ((\#x #b) '(VAR #v)) >#
-   | [%x, #< in >#, %b] ->
-      #< ((\#x #b) '(VAR #v)) >#
-   | [%x] ->
-      #< '(VAR #v) >> \#x .. >#
-   | %_ -> error "var-intro: wrong arguments"
-}
-
 macro lemma = \args {
    match args with
    | [%name, %formula, %xproof] ->
@@ -728,23 +766,6 @@ macro all = \args { ex-all-aux args #< ALL ># "forall: wrong arguments" }
 
 macro exists = \args { mk-macro-call ex args }
 macro forall = \args { mk-macro-call all args }
-
-let mk-tactic-apply = \f \args { mk-apply f (#< assms ># :: #< facts ># :: args) }
-
-macro(2) mk-tactic-call = \x \y {
-   let z = mk-tokens [x]
-   in
-   #< mk-tactic-apply #z #y >#
-}
-
-macro(2) tactic = \id \eq-tok {
-   if eq-tok /= #< = ># then
-      error "tactic: expected '=' after tactic name"
-   else {
-      let tac-id = join-symbols id (join-symbols #< - ># #< tactic >#);
-      #< macro #id = \args { mk-tactic-call #tac-id args }; let #tac-id = \assms \facts >#
-   }
-}
 
 /*********************************************************************************/
 /* core proof tactics */

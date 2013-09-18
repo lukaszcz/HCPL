@@ -1,0 +1,6 @@
+
+let q = '(\x \y . x y);
+let a = '(\x x);
+let q1 = reduce '(q a);
+
+print << reduce '(q1 1);

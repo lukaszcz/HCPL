@@ -89,23 +89,7 @@ let correct_lambda node =
         node
   | _ -> node
 
-let do_close node env env_len =
-  let rec fix_node_in_env node =
-    match node with
-    | Quoted(x) -> x
-    | Integer(_) | String(_) | Record(_) | Sym(_) | Cons(_) ->
-        node
-    | _ ->
-        (* NOTE: the following check is necessary to ensure consistency of the logic *)
-        if Config.is_unsafe_mode () then
-          node
-        else if is_const node then
-          node
-        else
-          begin
-            Error.runtime_error "cannot quote a non-constant value"
-          end
-  in
+let rec do_close node env env_len is_node_quoted is_env_quoted =
   Traversal.transform
     (fun node env env_len _ ->
       match node with
@@ -116,27 +100,54 @@ let do_close node env env_len =
               in
               if x = Dummy then
                 Traversal.Continue(node)
+              else if is_env_quoted then
+                Traversal.Continue(x)
               else
-                Traversal.Continue(fix_node_in_env x)
+                begin
+                  match x with
+                  | Quoted(y) ->
+                      if is_node_quoted then
+                        Traversal.Continue(y)
+                      else
+                        Traversal.Skip(do_close y env env_len true is_env_quoted)
+                  | Integer(_) | String(_) | Record(_) | Sym(_) | Cons(_) ->
+                      Traversal.Continue(x)
+                  | _ ->
+                      (* NOTE: the following check is necessary to ensure consistency of the logic *)
+                      if Config.is_unsafe_mode () then
+                        Traversal.Continue(x)
+                      else if is_const x then
+                        Traversal.Continue(x)
+                      else
+                        begin
+                          Error.runtime_error "cannot quote a non-constant value"
+                        end
+                end
             end
           else
             Traversal.Continue(node)
       | Lambda(_, 0, _, _, _) -> Traversal.Skip(node)
-      | Quoted(x) -> Traversal.Continue(x)
+      | Closure(_) | LambdaClosure(_) ->
+          if is_env_quoted || not is_node_quoted then
+            Traversal.Continue(node)
+          else
+            Traversal.Skip(do_close node env env_len true true)
+      | Quoted(x) ->
+          if is_node_quoted then
+            Traversal.Continue(x)
+          else
+            Traversal.Skip(do_close x env env_len true is_env_quoted)
       | _ ->
           if Node.is_immed node then
             Traversal.Skip(node)
           else
             Traversal.Continue(node))
-    (fun node ->
-      match node with
-      | Quoted(x) -> x
-      | _ -> node)
+    (fun x -> assert (match x with Quoted(_) -> false | _ -> true); x)
     (if env_len = 0 then node else Closure(node, env, env_len))
 
 let close node =
   if Node.is_quoted node then
-    Node.mkquoted (do_close node [] 0)
+    Node.mkquoted (do_close node [] 0 true true)
   else
     Error.runtime_error "the argument of 'close' should be quoted"
 
@@ -181,7 +192,7 @@ let eta_reduce node =
       when
         frame1 = frame2 &&
         not (Utils.IntSet.mem frame1 (get_free_vars x)) ->
-          Node.mkquoted (do_close (Closure(x, [], 0)) [] 0)
+          Node.mkquoted (do_close (Closure(x, [], 0)) [] 0 true true)
     | _ -> node
   else
     Error.runtime_error "'reduce-eta' expects a quoted argument"
@@ -193,7 +204,7 @@ let quote node env =
     Node.mkquoted node
   else
     begin
-      let node2 = do_close node env env_len
+      let node2 = do_close node env env_len false false
       in
       assert (Utils.IntSet.is_empty (get_free_vars node2));
       Node.mkquoted node2
