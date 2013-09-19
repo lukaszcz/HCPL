@@ -3,9 +3,9 @@
    Copyright (C) 2013 by Łukasz Czajka
 *)
 
-exception RuntimeError of string
+exception RuntimeError of Node.t
 
-(* runtime_error msg raises RuntimeError(msg) *)
+(* runtime_error msg raises RuntimeError(String(msg)) *)
 val runtime_error : string -> 'a
 
 val pos_to_string : Lexing.position option -> string

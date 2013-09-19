@@ -1,0 +1,22 @@
+
+// exceptions
+
+let f = \x \acc {
+   if x = 0 then
+      raise acc
+   else
+      f (x - 1) (x * acc)
+};
+
+try
+   f 5 1
+with
+   %x when is-number x -> print x;
+
+try {
+   try
+      f 3 1
+   with
+     [] -> print []
+} with
+   %x -> print x;

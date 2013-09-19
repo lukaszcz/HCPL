@@ -410,6 +410,8 @@ m4_changequote([`],['])
   and sym_arrow = Symtab.find symtab "->"
   and sym_match_sep = Symtab.find symtab "|"
   and sym_match = Symtab.find symtab "match"
+  and sym_try = Symtab.find symtab "try"
+  and sym_raise = Symtab.find symtab "raise"
   and sym_with = Symtab.find symtab "with"
   and sym_when = Symtab.find symtab "when"
   and sym_quote = Symtab.find symtab "'"
@@ -470,6 +472,13 @@ m4_changequote([`],['])
     let node = Scope.find_ident scope sym
     in
     List.fold_left (fun acc x -> Node.Appl(acc, x, None)) node lst
+
+  and mkbranches lst =
+    match lst with
+    | Program(pat) :: MatchBranch(cond, value, n) :: t ->
+        (pat, cond, value, n) :: mkbranches t
+    | [] -> []
+    | _ -> assert false
 
   and mkmodule scope sym node frm =
     Node.Delayed(ref (Node.Closure((mkapply scope sym_ipl_load_module
@@ -829,7 +838,12 @@ m4_changequote([`],['])
                                    try
                                      Eval.eval_macro symtab node args n
                                    with
-                                     Error.RuntimeError(msg) ->
+                                     Error.RuntimeError(node) ->
+                                       let msg =
+                                         match node with
+                                         | Node.String(msg) -> msg
+                                         | _ -> Node.to_string node
+                                       in
                                        Error.error (Some pos) msg;
                                        Node.Tokens([(Token.LeftParen, Lexing.dummy_pos); (Token.RightParen, Lexing.dummy_pos)])
                                  end
@@ -885,7 +899,8 @@ m4_changequote([`],['])
     and statement () =
       recursive
         begin
-          xlet ^|| macrodef ^|| symdef ^|| syntax ^|| import_syntax ^|| import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^|| expr
+          xlet ^|| macrodef ^|| symdef ^|| syntax ^|| import_syntax ^||
+          import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^|| expr
         end
 
     and xlet () =
@@ -1381,6 +1396,7 @@ m4_changequote([`],['])
           token Token.Placeholder_ignore +> return (Program(Node.Ignore)) ^||
           placeholder ^||
           match_with ^||
+          try_with ^||
           list ^|| sym ^|| number ^|| string ^||
           quoted ^||
           tokens ^||
@@ -1561,13 +1577,6 @@ m4_changequote([`],['])
             new_ident_scope (maybe (symbol sym_match_sep) ++ match_branches)
             >>
           (fun lst attrs scope ->
-            let rec mkbranches lst =
-              match lst with
-              | Program(pat) :: MatchBranch(cond, value, n) :: t ->
-                  (pat, cond, value, n) :: mkbranches t
-              | [] -> []
-              | _ -> assert false
-            in
             match lst with
             | Program(value) :: lst2 ->
                 Program(Node.BMatch(value, mkbranches lst2))
@@ -1619,6 +1628,30 @@ m4_changequote([`],['])
                        | [Program(cond); Program(body)] -> MatchBranch(cond, body, n)
                        | _ -> assert false))
                       () state cont)))
+        end
+
+    and try_with () =
+      recursive
+        begin
+          keyword sym_try +! new_keyword sym_with (catch_errors expr) ++ symbol sym_with ++
+            new_ident_scope (new_frame (maybe (symbol sym_match_sep) ++ match_branches))
+            >>
+          (fun lst attrs scope ->
+            let xtry = Scope.find_ident scope sym_try
+            and xraise = Scope.find_ident scope sym_raise
+            in
+            match lst with
+            | Program(value) :: lst2 ->
+                let bmatch =
+                  Node.BMatch(Node.Var(0),
+                              mkbranches lst2 @
+                              [(Node.Ignore, Node.True, Node.Appl(xraise, Node.Var(0), None), 0)])
+                in
+                let lam =
+                  Node.Lambda(bmatch, Scope.frame scope + 1, Node.CallByValue, ref 0, attrs)
+                in
+                Program(Node.Appl(Node.Appl(xtry, value, None), lam, None))
+            | _ -> assert false)
         end
 
     and list () =
@@ -1749,7 +1782,7 @@ m4_changequote([`],['])
   in
 
   let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include;
-                  sym_match; sym_macro]
+                  sym_match; sym_macro; sym_try]
   and builtins = [(fun x -> Core_builtins.declare_builtins x symtab);
                   (fun x -> List_builtins.declare_builtins x symtab)]
   in

@@ -1,13 +1,13 @@
 
-* try-with
-* have, hence, etc
 * stacktrace
 * kate syntax highlighting
+* have
 * even more logic tests
 * Don't inherit identifiers from opened modules by default
-* Get rid of quadratic time in join-tokens -- improve token list representation.
 * More logic (induction, sets etc)
 * auto tactic
+* hence, etc
+* Get rid of quadratic time in join-tokens -- improve token list representation.
 * CAppl
 * Improve evaluator efficiency even more
 * Improve quoted match / equal efficiency

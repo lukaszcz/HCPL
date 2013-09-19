@@ -14,6 +14,17 @@ let parse_time = ref 0;;
 let gc_time = ref 0;;
 let run_time = ref 0;;
 
+let catch_error f =
+  try
+    f (); 0
+  with
+  | Error.RuntimeError(Node.String(msg)) ->
+      print_endline ("runtime error: " ^ msg); 1
+  | Error.RuntimeError(node) ->
+      print_endline ("runtime error: " ^ Node.to_string node); 1
+  | Sys_error(msg) ->
+      Error.fatal msg; 1
+
 let get_lexbuf name chan =
   let lexbuf = Lexing.from_channel chan
   in
@@ -33,16 +44,21 @@ let run_repl name chan =
       end;
     last_lineno := lineno
   in
+  let catch_error_ign f =
+    ignore (catch_error f);
+  in
   let evaluate node lineno =
-    let value = Eval.eval_in node !env
-    in
-    print_endline (Node.to_string value);
+    catch_error_ign (fun () ->
+      let value = Eval.eval_in node !env
+      in
+      print_endline (Node.to_string value));
     prompt lineno
   and declare node lineno =
-    let value = Eval.eval_in node !env
-    in
-    env := Env.push !env value;
-    print_endline (Node.to_string value);
+    catch_error_ign (fun () ->
+      let value = Eval.eval_in node !env
+      in
+      env := Env.push !env value;
+      print_endline (Node.to_string value));
     prompt lineno
   in
   print_endline ("\tIPL version " ^ Config.version);
@@ -121,17 +137,15 @@ let rec argspec () =
   ]
 in
 Config.set_path ["."; Config.stdlib_path ()];
-try
-  Arg.parse (argspec ()) (fun filename -> run filename (open_in filename)) usage_msg;
-  if !file_count = 0 then
-    begin
-      if !f_interactive then
-        run_repl "stdin" stdin
-      else
-        run "stdin" stdin
-    end
-with
-| Error.RuntimeError(msg) ->
-    prerr_endline ("runtime error: " ^ msg); exit 1
-| Sys_error(msg) ->
-    Error.fatal msg; exit 1
+let exitcode =
+  catch_error (fun () ->
+    Arg.parse (argspec ()) (fun filename -> run filename (open_in filename)) usage_msg;
+    if !file_count = 0 then
+      begin
+        if !f_interactive then
+          run_repl "stdin" stdin
+        else
+          run "stdin" stdin
+      end)
+in
+exit exitcode

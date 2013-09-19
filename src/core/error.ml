@@ -5,10 +5,10 @@
 
 open Lexing
 
-exception RuntimeError of string
+exception RuntimeError of Node.t
 
 (* 'rec' to prevent inlining *)
-let rec runtime_error msg = raise (RuntimeError(msg))
+let rec runtime_error msg = raise (RuntimeError(Node.String(msg)))
 
 let err_count = Array.make 4 0
 

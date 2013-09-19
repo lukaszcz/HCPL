@@ -7,6 +7,17 @@
 open Node
 open Big_int
 
+let is_number lst =
+  match lst with
+  | x :: _ ->
+      if Node.is_immediate x then
+        begin
+          if Bignum.is_number x then True else False
+        end
+      else
+        x
+  | _ -> assert false
+
 let prn lst =
   match lst with
   | String(str) :: _ -> print_endline str; Nil
@@ -203,6 +214,26 @@ let join_symbols lst =
       Tokens([(Token.Symbol(Symtab.find symtab (Symbol.to_string x ^ Symbol.to_string y)), pos)])
   | _ -> Error.runtime_error "join-symbols: expected two symbol tokens as arguments"
 
+(* exceptions *)
+
+let xtry lst =
+  match lst with
+  | y :: x :: _ ->
+      begin
+        try
+          Eval.eval x
+        with
+          Error.RuntimeError(node) ->
+            Eval.eval (Appl(y, node, None))
+      end
+  | _ -> assert false
+
+let xraise lst =
+  match lst with
+  | x :: _ ->
+      raise (Error.RuntimeError(Eval.eval x))
+  | _ -> assert false
+
 (* public interface *)
 
 let declare_builtins scope symtab =
@@ -257,6 +288,7 @@ let declare_builtins scope symtab =
 
     (* declare other builtins *)
 
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "is-number") (is_number, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
@@ -281,6 +313,8 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_macro_tmp") (macro_tmp, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "unique-int") (unique_int, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "join-symbols") (join_symbols, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "try") (xtry, 2, CallByName) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "raise") (xraise, 1, CallByValue) in
 
     let scope =
       Scope.add_ident scope (Symtab.find symtab "token-tokens-start")
