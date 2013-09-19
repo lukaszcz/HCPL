@@ -4,7 +4,7 @@
  */
 
 tactic auto-type = \phi {
-   let p = find-known phi;
+   let p = find-fact phi;
    if is-proof p then
       p
    else {
@@ -30,14 +30,12 @@ tactic auto-type = \phi {
       | '((not %a) in Prop) ->
          not-type-intro (auto-type '(a in Prop))
       | '((ALL %a %b) in Prop) ->
-         forall-type-intro (auto-type '(a in Type)) {
-            var-intro x;
+         forall-type-intro (auto-type '(a in Type)) \x {
             suppose '(x in a);
             auto-type '(b x in Prop)
          }
       | '((EX %a %b) in Prop) ->
-         exists-type-intro (auto-type '(a in Type)) {
-            var-intro x;
+         exists-type-intro (auto-type '(a in Type)) \x {
             suppose '(x in a);
             auto-type '(b x in Prop)
          }

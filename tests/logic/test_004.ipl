@@ -13,11 +13,11 @@ proof
       assume '(not p);
       $1: verify '(p => q) {
          assume p;
-         not-elim (assm p) (assm '(not p)) >>
+         not-elim (fact p) (fact '(not p)) >>
          false-elim q
       };
-      impl-elim (assm '((p => q) => p)) $1 >>
-      not-elim (assm '(not p))
+      impl-elim (fact '((p => q) => p)) $1 >>
+      not-elim (fact '(not p))
    }
 qed;
 
@@ -71,7 +71,7 @@ proof
             suppose p;
             $not_q: not-intro {
                suppose q;
-               not-elim $1 (and-intro (assm p) (assm q))
+               not-elim $1 (and-intro (fact p) (fact q))
             };
             not-elim $2 (or-intro '(not p) $not_q)
          };
@@ -83,13 +83,13 @@ proof
          suppose '(not p);
          not-intro {
             suppose $2: '(p and q);
-            not-elim (assm '(not p)) (and-elim-left $2)
+            not-elim (fact '(not p)) (and-elim-left $2)
          }
       }{
          suppose '(not q);
          not-intro {
             suppose $2: '(p and q);
-            not-elim (assm '(not q)) (and-elim-right $2)
+            not-elim (fact '(not q)) (and-elim-right $2)
          }
       }
    }

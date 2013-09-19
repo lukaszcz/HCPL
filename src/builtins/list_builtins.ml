@@ -173,29 +173,27 @@ let rec do_rev_split f lst acc acc2 =
 
 let do_split f lst = do_rev2 (do_rev_split f lst Nil Nil) Nil
 
-let rec do_rev_split2 f lst1 h2 lst2 acc acc2 =
-  let aux t =
-    match lst2 with
-    | Cons(h, t2) -> do_rev_split2 f t h t2 (Cons(acc2, acc)) Nil
-    | _ -> Cons(do_rev t Nil, Cons(acc2, acc))
-  in
-  match lst1 with
-  | Cons(h1, t) ->
-      begin
-        let e = Eval.eval (Appl(Appl(f, h1, None), h2, None))
-        in
-        match e with
-        | True -> aux t
-        | False -> do_rev_split2 f t h2 lst2 acc (Cons(h1, acc2))
-        | _ -> Cond(e, aux t, do_rev_split2 f t h2 lst2 acc (Cons(h1, acc2)), None)
-      end
-  | _ ->
-      Cons(acc2, acc)
+let rec do_rev_split_n f n lst acc acc2 =
+  if n = 0 then
+    Cons(do_rev lst acc2, acc)
+  else
+    match lst with
+    | Cons(h, t) ->
+        begin
+          let e = Eval.eval (Appl(f, h, None))
+          in
+          match e with
+          | True -> do_rev_split_n f (n - 1) t (Cons(acc2, acc)) Nil
+          | False -> do_rev_split_n f n t acc (Cons(h, acc2))
+          | _ -> Cond(e, do_rev_split_n f (n - 1) t (Cons(acc2, acc)) Nil, do_rev_split_n f n t acc (Cons(h, acc2)), None)
+        end
+    | _ ->
+        Cons(acc2, acc)
 
-let do_split2 f lst1 lst2 =
-  match lst2 with
-  | Cons(h, t) -> do_rev2 (do_rev_split2 f lst1 h t Nil Nil) Nil
-  | _ -> lst1
+let do_split_n f n lst =
+  match lst with
+  | Cons(h, t) -> do_rev2 (do_rev_split_n f n lst Nil Nil) Nil
+  | _ -> Cons(Nil, Nil)
 
 (***********************************************************************)
 
@@ -284,9 +282,9 @@ let list_split lst =
   | x :: f :: _ -> do_split f x
   | _ -> assert false
 
-let list_split2 lst =
+let list_split_n lst =
   match lst with
-  | y :: x :: f :: _ -> do_split2 f x y
+  | y :: f :: x :: _ -> do_split_n f (Bignum.to_int x) y
   | _ -> assert false
 
 (* public interface *)
@@ -310,6 +308,6 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_forall") (list_forall, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_exists") (list_exists, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split") (list_split, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split2") (list_split2, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split_n") (list_split_n, 3, CallByValue) in
     scope
   end

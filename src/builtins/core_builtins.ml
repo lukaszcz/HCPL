@@ -187,13 +187,13 @@ let macro_tmp lst =
       end
   | _ -> failwith "macro_tmp"
 
-let unique_int_token =
+let unique_int =
   let id = ref 0
   in
   fun lst ->
     match lst with
-    | Nil :: _ -> incr id; Node.Tokens([(Token.Number(Big_int.big_int_of_int !id), Lexing.dummy_pos)])
-    | _ -> Error.runtime_error "unique-int-token: expected '()' as the sole argument"
+    | Nil :: _ -> incr id; Bignum.from_int !id
+    | _ -> Error.runtime_error "unique-int: expected '()' as the sole argument"
 
 let join_symbols lst =
   match lst with
@@ -279,7 +279,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "split-tokens") (split_tokens, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "error") (runtime_error, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_macro_tmp") (macro_tmp, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "unique-int-token") (unique_int_token, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "unique-int") (unique_int, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "join-symbols") (join_symbols, 2, CallByValue) in
 
     let scope =

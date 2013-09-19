@@ -1,0 +1,30 @@
+
+open Logic;
+
+lemma
+   '(all p, q : Prop . not (p or q) <=> not p and not q)
+proof
+   fix p, q : Prop;
+   equiv-intro {
+      assume $1: '(not (p or q));
+      $not_p: assume p in {
+         not-elim $1 (or-intro (fact p) q)
+      };
+      $not_q: assume q in {
+         not-elim $1 (or-intro p (fact q))
+      };
+      and-intro $not_p $not_q
+   }{
+      assume $1: '(not p and not q);
+      assume $2: '(p or q);
+      or-elim $2 {
+         assume p;
+         not-elim (fact p) (and-elim-left $1)
+      }{
+         assume q;
+         not-elim (fact q) (and-elim-right $1)
+      }
+   }
+qed;
+
+print "OK";

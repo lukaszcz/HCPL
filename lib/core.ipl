@@ -39,12 +39,9 @@ syntax operator or  is left, binary, after xor;
 syntax operator , is right, binary, after or;
 
 syntax operator >> is left, binary, after ,;
-syntax operator << is left, binary, prio >>;
+syntax operator << is right, binary, prio >>;
 
-syntax operator $> is right, binary, after <<;
-syntax operator $< is right, binary, prio $>;
-
-syntax operator $. is right, binary, after $>;
+syntax operator $. is right, binary, after <<;
 
 syntax block begin end;
 
@@ -54,8 +51,6 @@ let /=  = \x \y . not (x = y);
 let when = \&#x \&#y . if x then y else ();
 let >> = \x \f . f x;
 let << = \&#f . f;
-let $> = >>;
-let $< = <<;
 let $. = <<;
 
 let matches = \x \y . xmatch x y \_ true \_ false;

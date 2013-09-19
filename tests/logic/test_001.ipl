@@ -1,17 +1,15 @@
 
-// basic logic
-
 open Logic;
 
 lemma
    '(ALL Prop \p . ALL Prop \q . p => (not p => q))
 proof
-   fix-with p prop-type-intro;
-   fix-with q prop-type-intro;
-   assume-with p (assumption '(p in Prop));
-   assume-with '(not p) (not-type-intro (assumption '(p in Prop)));
+   fix p : Prop with prop-type-intro;
+   fix q : Prop with prop-type-intro;
+   assume p with (fact '(p in Prop));
+   assume '(not p) with (not-type-intro (fact '(p in Prop)));
    false-elim q {
-      not-elim (assumption p) (assumption '(not p))
+      not-elim (fact p) (fact '(not p))
    }
 qed;
 

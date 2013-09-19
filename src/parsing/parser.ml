@@ -894,7 +894,7 @@ m4_changequote([`],['])
           (((token Token.LetEager +> return (CallType Node.CallByValue)
              ^|| token Token.LetLazy +> return (CallType Node.CallByNeed)
              ^|| token Token.LetCBN +> return (CallType Node.CallByName)) +!
-              ident_let ++ symbol sym_eq)
+              ident_let ++ symbol sym_eq ++ new_keyword sym_in (catch_errors expr))
            ^||
            (name ++ symbol sym_colon ++
            (fun () (lst, attrs, strm, scope) cont ->
@@ -905,9 +905,8 @@ m4_changequote([`],['])
                  in
                  cont ([Ident(sym); CallType Node.CallByValue], attrs, strm, scope2)
              | _ -> Debug.print (sexp_list_to_string lst); assert false
-           )))
+           ) ++ catch_errors expr))
           ++
-            new_keyword sym_in (catch_errors expr) ++
             (fun () (lst, attrs, strm, scope) cont ->
               match lst with
               | [Program(value); Ident(sym); x] ->

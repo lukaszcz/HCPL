@@ -6,24 +6,23 @@ open Logic;
 lemma
    '(ALL Prop \p . p or false <=> p)
 proof
-   forall-intro prop-type-intro {
-      var-intro p;
+   forall-intro prop-type-intro \p {
       suppose '(p in Prop);
       equiv-intro {
-         impl-intro (or-type-intro (assm '(p in Prop)) false-type-intro) {
+         impl-intro (or-type-intro (fact '(p in Prop)) false-type-intro) {
             suppose '(p or false);
-            or-elim (assm '(p or false)) {
+            or-elim (fact '(p or false)) {
                suppose p;
-               assm p
+               fact p
             }{
                suppose false;
-               false-elim p (assm false)
+               false-elim p (fact false)
             }
          }
       }{
-         impl-intro (assm '(p in Prop)) {
+         impl-intro (fact '(p in Prop)) {
             suppose p;
-            or-intro-left (assm p) false
+            or-intro-left (fact p) false
          }
       }
    }
@@ -34,22 +33,21 @@ print "OK1";
 lemma
    '(ALL Prop \p . p or not p)
 proof
-   forall-intro prop-type-intro {
-      var-intro p;
+   forall-intro prop-type-intro \p {
       suppose '(p in Prop);
       contradiction {
-         assume-with '(not (p or not p))
+         assume '(not (p or not p)) with
             (not-type-intro
                (or-type-intro
-                  (assm '(p in Prop))
-                  (not-type-intro (assm '(p in Prop)))));
-         not-intro-raw (assm '(p in Prop)) {
+                  (fact '(p in Prop))
+                  (not-type-intro (fact '(p in Prop)))));
+         not-intro-2 (fact '(p in Prop)) {
             suppose p;
-            or-intro (assm p) '(not p) >>
-            not-elim (assm '(not (p or not p)))
+            or-intro (fact p) '(not p) >>
+            not-elim (fact '(not (p or not p)))
          } >>
          or-intro p >>
-         not-elim (assm '(not (p or not p)))
+         not-elim (fact '(not (p or not p)))
       }
    }
 qed;
