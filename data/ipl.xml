@@ -8,10 +8,13 @@
 <!ENTITY SSIDENT "[a-z$A-Z_]\w*[-$.]\w*[-$.]\w*">
 <!ENTITY SIDENT "[a-z$A-Z_]\w*[-$.]\w*">
 ]>
-<language name="IPL" version="1.00" section="Sources" extensions="*.ipl" priority="10">
+<language name="IPL" version="1.00" section="Sources" indenter="normal" extensions="*.ipl"
+          priority="10" author="Lukasz Czajka" license="LGPL">
+
   <highlighting>
 
     <list name="separator_keywords">
+      <item> let </item>
       <item> syntax </item>
       <item> symbol </item>
       <item> syntax </item>
@@ -55,12 +58,13 @@
       <item> in </item>
     </list>
 
-    <list name="logic_keywords">
-      <item> suppose </item>
-      <item> assume </item>
+    <list name="logic_keywords_a">
       <item> fix </item>
       <item> obtain </item>
-      <item> show </item>
+      <item> assume </item>
+    </list>
+
+    <list name="logic_keywords">
       <item> contradiction </item>
       <item> fact </item>
     </list>
@@ -101,14 +105,46 @@
       <context attribute="Normal" lineEndContext="#stay" name="Letin" >
         <IncludeRules context="Default0" />
         <RegExpr attribute="Keyword" context="#pop" String="in\b" />
+        <RegExpr attribute="Keyword" context="#stay" String="let\b" />
+        <IncludeRules context="Progn" />
+        <IncludeRules context="Default2" />
+      </context>
+
+      <context attribute="Normal" lineEndContext="#stay" name="Show">
+        <IncludeRules context="Default0" />
+        <RegExpr attribute="Logic Keyword" context="#stay" String="by\b" />
+        <RegExpr attribute="Logic Keyword" context="#pop" String="from\b" />
+        <RegExpr attribute="Logic Keyword" context="#pop" String="with\b" />
+        <RegExpr attribute="Logic Keyword" context="#stay" String="show\b" />
+        <IncludeRules context="Progn" />
+        <IncludeRules context="Default2" />
+      </context>
+
+      <context attribute="Normal" lineEndContext="#stay" name="LogicKeywordsA">
+        <IncludeRules context="Default0" />
+        <RegExpr attribute="Logic Keyword" context="#stay" String="with\b" />
+        <RegExpr attribute="Logic Keyword" context="#stay" String="from\b" />
+        <RegExpr attribute="Logic Keyword" context="#pop" String="in\b" />
+        <keyword attribute="Logic Keyword" context="#stay" String="logic_keywords_a"/>
+        <IncludeRules context="Progn" />
+        <IncludeRules context="Default2" />
+      </context>
+
+      <context attribute="Normal" lineEndContext="#stay" name="Suppose">
+        <IncludeRules context="Default0" />
+        <RegExpr attribute="Logic Keyword" context="#pop" String="in\b" />
+        <RegExpr attribute="Logic Keyword" context="#stay" String="suppose\b" />
+        <IncludeRules context="Progn" />
+        <IncludeRules context="Default2" />
+      </context>
+
+      <context attribute="Normal" lineEndContext="#stay" name="Progn">
         <DetectChar attribute="Normal" context="#pop" char=";" />
         <DetectChar attribute="Normal" context="#pop#pop" char="}" endRegion="brace1" />
         <DetectChar attribute="Normal" context="#pop#pop" char=")" endRegion="brace2" />
         <RegExpr attribute="Keyword" context="#pop#pop" String="end\b" endRegion="block1" />
         <RegExpr attribute="Keyword" context="#pop#pop" String="qed\b" endRegion="block2" />
-        <RegExpr attribute="Keyword" context="#stay" String="let\b" />
         <keyword attribute="Keyword" context="#pop" String="separator_keywords" />
-        <IncludeRules context="Default2" />
       </context>
 
       <context attribute="Macro Region" lineEndContext="#stay" name="Macro">
@@ -135,6 +171,9 @@
         <RegExpr attribute="Keyword" context="#pop" String="end\b" endRegion="block1" />
         <RegExpr attribute="Keyword" context="#pop" String="qed\b" endRegion="block2" />
         <RegExpr attribute="Keyword" context="Letin" String="let\b" />
+        <RegExpr attribute="Logic Keyword" context="Show" String="show\b" />
+        <RegExpr attribute="Logic Keyword" context="Suppose" String="suppose\b" />
+        <keyword attribute="Logic Keyword" context="LogicKeywordsA" String="logic_keywords_a" />
       </context>
 
       <context attribute="Normal" lineEndContext="#stay" name="Default2" >
@@ -146,6 +185,7 @@
         <RegExpr attribute="Symbol" context="#stay" String="[A-Z]*\b" />
         <RegExpr attribute="Normal" context="#stay" String="&IDENT;" />
         <RegExpr attribute="Placeholder" context="#stay" String="%&IDENT;" />
+        <RegExpr attribute="QSymbol" context="#stay" String="`&IDENT;" />
         <Detect2Chars attribute="Macro Region" context="Macro" char="#" char1="&lt;" beginRegion="macro" />
         <DetectChar attribute="Normal" context="Nested" char="{" beginRegion="brace1" />
         <DetectChar attribute="Normal" context="Nested" char="(" beginRegion="brace2" />
@@ -187,6 +227,7 @@
       <itemData name="Type" defStyleNum="dsDataType" />
       <itemData name="Definition" defStyleNum="dsFunction" />
       <itemData name="Symbol" defStyleNum="dsDataType" bold="true" />
+      <itemData name="QSymbol" defStyleNum="dsDataType" color="#FF00FF" selColor="#C000C0" />
       <itemData name="Operator" defStyleNum="dsKeyword" color="#802811"/>
       <itemData name="Logic Keyword" defStyleNum="dsKeyword" color="#000080" />
       <itemData name="Danger Keyword" defStyleNum="dsAlert" />
@@ -207,6 +248,7 @@
         <comment name="multiLine" start="/*" end="*/" region="Comment" />
       </comments>
       <keywords casesensitive="1" weakDeliminator="-$.=&gt;&lt;" />
+      <indentation mode="normal" />
     </general>
 
   </highlighting>

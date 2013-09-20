@@ -33,6 +33,7 @@ let proof-of = \x (`ipl-proof, x)
 let goal = \p . match p with proof-of %x -> x | %_ -> error2 p "expected a proof"
 let is-proof = \p . matches p (proof-of %_)
 
+
 /*********************************************************************************/
 /* helper functions & macros */
 
@@ -218,7 +219,7 @@ macro suppose = \args {
    | [%name, #< : >#, %a, #< in >#, %b] ->
       #< let #$0 = #a; let #name = proof-of #$0; __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts { #b } >#
    | %_ -> error "suppose: wrong arguments"
-}
+};
 
 let impl-intro = \p1 \p2 {
    match goal p1, goal p2 with
@@ -762,14 +763,16 @@ let __ipl_ex_all_aux = \args \quant \msg {
    | [%lst1, %lst2] ->
       begin
          let pr =
-            match List.split-once (= #< . >#) lst2 with
-            | [%_] ->
-               let len = List.length lst2
-               in
-               (join-tokens-list (List.head lst2 (len - 1)), List.nth lst2 (len - 1))
-            | [%lst3, %lst4] ->
-               (join-tokens-list lst3, join-tokens-list lst4)
-            | %_ -> error msg
+            begin
+               match List.split-once (= #< . >#) lst2 with
+               | [%_] ->
+                  let len = List.length lst2
+                  in
+                  (join-tokens-list (List.head lst2 (len - 1)), List.nth lst2 (len - 1))
+               | [%lst3, %lst4] ->
+                  (join-tokens-list lst3, join-tokens-list lst4)
+               | %_ -> error msg
+            end
          in
          let tp = fst pr;
          let rest = snd pr;

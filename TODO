@@ -1,5 +1,4 @@
 
-* Correct highlighting of 'assume ... in', 'suppose ... in', 'fix ... with ... in'
 * stacktrace
 * even more logic tests
 * More logic (induction, sets etc)
