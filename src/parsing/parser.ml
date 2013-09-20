@@ -1781,8 +1781,8 @@ m4_changequote([`],['])
     (get_singleton_node lst, scope)
   in
 
-  let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include;
-                  sym_match; sym_macro; sym_try]
+  let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include; sym_macro;
+                  sym_match; sym_try]
   and builtins = [(fun x -> Core_builtins.declare_builtins x symtab);
                   (fun x -> List_builtins.declare_builtins x symtab)]
   in

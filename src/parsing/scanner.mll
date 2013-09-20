@@ -30,7 +30,7 @@ rule read_token symtab = parse
   | '%'                            { Token.Placeholder }
   | special_oper as oper           { Token.Symbol(Symtab.find symtab (String.make 1 oper)) }
   | '-'?['1'-'9']['0'-'9']* as num { Token.Number(big_int_of_string num) }
-  | "0x"['0'-'9']+ as num          { Token.Number(big_int_of_int (int_of_string num)) }
+  | "0x"['0'-'9' 'a'-'f' 'A'-'F']+ as num { Token.Number(big_int_of_int (int_of_string num)) }
   | '0'['0'-'9']+ as num           { Token.Number(big_int_of_int (int_of_string num)) }
   | '0'                            { Token.Number(zero_big_int) }
   | '('                            { Token.LeftParen }

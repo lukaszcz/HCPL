@@ -73,17 +73,17 @@ let eq-aux = \f \x \y {
          if f x y then
             true
          else if lim = 0 then {
-            let ex = eval-limited x eval-limit;
-            let ey = eval-limited y eval-limit;
-            if f ex ey then
+            let xe = eval-limited x eval-limit;
+            let ye = eval-limited y eval-limit;
+            if f xe ye then
                true
             else {
-               match ex, ey with
+               match xe, ye with
                | '(%a1 %b1), '(%a2 %b2) ->
                   aux0 a1 a2 (lim0 - 1) and aux0 b1 b2 (lim0 - 1)
                | '(\x %_), '(\x %_) ->
                   var-intro x {
-                     aux0 '(ex x) '(ey x) (lim0 - 1)
+                     aux0 '(xe x) '(ye x) (lim0 - 1)
                   }
                | %_ ->
                   false
@@ -91,10 +91,10 @@ let eq-aux = \f \x \y {
          } else {
            let rx = reduce x
            let ry = reduce y
-           let ex = reduce-eta x
-           let ey = reduce-eta y
+           let xe = reduce-eta x
+           let ye = reduce-eta y
            in
-           if f rx y or f x ry or f ex y or f ex ry or f x ey or f rx ey then
+           if f rx y or f x ry or f xe y or f xe ry or f x ye or f rx ye then
               true
            else
               aux rx ry (lim - 1)
@@ -556,7 +556,11 @@ macro assume = \args {
       else if name = () then
          #< impl-intro #tp2 (suppose #assm #block) >#
       else if block = () then
-         #< let #$0 = #assm; let #name = proof-of #$0; impl-intro #tp2 << __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts .. >#
+         #<
+            let #$0 = #assm;
+            let #name = proof-of #$0;
+            impl-intro #tp2 << __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts ..
+         >#
       else
          #< impl-intro #tp2 (suppose #name : #assm #block) >#
    };

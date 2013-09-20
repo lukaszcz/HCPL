@@ -1,12 +1,14 @@
 
-* stacktrace
-* kate syntax highlighting
 * have
 * even more logic tests
-* Don't inherit identifiers from opened modules by default
 * More logic (induction, sets etc)
 * auto tactic
 * hence, etc
+* Don't inherit identifiers from opened modules by default
+* stacktrace
+* install Makefile target
+* version 0.1
+
 * Get rid of quadratic time in join-tokens -- improve token list representation.
 * CAppl
 * Improve evaluator efficiency even more
