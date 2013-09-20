@@ -542,13 +542,14 @@ let true-type-intro = proof-of '(true in Prop)
 
 let true-intro = proof-of true
 
-let faith = \phi { proof-of phi }
+let faith = proof-of
 
 macro(1) fact = \phi #< check-in-list __ipl_facts #phi "not a known fact" >#
 macro(1) is-fact = \x #< is-in-list __ipl_facts #x >#
 macro(1) find-fact = \x #< find-in-list __ipl_facts #x >#
 macro(1) match-facts = \pat #< match-in-list __ipl_facts #pat >#
 
+macro(1) remember = \p #< ((goal #p) :: __ipl_facts) >> \__ipl_facts .. >#
 
 /*********************************************************************************/
 
@@ -558,7 +559,7 @@ let __ipl_facts = []
 /*********************************************************************************/
 
 let verify = \phi \p {
-   if eq (goal p) phi then
+   if eq phi (goal p) then
       proof-of phi
    else
       error2 p ("not a proof of " ^ to_string phi)
@@ -737,15 +738,13 @@ macro lemma = \args {
       #<
          let #$0 = #formula;
          let #name = { let thesis = #$0; (#xproof) };
-         verify #$0 #name;
-         (#$0 :: __ipl_facts) >> \__ipl_facts ..
+         remember (verify #$0 #name)
       >#
    | [%formula, %xproof] ->
       #<
          let #$0 = #formula;
          let #$1 = { let thesis = #$0; (#xproof) };
-         verify #$0 #$1;
-         (#$0 :: __ipl_facts) >> \__ipl_facts ..
+         remember (verify #$0 #$1)
       >#
    | %_ -> error "lemma: wrong arguments"
 }
@@ -799,9 +798,9 @@ macro forall = \args { mk-macro-call all args }
 macro show = \args {
    let aux = \name \formula \p {
       if name = () then
-         #< (let #$0 = #formula in verify #$0 #p) >#
+         #< remember (let #$0 = #formula in verify #$0 #p) >#
       else
-         #< let #$0 = #formula in let #name = verify #$0 #p >#
+         #< let #$0 = #formula in let #name = verify #$0 #p in remember #name >#
    };
    let pr =
       match args with

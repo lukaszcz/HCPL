@@ -67,6 +67,7 @@
     <list name="logic_keywords">
       <item> contradiction </item>
       <item> fact </item>
+      <item> remember </item>
     </list>
 
     <list name="danger_keywords">

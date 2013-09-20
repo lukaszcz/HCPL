@@ -2,6 +2,7 @@
 * stacktrace
 * even more logic tests
 * More logic (induction, sets etc)
+* mutual recursion
 * auto tactic
 * Don't inherit identifiers from opened modules by default
 * Makefile target: install
