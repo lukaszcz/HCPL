@@ -50,7 +50,8 @@ macro var-intro = \args {
 let mk-tactic-apply = \f \args { mk-apply f (#< __ipl_facts ># :: args) }
 
 macro(2) mk-tactic-call = \x \y {
-   let z = mk-tokens [x]
+   let tac-id = join-symbols x (join-symbols #< - ># #< tactic >#)
+   let z = mk-tokens [tac-id]
    in
    #< mk-tactic-apply #z #y >#
 }
@@ -60,8 +61,35 @@ macro(2) tactic = \id \eq-tok {
       error "tactic: expected '=' after tactic name"
    else {
       let tac-id = join-symbols id (join-symbols #< - ># #< tactic >#);
-      #< macro #id = \args { mk-tactic-call #tac-id args }; let #tac-id = \__ipl_facts >#
+      #< macro #id = \args { mk-tactic-call #id args }; let #tac-id = \__ipl_facts >#
    }
+}
+
+macro call-tactic-with = \args {
+   match args with
+   | %tac :: %facts :: %t ->
+      begin
+         let t2 = join-tokens-list t
+         let tac2 = join-symbols tac (join-symbols #< - ># #< tactic >#)
+         in
+         #< #tac2 (List.map goal #facts) #t2 >#
+      end
+   | %_ -> error "call-tactic-with: wrong arguments"
+}
+
+macro try-tactic = \args {
+   match args with
+   | %tac :: %t ->
+      let rest = join-tokens-list t
+      in
+      #<
+         begin
+            try
+               #tac #rest
+            with %_ -> ()
+         end
+      >#
+   | %_ -> error "try-tactic: wrong arguments"
 }
 
 let eval-limit = 1000
@@ -550,11 +578,11 @@ macro assume = \args {
       | %_ -> join-tokens-list lst
    };
    let aux = \name \assm \tp \block {
-      let tp2 = if tp = () then #< (let #$1 = #assm in auto-type '(#$1 in Prop)) ># else tp;
+      let tp2 = if tp = () then #< (auto-type '(#$0 in Prop)) ># else tp;
       if name = () and block = () then
-         #< impl-intro #tp2 << __ipl_suppose_aux __ipl_facts #assm \__ipl_facts .. >#
+         #< let #$0 = #assm in impl-intro #tp2 << __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts .. >#
       else if name = () then
-         #< impl-intro #tp2 (suppose #assm #block) >#
+         #< { let #$0 = #assm in impl-intro #tp2 (suppose #$0 #block) } >#
       else if block = () then
          #<
             let #$0 = #assm;
@@ -562,7 +590,7 @@ macro assume = \args {
             impl-intro #tp2 << __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts ..
          >#
       else
-         #< impl-intro #tp2 (suppose #name : #assm #block) >#
+         #< { let #$0 = #assm in impl-intro #tp2 (suppose #name : #$0 #block) } >#
    };
    match args with
    | [%a] ->
@@ -707,14 +735,14 @@ macro lemma = \args {
    | [%name, %formula, %xproof] ->
       #<
          let #$0 = #formula;
-         let #name = { let thesis = #$0; #xproof };
+         let #name = { let thesis = #$0; (#xproof) };
          verify #$0 #name;
          (#$0 :: __ipl_facts) >> \__ipl_facts ..
       >#
    | [%formula, %xproof] ->
       #<
          let #$0 = #formula;
-         let #$1 = { let thesis = #$0; #xproof };
+         let #$1 = { let thesis = #$0; (#xproof) };
          verify #$0 #$1;
          (#$0 :: __ipl_facts) >> \__ipl_facts ..
       >#
@@ -765,7 +793,51 @@ macro all = \args { __ipl_ex_all_aux args #< ALL ># "forall: wrong arguments" }
 macro exists = \args { mk-macro-call ex args }
 macro forall = \args { mk-macro-call all args }
 
+macro show = \args {
+   let aux = \name \formula \p {
+      if name = () then
+         #< (let #$0 = #formula in verify #$0 #p) >#
+      else
+         #< let #$0 = #formula in let #name = verify #$0 #p >#
+   };
+   let pr =
+      match args with
+      | %name :: #< : ># :: %rest -> (name, rest)
+      | %_ -> ((), args)
+   in
+   let name = fst pr
+   let lst0 = snd pr
+   in
+   match lst0 with
+   | %formula :: #< by ># :: %lst1 ->
+      begin
+         match lst1 with
+         | %tac :: #< from ># :: %lst2 ->
+            let facts = join-tokens-list lst2
+            in
+            aux name formula #< (call-tactic-with #tac [ #facts ] #$0) >#
+         | [%tac] ->
+            aux name formula #< (#tac #$0) >#
+         | %_ ->
+            error "show: wrong arguments"
+      end
+   | %formula :: #< with ># :: %lst1 ->
+      let p = join-tokens-list lst1
+      in
+      aux name formula #< (#p) >#
+   | %formula :: #< from ># :: %lst1 ->
+      let facts = join-tokens-list lst1
+      in
+      aux name formula #< (call-tactic-with auto [ #facts ] #$0) >#
+   | [%formula] ->
+      aux name formula #< (auto #$0) >#
+   | %_ ->
+      error "show: wrong arguments"
+};
+
+
 /*********************************************************************************/
 /* core proof tactics */
 
 include "tactics/auto-type.ipl"
+include "tactics/auto.ipl"

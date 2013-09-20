@@ -70,16 +70,25 @@ let mk-tokens = \toks {
    join-tokens (join-tokens token-tokens-start (join-tokens-list toks)) token-tokens-end
 };
 
-let mk-apply = \f \args {
+let mk-list = \toks {
    let aux = \lst {
       match lst with
       | %h :: %t ->
          let r = aux t
          in
-         #< #h #r >#
-      | [] -> #< >#
+         #< , #h #r >#
+      | [] -> #< ] >#
    };
-   let z = aux args
+   match toks with
+   | %h :: %t ->
+      let r = aux t
+      in
+      #< [ #h #r >#
+   | [] -> #< [] >#
+}
+
+let mk-apply = \f \args {
+   let z = join-tokens-list args
    in
    #< #f #z >#
 };

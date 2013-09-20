@@ -8,7 +8,7 @@
 <!ENTITY SSIDENT "[a-z$A-Z_]\w*[-$.]\w*[-$.]\w*">
 <!ENTITY SIDENT "[a-z$A-Z_]\w*[-$.]\w*">
 ]>
-<language name="IPL" version="1.00" section="Sources" indenter="normal" extensions="*.ipl">
+<language name="IPL" version="1.00" section="Sources" extensions="*.ipl" priority="10">
   <highlighting>
 
     <list name="separator_keywords">
@@ -60,6 +60,7 @@
       <item> assume </item>
       <item> fix </item>
       <item> obtain </item>
+      <item> show </item>
       <item> contradiction </item>
       <item> fact </item>
     </list>
@@ -120,11 +121,12 @@
         <DetectSpaces />
         <RegExpr attribute="Logic Keyword" context="#stay" String="&IDENT;-intro(-&IDENT0;)*\b" />
         <RegExpr attribute="Logic Keyword" context="#stay" String="&IDENT;-elim(-&IDENT0;)*\b" />
-        <RegExpr String="&SSIDENT;" />
+        <RegExpr attribute="Definition" context="#stay" String="&IDENT;:" />
+        <RegExpr attribute="Normal" context="#stay" String="&SSIDENT;" />
         <RegExpr attribute="Danger Keyword" context="#stay" String="proof-of\b" />
         <RegExpr attribute="Danger Keyword" context="#stay" String="unique-int\b" />
         <Detect2Chars attribute="Keyword" context="#stay" char="$" char1="." />
-        <RegExpr String="&SIDENT;" />
+        <RegExpr attribute="Normal" context="#stay" String="&SIDENT;" />
         <RegExpr attribute="Keyword" context="Nested" String="begin\b" beginRegion="block1" />
         <RegExpr attribute="Keyword" context="Nested" String="proof\b" beginRegion="block2" />
       </context>
@@ -142,7 +144,6 @@
         <keyword attribute="Danger Keyword" context="#stay" String="danger_keywords" />
         <keyword attribute="Type" context="#stay" String="types" />
         <RegExpr attribute="Symbol" context="#stay" String="[A-Z]*\b" />
-        <RegExpr attribute="Definition" context="#stay" String="&IDENT;:" />
         <RegExpr attribute="Normal" context="#stay" String="&IDENT;" />
         <RegExpr attribute="Placeholder" context="#stay" String="%&IDENT;" />
         <Detect2Chars attribute="Macro Region" context="Macro" char="#" char1="&lt;" beginRegion="macro" />
@@ -206,7 +207,6 @@
         <comment name="multiLine" start="/*" end="*/" region="Comment" />
       </comments>
       <keywords casesensitive="1" weakDeliminator="-$.=&gt;&lt;" />
-      <indentation mode="normal" />
     </general>
 
   </highlighting>

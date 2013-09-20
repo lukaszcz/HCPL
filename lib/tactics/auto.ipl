@@ -1,0 +1,13 @@
+/* auto.ipl: Automatic proof tactic.
+ *
+ * Copyright (C) 2013 by Lukasz Czajka
+ */
+
+tactic auto = \phi {
+   let p = find-fact phi
+   in
+   if is-proof p then
+      p
+   else
+      error "auto tactic failed"
+};

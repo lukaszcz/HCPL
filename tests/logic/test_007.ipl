@@ -1,0 +1,31 @@
+
+// show test
+
+open Logic;
+
+lemma
+   '(all p, q : Prop . (p => q) or (q => p))
+proof
+   fix p, q : Prop;
+   let thesis = '((p => q) or (q => p));
+   contradiction {
+      assume $0: '(not thesis);
+      show $1: '(p => q) with {
+         assume p;
+         contradiction {
+            assume '(not q);
+            show $2: '(q => p) with {
+               assume q;
+               not-elim (fact '(not q)) (fact q) >>
+               false-elim p
+            };
+            or-intro '(p => q) $2 >>
+            not-elim $0
+         }
+      };
+      or-intro $1 '(q => p) >>
+      not-elim $0
+   }
+qed;
+
+print "OK";

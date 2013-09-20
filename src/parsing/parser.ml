@@ -769,6 +769,10 @@ m4_changequote([`],['])
                         Token.LeftParenCurl Token.RightParenCurl 0 [(tok2, pos2); (tok, pos)]
                     in
                     aux strm3 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
+                | Token.Symbol(sym) ->
+                    let strm3 = Scope.strm_next scope strm2
+                    in
+                    aux strm3 (args_num - 1) (Node.Tokens([(tok, pos); (tok2, pos2)]) :: acc)
                 | _ ->
                     Error.error (Some pos) "complex macro arguments should be enclosed in parentheses";
                     (List.rev acc, strm)
