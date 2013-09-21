@@ -12,11 +12,13 @@
 (2 days)
 * auto tactic
 
-(1 day)
+(2 days)
 * Don't exit on too many errors in repl mode
 * Makefile target: install
+* examples
 * version 0.1
 
+* names preserved for variables in fix etc
 * def
 * update 'thesis' in *-intro
 * intros, forall-intros, impl-intros

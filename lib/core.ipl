@@ -24,8 +24,9 @@ syntax operator + is left, binary, after *;
 syntax operator - is left, binary, prio +;
 
 syntax operator ^ is left, binary, after +;
+syntax operator ## is left, binary, prio ^;
 
-syntax operator :: is right, binary, after ^;
+syntax operator :: is right, binary, after ##;
 
 syntax operator <  is left, binary, after ::;
 syntax operator <= is left, binary, prio <;
@@ -62,6 +63,7 @@ let when = \&#x \&#y . if x then y else ();
 let >> = \x \f . f x;
 let << = \&#f . f;
 let $. = <<;
+let ## = join-tokens;
 
 let matches = \x \y . xmatch x y \_ true \_ false;
 
