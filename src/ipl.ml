@@ -16,7 +16,13 @@ let run_time = ref 0;;
 
 let catch_error f =
   try
-    f (); 0
+    begin
+      try
+        f (); 0
+      with
+        Error.RuntimeError(node) ->
+          raise (Error.RuntimeError(Eval.eval node))
+    end
   with
   | Error.RuntimeError(Node.String(msg)) ->
       print_endline ("runtime error: " ^ msg); 1

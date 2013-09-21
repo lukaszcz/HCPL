@@ -152,6 +152,29 @@ let rec do_exists f lst =
       end
   | _ -> False
 
+let rec do_find f lst default =
+  match lst with
+  | Cons(h, t) ->
+      begin
+        let h1 = Eval.eval h
+        in
+        let c = Eval.eval (Appl(f, h1, None))
+        in
+        match c with
+        | True ->
+            h1
+        | False ->
+            do_find f t default
+        | _ ->
+            let x = do_find f t default
+            in
+            if x == default then
+              h1
+            else
+              Cond(c, h1, x, None)
+      end
+  | _ -> Eval.eval default
+
 let rec do_rev2 lst acc =
   match lst with
   | Cons(h, t) -> do_rev2 t (Cons(do_rev h Nil, acc))
@@ -277,6 +300,11 @@ let list_exists lst =
   | x :: f :: _ -> do_exists f x
   | _ -> assert false
 
+let list_find lst =
+  match lst with
+  | y :: x :: f :: _ -> do_find f x y
+  | _ -> assert false
+
 let list_split lst =
   match lst with
   | x :: f :: _ -> do_split f x
@@ -307,6 +335,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_foldr") (list_foldr, 3, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_forall") (list_forall, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_exists") (list_exists, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_find") (list_find, 3, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split") (list_split, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split_n") (list_split_n, 3, CallByValue) in
     scope

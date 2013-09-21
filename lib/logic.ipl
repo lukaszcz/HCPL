@@ -14,6 +14,10 @@ syntax operator <=> is right, binary, after =>;
 
 syntax block proof qed;
 
+syntax macrosep lemma;
+syntax macrosep theorem;
+syntax macrosep tactic;
+
 let error2 = \p \msg { error (msg ^ ": " ^ (to_string p)) }
 
 symbol Type
@@ -29,7 +33,7 @@ let : = (in)
 let -> = \t1 \t2 \f (ALL t1 \x . f x in t2)
 let => = \x \y . if x then y else true
 let <=> = \x \y . (x => y) and (y => x)
-let proof-of = \x (`ipl-proof, x)
+let proof-of = \x (`__ipl_proof, x)
 let goal = \p . match p with proof-of %x -> x | %_ -> error2 p "expected a proof"
 let is-proof = \p . matches p (proof-of %_)
 
@@ -48,10 +52,12 @@ macro var-intro = \args {
    | %_ -> error "var-intro: wrong arguments"
 }
 
+let get-tactic-name = \tac { join-symbols tac (join-symbols #< - ># #< tactic >#) }
+
 let mk-tactic-apply = \f \args { mk-apply f (#< __ipl_facts ># :: args) }
 
 macro(2) mk-tactic-call = \x \y {
-   let tac-id = join-symbols x (join-symbols #< - ># #< tactic >#)
+   let tac-id = get-tactic-name x
    let z = mk-tokens [tac-id]
    in
    #< mk-tactic-apply #z #y >#
@@ -71,9 +77,9 @@ macro call-tactic-with = \args {
    | %tac :: %facts :: %t ->
       begin
          let t2 = join-tokens-list t
-         let tac2 = join-symbols tac (join-symbols #< - ># #< tactic >#)
+         let tac2 = get-tactic-name tac
          in
-         #< #tac2 (List.map goal #facts) #t2 >#
+         #< #tac2 #facts #t2 >#
       end
    | %_ -> error "call-tactic-with: wrong arguments"
 }
@@ -142,25 +148,24 @@ let eq = eq-aux (=)
 let qmatches = eq-aux matches
 
 let is-in-list = \lst \x {
-   List.exists (eq x) lst
+   List.exists (eq x o goal) lst
 }
 
 let find-in-list = \lst \x {
-   if is-in-list lst x then
-      proof-of x
-   else
-      ()
+   List.find (eq x o goal) lst ()
 }
 
 let check-in-list = \lst \x \emsg {
-   if is-in-list lst x then
-      proof-of x
+   let p = find-in-list lst x
+   in
+   if is-proof p then
+      p
    else
       error2 x emsg
 }
 
 let match-in-list-acc = \lst \pat \acc {
-   List.fold (\h . if qmatches h pat then (proof-of h) :: acc else acc) lst acc
+   List.fold (\h . if qmatches (goal h) pat then h :: acc else acc) lst acc
 }
 
 let match-in-list = \lst \pat {
@@ -197,7 +202,7 @@ let peval-limited = \p \lim {
 }
 
 let __ipl_suppose_aux = \__ipl_facts \phi \f {
-   let p = f (phi :: __ipl_facts)
+   let p = f ((proof-of phi) :: __ipl_facts)
    in
    match p with
    | proof-of %x -> proof-of '(ASSM phi x)
@@ -215,9 +220,9 @@ macro suppose = \args {
    | [%a, #< in >#, %b] ->
       #< __ipl_suppose_aux __ipl_facts #a \__ipl_facts { #b } >#
    | [%name, #< : >#, %a, %b] ->
-      #< let #$0 = #a; let #name = proof-of #$0; __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts { #b } >#
+      #< { let #$0 = #a; let #name = proof-of #$0; __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts { #b } } >#
    | [%name, #< : >#, %a, #< in >#, %b] ->
-      #< let #$0 = #a; let #name = proof-of #$0; __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts { #b } >#
+      #< { let #$0 = #a; let #name = proof-of #$0; __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts { #b } } >#
    | %_ -> error "suppose: wrong arguments"
 };
 
@@ -544,12 +549,14 @@ let true-intro = proof-of true
 
 let faith = proof-of
 
+macro(0) facts = \_ { #< __ipl_facts ># }
+
 macro(1) fact = \phi #< check-in-list __ipl_facts #phi "not a known fact" >#
 macro(1) is-fact = \x #< is-in-list __ipl_facts #x >#
 macro(1) find-fact = \x #< find-in-list __ipl_facts #x >#
 macro(1) match-facts = \pat #< match-in-list __ipl_facts #pat >#
 
-macro(1) remember = \p #< ((goal #p) :: __ipl_facts) >> \__ipl_facts .. >#
+macro(1) remember = \p #< let #$0 = #p in (#$0 :: __ipl_facts) >> \__ipl_facts .. #$0 >#
 
 /*********************************************************************************/
 
@@ -749,11 +756,11 @@ macro lemma = \args {
    | %_ -> error "lemma: wrong arguments"
 }
 
-macro theorem = \args { mk-macro-call lemma args }
+macro theorem = \args { mk-macro-call (lemma) args }
 
 macro axiom = \args {
    match args with
-   | [%phi] -> #< (#phi :: __ipl_facts) >> \__ipl_facts .. >#
+   | [%phi] -> #< (proof-of #phi :: __ipl_facts) >> \__ipl_facts .. >#
    | %_ -> error "axiom: wrong arguments"
 }
 

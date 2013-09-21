@@ -927,9 +927,10 @@ m4_changequote([`],['])
     and statements () =
       recursive
         begin
-          (token Token.Sep +> return (Program(Node.Nil)) ^||
-          statement ++ maybe (token Token.Sep)) +!
-            maybe statements
+          macro_call statements ^||
+             (token Token.Sep +> return (Program(Node.Nil)) ^||
+              statement ++ maybe (token Token.Sep)) +!
+                maybe statements
         end
 
     and repl_statements () =

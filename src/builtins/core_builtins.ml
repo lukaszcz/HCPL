@@ -231,7 +231,7 @@ let xtry lst =
 let xraise lst =
   match lst with
   | x :: _ ->
-      raise (Error.RuntimeError(Eval.eval x))
+      raise (Error.RuntimeError(x))
   | _ -> assert false
 
 (* public interface *)
@@ -314,7 +314,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "unique-int") (unique_int, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "join-symbols") (join_symbols, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "try") (xtry, 2, CallByName) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "raise") (xraise, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "raise") (xraise, 1, CallByName) in
 
     let scope =
       Scope.add_ident scope (Symtab.find symtab "token-tokens-start")

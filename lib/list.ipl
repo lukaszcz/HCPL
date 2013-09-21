@@ -16,6 +16,7 @@ let foldr = __ipl_list_foldr
 let fold = foldl
 let forall = __ipl_list_forall
 let exists = __ipl_list_exists
+let find = __ipl_list_find
 let split = __ipl_list_split
 let split-n = __ipl_list_split_n
 let split-once = split-n 1

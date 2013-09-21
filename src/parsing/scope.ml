@@ -209,17 +209,18 @@ let add_block scope beg_sym end_sym =
   let blocks2 = Symbol.Map.add beg_sym end_sym scope.blocks
   and kwds2 = Symbol.Set.add end_sym (Symbol.Set.add beg_sym scope.permanent_keywords)
   in
-  let slst = (Syntax.Block(beg_sym, end_sym), scope.scopenum) :: scope.syntaxlst
+  let slst2 = (Syntax.Block(beg_sym, end_sym), scope.scopenum) :: scope.syntaxlst
   in
-  { scope with blocks = blocks2; permanent_keywords = kwds2; syntaxlst = slst }
+  { scope with blocks = blocks2; permanent_keywords = kwds2; syntaxlst = slst2 }
 
 let get_block_end scope beg_sym =
   Symbol.Map.find beg_sym scope.blocks
 
 let add_macrosep scope sym =
   let mseps2 = Symbol.Set.add sym scope.macroseps
+  and slst2 = (Syntax.Macrosep(sym), scope.scopenum) :: scope.syntaxlst
   in
-  { scope with macroseps = mseps2 }
+  { scope with macroseps = mseps2; syntaxlst = slst2 }
 
 let is_macrosep scope sym =
   Symbol.Set.mem sym scope.macroseps
@@ -241,4 +242,6 @@ let rec add_syntax scope lst =
       add_syntax (add_oper scope sym prio assoc arity) t
   | Syntax.Block(beg_sym, end_sym) :: t ->
       add_syntax (add_block scope beg_sym end_sym) t
+  | Syntax.Macrosep(sym) :: t ->
+      add_syntax (add_macrosep scope sym) t
   | [] -> scope

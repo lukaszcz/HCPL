@@ -12,7 +12,10 @@ syntax operator neg is right, unary, before appl;
 
 syntax operator not is right, unary, prio appl;
 
-syntax operator *   is left, binary, after appl;
+syntax operator o is left, binary, after appl;
+syntax operator comp is right, binary, after o;
+
+syntax operator *   is left, binary, after comp;
 syntax operator /   is left, binary, prio *;
 syntax operator div is left, binary, prio *;
 syntax operator mod is left, binary, prio *;
@@ -49,6 +52,8 @@ syntax macrosep >>;
 syntax macrosep <<;
 syntax macrosep $.;
 
+let o = \f \g \x . f (g x);
+let comp = \f \g \x . g (f x);
 let not = \x . if x then false else true;
 let xor = \x \y . (x or y) and not (x and y);
 let neg = \x . 0 - x;

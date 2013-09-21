@@ -455,7 +455,7 @@ and do_eval node env env_len =
               let pat = do_eval y env env_len
               in
               match pat with
-              | Sym(psym) ->
+              | Sym(psym) -> (* TODO: delete this branch (?) *)
                   begin
                     match node with
                     | Sym(nsym) when Symbol.eq psym nsym ->

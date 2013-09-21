@@ -17,11 +17,13 @@
       <item> let </item>
       <item> syntax </item>
       <item> symbol </item>
-      <item> syntax </item>
       <item> import </item>
       <item> open </item>
       <item> include </item>
       <item> macro </item>
+      <item> lemma </item>
+      <item> theorem </item>
+      <item> tactic </item>
     </list>
 
     <list name="keywords">
@@ -46,13 +48,17 @@
     </list>
 
     <list name="operators">
+      <item> o </item>
+      <item> comp </item>
       <item> all </item>
       <item> ex </item>
       <item> forall </item>
       <item> exists </item>
       <item> and </item>
       <item> or </item>
+      <item> xor </item>
       <item> not </item>
+      <item> neg </item>
       <item> div </item>
       <item> mod </item>
       <item> in </item>
@@ -81,6 +87,25 @@
       <item> Prop </item>
       <item> Type </item>
       <item> Nat </item>
+      <item> Int </item>
+    </list>
+
+    <list name="syntax_keywords">
+      <item> operator </item>
+      <item> is </item>
+      <item> left </item>
+      <item> right </item>
+      <item> binary </item>
+      <item> unary </item>
+      <item> after </item>
+      <item> before </item>
+      <item> prio </item>
+      <item> appl </item>
+      <item> block </item>
+      <item> macrosep </item>
+      <item> drop </item>
+      <item> first </item>
+      <item> last </item>
     </list>
 
     <contexts>
@@ -103,40 +128,45 @@
         <IncludeRules context="Default" />
       </context>
 
-      <context attribute="Normal" lineEndContext="#stay" name="Letin" >
+      <context attribute="Normal" lineEndContext="#stay" name="Letin">
         <IncludeRules context="Default0" />
         <RegExpr attribute="Keyword" context="#pop" String="in\b" />
-        <RegExpr attribute="Keyword" context="#stay" String="let\b" />
         <IncludeRules context="Progn" />
         <IncludeRules context="Default2" />
       </context>
 
       <context attribute="Normal" lineEndContext="#stay" name="Show">
+        <IncludeRules context="Macroseps" />
         <IncludeRules context="Default0" />
         <RegExpr attribute="Logic Keyword" context="#stay" String="by\b" />
         <RegExpr attribute="Logic Keyword" context="#pop" String="from\b" />
         <RegExpr attribute="Logic Keyword" context="#pop" String="with\b" />
-        <RegExpr attribute="Logic Keyword" context="#stay" String="show\b" />
         <IncludeRules context="Progn" />
         <IncludeRules context="Default2" />
       </context>
 
       <context attribute="Normal" lineEndContext="#stay" name="LogicKeywordsA">
+        <IncludeRules context="Macroseps" />
         <IncludeRules context="Default0" />
         <RegExpr attribute="Logic Keyword" context="#stay" String="with\b" />
         <RegExpr attribute="Logic Keyword" context="#stay" String="from\b" />
         <RegExpr attribute="Logic Keyword" context="#pop" String="in\b" />
-        <keyword attribute="Logic Keyword" context="#stay" String="logic_keywords_a"/>
         <IncludeRules context="Progn" />
         <IncludeRules context="Default2" />
       </context>
 
-      <context attribute="Normal" lineEndContext="#stay" name="Suppose">
+      <context attribute="Normal" lineEndContext="#stay" name="LogicKeywordsB">
+        <IncludeRules context="Macroseps" />
         <IncludeRules context="Default0" />
         <RegExpr attribute="Logic Keyword" context="#pop" String="in\b" />
-        <RegExpr attribute="Logic Keyword" context="#stay" String="suppose\b" />
         <IncludeRules context="Progn" />
         <IncludeRules context="Default2" />
+      </context>
+
+      <context attribute="Normal" lineEndContext="#stay" name="Macroseps">
+        <Detect2Chars attribute="Normal" context="#pop" char="&gt;" char1="&gt;" />
+        <Detect2Chars attribute="Normal" context="#pop" char="&lt;" char1="&lt;" />
+        <Detect2Chars attribute="Keyword" context="#pop" char="$" char1="." />
       </context>
 
       <context attribute="Normal" lineEndContext="#stay" name="Progn">
@@ -145,13 +175,12 @@
         <DetectChar attribute="Normal" context="#pop#pop" char=")" endRegion="brace2" />
         <RegExpr attribute="Keyword" context="#pop#pop" String="end\b" endRegion="block1" />
         <RegExpr attribute="Keyword" context="#pop#pop" String="qed\b" endRegion="block2" />
+        <RegExpr attribute="Keyword" context="#pop!Letin" String="let\b" />
+        <RegExpr attribute="Keyword" context="#pop!Syntax" String="syntax\b" />
+        <RegExpr attribute="Logic Keyword" context="#pop!LogicKeywordsB" String="var-intro\b" />
+        <keyword attribute="Logic Keyword" context="#pop!LogicKeywordsA" String="logic_keywords_a"/>
+        <RegExpr attribute="Logic Keyword" context="#pop!Show" String="show\b" />
         <keyword attribute="Keyword" context="#pop" String="separator_keywords" />
-      </context>
-
-      <context attribute="Macro Region" lineEndContext="#stay" name="Macro">
-        <DetectSpaces />
-        <RegExpr attribute="Paste" context="#stay" String="#&IDENT;" />
-        <Detect2Chars attribute="Macro Region" context="#pop" char="&gt;" char1="#" endRegion="macro" />
       </context>
 
       <context attribute="Normal" lineEndContext="#stay" name="Default0" >
@@ -172,9 +201,11 @@
         <RegExpr attribute="Keyword" context="#pop" String="end\b" endRegion="block1" />
         <RegExpr attribute="Keyword" context="#pop" String="qed\b" endRegion="block2" />
         <RegExpr attribute="Keyword" context="Letin" String="let\b" />
+        <RegExpr attribute="Keyword" context="Syntax" String="syntax\b" />
         <RegExpr attribute="Logic Keyword" context="Show" String="show\b" />
-        <RegExpr attribute="Logic Keyword" context="Suppose" String="suppose\b" />
         <keyword attribute="Logic Keyword" context="LogicKeywordsA" String="logic_keywords_a" />
+        <RegExpr attribute="Logic Keyword" context="LogicKeywordsB" String="suppose\b" />
+        <RegExpr attribute="Logic Keyword" context="LogicKeywordsB" String="var-intro\b" />
       </context>
 
       <context attribute="Normal" lineEndContext="#stay" name="Default2" >
@@ -188,6 +219,7 @@
         <RegExpr attribute="Placeholder" context="#stay" String="%&IDENT;" />
         <RegExpr attribute="QSymbol" context="#stay" String="`&IDENT;" />
         <Detect2Chars attribute="Macro Region" context="Macro" char="#" char1="&lt;" beginRegion="macro" />
+        <Detect2Chars attribute="Normal" context="#stay" char="#" char1="'" />
         <DetectChar attribute="Normal" context="Nested" char="{" beginRegion="brace1" />
         <DetectChar attribute="Normal" context="Nested" char="(" beginRegion="brace2" />
         <DetectChar attribute="Normal" context="#pop" char="}" endRegion="brace1" />
@@ -202,10 +234,21 @@
         <RegExpr attribute="Normal" context="#stay" String="&OPER;" />
       </context>
 
-      <context attribute="Normal" lineEndContext="#stay" name="Default" >
+      <context attribute="Normal" lineEndContext="#stay" name="Syntax">
+        <keyword attribute="Keyword" context="#stay" String="syntax_keywords" />
+        <IncludeRules context="Progn" />
+      </context>
+
+      <context attribute="Normal" lineEndContext="#stay" name="Default">
         <IncludeRules context="Default0" />
         <IncludeRules context="Default1" />
         <IncludeRules context="Default2" />
+      </context>
+
+      <context attribute="Macro Region" lineEndContext="#stay" name="Macro">
+        <DetectSpaces />
+        <RegExpr attribute="Paste" context="#stay" String="#&IDENT;" />
+        <Detect2Chars attribute="Macro Region" context="#pop" char="&gt;" char1="#" endRegion="macro" />
       </context>
 
       <context attribute="String" lineEndContext="#stay" name="string" >
