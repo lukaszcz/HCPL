@@ -1,20 +1,32 @@
 
+(1 day)
+* mutual recursion
+* Don't inherit identifiers from opened modules by default
 * stacktrace
+
+(3-5 days)
 * even more logic tests
 * More logic (induction, sets etc)
-* mutual recursion
+
+(2 days)
 * auto tactic
-* Don't inherit identifiers from opened modules by default
+
+(1 day)
+* Don't exit on too many errors in repl mode
 * Makefile target: install
 * version 0.1
 
-* update thesis in *-intro (?)
+* def
+* update 'thesis' in *-intro
 * intros, forall-intros, impl-intros
 * Get rid of quadratic time in join-tokens -- improve token list representation.
 * CAppl
+* macro priorities instead of syntax macrosep
+* saving parsed files in binary (*.ipb)
 * Improve evaluator efficiency even more
 * Improve quoted match / equal efficiency
-* Better (O(1)) logic variable handling in fix etc.
-* In the parser, translate closed lets directly into Delayed nodes (or just do this for lemmas)
-* Don't exit on too many errors in repl mode
+* In the parser, translate closed lets directly into Delayed nodes
+* Type inference (fun macro)
 * Improve Node.to_string (use pretty printing from the Format module)
+* 'syntax drop' for blocks and macroseps
+* Better (O(1)) logic variable handling in fix etc.

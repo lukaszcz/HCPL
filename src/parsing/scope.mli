@@ -73,5 +73,8 @@ val add_block : t -> Symbol.t (* begin symbol *) -> Symbol.t (* end symbol *) ->
    Not_found if the argument is not a valid block start symbol *)
 val get_block_end : t -> Symbol.t -> Symbol.t
 
+val add_macrosep : t -> Symbol.t -> t
+val is_macrosep : t -> Symbol.t -> bool
+
 val get_syntax : t -> Syntax.t list
 val add_syntax : t -> Syntax.t list -> t

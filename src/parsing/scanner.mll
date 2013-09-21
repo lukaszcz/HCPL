@@ -25,6 +25,7 @@ rule read_token symtab = parse
   | '#'                            { Token.Paste }
   | "#<"                           { Token.TokensStart }
   | ">#"                           { Token.TokensEnd }
+  | "#'"                           { Token.Symbol(Symtab.find symtab "#'") }
   | "%%"                           { Token.Placeholder_generic }
   | "%_"                           { Token.Placeholder_ignore }
   | '%'                            { Token.Placeholder }

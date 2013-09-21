@@ -14,6 +14,7 @@ type t = { identtab : identtab_t; frame : int; scopenum : int;
            modules : Symbol.t list; module_mode : bool;
            placeholders : Symbol.t list ref; match_mode : bool;
            blocks : Symbol.t Symbol.Map.t;
+           macroseps : Symbol.Set.t;
            syntaxlst : syntaxlst_t;
            mutable line_num : int }
 
@@ -31,6 +32,7 @@ let empty = { identtab = Symbol.Map.empty;
               placeholders = ref [];
               match_mode = false;
               blocks = Symbol.Map.empty;
+              macroseps = Symbol.Set.empty;
               syntaxlst = [];
               line_num = 0 }
 
@@ -213,6 +215,14 @@ let add_block scope beg_sym end_sym =
 
 let get_block_end scope beg_sym =
   Symbol.Map.find beg_sym scope.blocks
+
+let add_macrosep scope sym =
+  let mseps2 = Symbol.Set.add sym scope.macroseps
+  in
+  { scope with macroseps = mseps2 }
+
+let is_macrosep scope sym =
+  Symbol.Set.mem sym scope.macroseps
 
 let get_syntax scope =
   List.fold_left

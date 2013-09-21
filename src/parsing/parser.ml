@@ -420,10 +420,12 @@ m4_changequote([`],['])
   and sym_macro_tmp = Symtab.find symtab "__ipl_macro_tmp"
   and sym_paste_tmp = Symtab.find symtab "#$"
   and sym_macro_expand = Symtab.find symtab "#^"
+  and sym_macro_quote = Symtab.find symtab "#'"
 
   and sym_syntax = Symtab.find symtab "syntax"
   and sym_drop = Symtab.find symtab "drop"
   and sym_block = Symtab.find symtab "block"
+  and sym_macrosep = Symtab.find symtab "macrosep"
   and sym_operator = Symtab.find symtab "operator"
   and sym_left = Symtab.find symtab "left"
   and sym_right = Symtab.find symtab "right"
@@ -730,6 +732,20 @@ m4_changequote([`],['])
           let tok = Scope.strm_token scope strm
           and pos = Scope.strm_position scope strm
           in
+          let error () =
+            Error.error (Some pos) "complex macro arguments should be enclosed in parentheses";
+            (List.rev acc, strm)
+          and success () =
+            if args_num > 0 then
+              Error.error (Some pos) "not enough macro arguments";
+            (List.rev acc, strm)
+          in
+          let aux_read_in_parens lparen rparen =
+            let (lst, strm2) =
+              read_in_parens (Scope.strm_next scope strm) lparen rparen 0 [(tok, pos)]
+            in
+            aux strm2 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
+          in
           match tok with
           | Token.Keyword(sym) ->
               begin
@@ -744,10 +760,9 @@ m4_changequote([`],['])
                 with
                   Not_found ->
                     if Symbol.eq sym sym_match then
-                      Error.error (Some pos) "complex macro arguments should be enclosed in parentheses";
-                    if args_num > 0 then
-                      Error.error (Some pos) "not enough macro arguments";
-                    (List.rev acc, strm)
+                      error ()
+                    else
+                      success ()
               end
           | Token.Symbol(sym) when Symbol.eq sym sym_quote || Symbol.eq sym sym_quote2 ->
               begin
@@ -756,58 +771,87 @@ m4_changequote([`],['])
                 let tok2 = Scope.strm_token scope strm2
                 and pos2 = Scope.strm_position scope strm2
                 in
+                let aux2 lparen rparen =
+                  let (lst, strm3) =
+                    read_in_parens (Scope.strm_next scope strm2)
+                      lparen rparen 0 [(tok2, pos2); (tok, pos)]
+                  in
+                  aux strm3 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
+                in
                 match tok2 with
                 | Token.LeftParen ->
-                    let (lst, strm3) =
-                      read_in_parens (Scope.strm_next scope strm2)
-                        Token.LeftParen Token.RightParen 0 [(tok2, pos2); (tok, pos)]
-                    in
-                    aux strm3 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
+                    aux2 Token.LeftParen Token.RightParen
                 | Token.LeftParenCurl ->
-                    let (lst, strm3) =
-                      read_in_parens (Scope.strm_next scope strm2)
-                        Token.LeftParenCurl Token.RightParenCurl 0 [(tok2, pos2); (tok, pos)]
-                    in
-                    aux strm3 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
+                    aux2 Token.LeftParenCurl Token.RightParenCurl
                 | Token.Symbol(sym) ->
                     let strm3 = Scope.strm_next scope strm2
                     in
                     aux strm3 (args_num - 1) (Node.Tokens([(tok, pos); (tok2, pos2)]) :: acc)
                 | _ ->
-                    Error.error (Some pos) "complex macro arguments should be enclosed in parentheses";
-                    (List.rev acc, strm)
+                    error ()
               end
+          | Token.Symbol(sym) when Scope.is_macrosep scope sym ->
+              success ()
           | Token.Symbol(_) | Token.Number(_) | Token.String(_) | Token.Placeholder | Token.Placeholder_generic |
             Token.Placeholder_ignore | Token.True | Token.False ->
               aux (Scope.strm_next scope strm) (args_num - 1) (Node.Tokens([(tok, pos)]) :: acc)
           | Token.LeftParen ->
-              let (lst, strm2) =
-                read_in_parens (Scope.strm_next scope strm) Token.LeftParen Token.RightParen 0 [(tok, pos)]
-              in
-              aux strm2 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
+              aux_read_in_parens Token.LeftParen Token.RightParen
           | Token.LeftParenSqr ->
-              let (lst, strm2) =
-                read_in_parens (Scope.strm_next scope strm) Token.LeftParenSqr Token.RightParenSqr 0 [(tok, pos)]
-              in
-              aux strm2 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
+              aux_read_in_parens Token.LeftParenSqr Token.RightParenSqr
           | Token.LeftParenCurl ->
-              let (lst, strm2) =
-                read_in_parens (Scope.strm_next scope strm) Token.LeftParenCurl Token.RightParenCurl 0 [(tok, pos)]
-              in
-              aux strm2 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
+              aux_read_in_parens Token.LeftParenCurl Token.RightParenCurl
           | Token.TokensStart ->
               let (lst, strm2) = read_raw_tokens (Scope.strm_next scope strm) 0 [(tok, pos)]
               in
               aux strm2 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
+          | Token.Lambda ->
+              let rec aux2 strm2 lst2 =
+                let tok2 = Scope.strm_token scope strm2
+                and pos2 = Scope.strm_position scope strm2
+                in
+                match tok2 with
+                | Token.Symbol(sym) ->
+                    begin
+                      let strm3 = Scope.strm_next scope strm2
+                      in
+                      let tok3 = Scope.strm_token scope strm3
+                      and pos3 = Scope.strm_position scope strm3
+                      in
+                      let lst3 = (tok3, pos3) :: (tok2, pos2) :: lst2
+                      in
+                      let aux3 lparen rparen =
+                        let (lst4, strm4) =
+                          read_in_parens (Scope.strm_next scope strm3)
+                            lparen rparen 0 lst3
+                        in
+                        aux strm4 (args_num - 1) (Node.Tokens(List.rev lst4) :: acc)
+                      in
+                      match tok3 with
+                      | Token.LeftParen ->
+                          aux3 Token.LeftParen Token.RightParen
+                      | Token.LeftParenCurl ->
+                          aux3 Token.LeftParenCurl Token.RightParenCurl
+                      | Token.LeftParenSqr ->
+                          aux3 Token.LeftParenSqr Token.RightParenSqr
+                      | Token.Symbol(_) ->
+                          aux (Scope.strm_next scope strm3) (args_num - 1)
+                            (Node.Tokens(List.rev lst3) :: acc)
+                      | Token.Lambda ->
+                          aux2 (Scope.strm_next scope strm3) lst3
+                      | _ ->
+                          error ()
+                    end
+                | _ ->
+                    error ()
+              in
+              aux2 (Scope.strm_next scope strm) [(tok, pos)]
           | Token.RightParen | Token.RightParenSqr | Token.RightParenCurl |
             Token.LetEager | Token.LetLazy | Token.LetCBN | Token.Sep |
             Token.TokensEnd | Token.Eof ->
-              if args_num > 0 then
-                Error.error (Some pos) "not enough macro arguments";
-              (List.rev acc, strm)
+              success ()
           | _ ->
-              Error.error (Some pos) "complex macro arguments should be enclosed in parentheses";
-              (List.rev acc, strm)
+              error ()
       in
       aux strm args_num []
     in
@@ -904,7 +948,8 @@ m4_changequote([`],['])
       recursive
         begin
           xlet ^|| macrodef ^|| symdef ^|| syntax ^|| import_syntax ^||
-          import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^|| expr
+          import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^||
+          macro_expand ^|| macro_call statement ^|| expr
         end
 
     and xlet () =
@@ -1038,7 +1083,7 @@ m4_changequote([`],['])
     and syntax () =
       recursive
         begin
-          keyword sym_syntax +! catch_errors (operator ^|| syntax_block ^|| drop)
+          keyword sym_syntax +! catch_errors (operator ^|| syntax_block ^|| macrosep ^|| drop)
         end
 
     and operator () =
@@ -1164,6 +1209,17 @@ m4_changequote([`],['])
                 match lst with
                 | [Ident(beg_sym); Ident(end_sym)] ->
                     Scope.add_block scope beg_sym end_sym
+                | _ -> assert false)))
+
+    and macrosep =
+      rule
+        (discard
+           (symbol sym_macrosep +! name ++
+              change_scope
+              (fun lst attrs scope ->
+                match lst with
+                | [Ident(sym)] ->
+                    Scope.add_macrosep scope sym
                 | _ -> assert false)))
 
     and name_list () =
@@ -1309,18 +1365,24 @@ m4_changequote([`],['])
     and expr () =
       recursive
         begin
-          xlet ^|| macro_call ^|| macro_expand ^|| appl
+          xlet ^|| macro_call expr ^|| macro_quote ^|| appl
         end
 
-    and macro_call () (lst, attrs, strm, scope) cont =
+    and macro_call rule () (lst, attrs, strm, scope) cont =
       handle_macro scope strm
         (fun strm2 node ->
           match node with
           | Node.Tokens(tokens) ->
-              statement () (lst, attrs, TokenStream.putback strm2 tokens, scope) cont
+              rule () (lst, attrs, TokenStream.putback strm2 tokens, scope) cont
           | _ ->
               Error.error (Some (TokenStream.position strm)) "macro did not return tokens";
-              statement () (lst, attrs, strm2, scope) cont)
+              rule () (lst, attrs, strm2, scope) cont)
+
+    and macro_quote () =
+      recursive
+        begin
+          symbol sym_macro_quote +! term
+        end
 
     and macro_expand () =
       recursive
@@ -1379,7 +1441,7 @@ m4_changequote([`],['])
     and terms () =
       recursive
         begin
-          term ++ maybe terms
+          macro_call terms ^|| term ++ maybe terms
         end
 
     and term () =

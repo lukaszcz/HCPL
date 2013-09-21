@@ -39,13 +39,18 @@ syntax operator or  is left, binary, after xor;
 syntax operator , is right, binary, after or;
 
 syntax operator >> is left, binary, after ,;
-syntax operator << is right, binary, prio >>;
+syntax operator << is left, binary, prio >>;
 
 syntax operator $. is right, binary, after <<;
 
 syntax block begin end;
 
+syntax macrosep >>;
+syntax macrosep <<;
+syntax macrosep $.;
+
 let not = \x . if x then false else true;
+let xor = \x \y . (x or y) and not (x and y);
 let neg = \x . 0 - x;
 let /=  = \x \y . not (x = y);
 let when = \&#x \&#y . if x then y else ();

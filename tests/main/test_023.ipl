@@ -1,0 +1,10 @@
+
+// macrosep test
+
+macro m = \args { match args with %h :: %t -> mk-apply h t | %_ -> #< (\x x) ># };
+
+print $. m \x { x + 3 } << 7;
+print $. m << \x { x + 3 } $. 7;
+print $. m << \x { x + 3 } << 7;
+7 >> m \x { x + 3 } >> print;
+7 >> \x { x + 3 } >> m >> print;

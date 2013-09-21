@@ -9,5 +9,5 @@ tactic auto = \phi {
    if is-proof p then
       p
    else
-      error "auto tactic failed"
+      error ("auto failed on: " ^ to_string phi)
 };
