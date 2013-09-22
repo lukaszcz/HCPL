@@ -69,8 +69,6 @@ let matches = \x \y . xmatch x y \_ true \_ false;
 
 macro unique-id = \args { #< #$0 ># };
 
-let macro-fun = \f f;
-
 let join-tokens-list = \toks {
    match toks with
    | %h :: %t ->

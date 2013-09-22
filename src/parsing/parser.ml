@@ -402,6 +402,7 @@ let do_parse is_repl_mode lexbuf runtime_lexbuf eval_handler decl_handler =
   and sym_from = Symtab.find symtab "from"
   and sym_at = Symtab.find symtab "@"
   and sym_macro = Symtab.find symtab "macro"
+  and sym_forward = Symtab.find symtab "forward"
   and sym_sym = Symtab.find symtab "sym"
 m4_changequote(`[',`]')
   and sym_backquote = Symtab.find symtab "`"
@@ -498,6 +499,33 @@ m4_changequote([`],['])
 
   let rec do_parse_lexbuf is_repl_mode lexbuf initial_scope =
 
+    let fwd_decls = Hashtbl.create 16
+    and fwd_decl_id = ref 0
+    in
+    let add_fwd_decl sym pos =
+      incr fwd_decl_id;
+      Hashtbl.add fwd_decls !fwd_decl_id (sym, pos);
+      !fwd_decl_id
+    and fix_fwd_decl (id, frame, rnode) node =
+      try
+        let (sym, pos) = Hashtbl.find fwd_decls id
+        in
+        if Quote.largest_frame node > frame then
+          Error.error pos ("definition of '" ^ Symbol.to_string sym ^
+                           "' depends on values defined after its forward declaration");
+        rnode := node;
+        Hashtbl.remove fwd_decls id
+      with
+        Not_found ->
+          rnode := node
+    and check_fwd_decls () =
+      Hashtbl.iter
+        (fun _ (sym, pos) ->
+          Error.error pos ("no definition found for '" ^ Symbol.to_string sym ^ "'"))
+        fwd_decls;
+      Hashtbl.clear fwd_decls
+    in
+
     let decl f () (lst, attrs, strm, scope) (cont : parser_cont_t) =
       begin
         let pos = Scope.strm_position scope strm
@@ -506,9 +534,11 @@ m4_changequote([`],['])
         in
         match Scope.strm_token scope strm with
         | Token.Symbol(sym) ->
+            let node = f sym pos scope
+            in
             let scope2 =
               try
-                Some (Scope.add_ident scope sym (f sym pos scope))
+                Some (Scope.add_ident scope sym node)
               with Scope.Duplicate_ident -> None
             in
             begin
@@ -516,20 +546,27 @@ m4_changequote([`],['])
               | Some(sc) ->
                   cont ((Ident sym) :: lst, attrs, Scope.strm_next sc strm, sc)
               | None ->
-                  let node = Scope.find_ident scope sym
-                  in
-                  let mpos = Node.get_pos node
-                  in
-                  let scope3 = Scope.replace_ident scope sym (Node.Proxy(ref Node.Nil))
-                  in
-                  let msg =
-                    "duplicate identifier '" ^ Symbol.to_string sym ^
-                    match mpos with
-                    | Some(_) -> "', previous declaration at " ^ Error.pos_to_string mpos
-                    | None -> "'"
-                  in
-                  Error.error (Some pos) msg;
-                  error_resume ((Ident sym) :: lst, attrs, Scope.strm_next scope strm, scope3) cont
+                  if Scope.is_fwd_decl scope sym then
+                    let scope3 = Scope.replace_ident scope sym node
+                    in
+                    cont ((Ident sym) :: lst, attrs, Scope.strm_next scope3 strm, scope3)
+                  else
+                    begin
+                      let node = Scope.find_ident scope sym
+                      in
+                      let mpos = Node.get_pos node
+                      in
+                      let scope3 = Scope.replace_ident scope sym (Node.Proxy(ref Node.Nil))
+                      in
+                      let msg =
+                        "duplicate identifier '" ^ Symbol.to_string sym ^
+                        match mpos with
+                        | Some(_) -> "', previous declaration at " ^ Error.pos_to_string mpos
+                        | None -> "'"
+                      in
+                      Error.error (Some pos) msg;
+                      error_resume ((Ident sym) :: lst, attrs, Scope.strm_next scope strm, scope3) cont
+                    end
             end
         | _ ->
             let scope2 = Scope.replace_ident scope sym_unknown (Node.Proxy(ref Node.Nil))
@@ -574,6 +611,7 @@ m4_changequote([`],['])
     and repl_eval () ((lst, attrs, _, scope) as state) cont =
       if is_repl_mode && Scope.nesting scope = 0 then
         begin
+          check_fwd_decls ();
           match lst with
           | Program(stmt) :: _ ->
               eval_handler stmt (Scope.lineno scope);
@@ -589,6 +627,7 @@ m4_changequote([`],['])
     and repl_decl () ((lst, attrs, _, scope) as state) cont =
       if is_repl_mode && Scope.nesting scope = 0 then
         begin
+          check_fwd_decls ();
           match lst with
           | [Program(value); Ident(_); CallType(ct)] ->
               if Node.is_immediate value then
@@ -949,8 +988,8 @@ m4_changequote([`],['])
       recursive
         begin
           xlet ^|| macrodef ^|| symdef ^|| syntax ^|| import_syntax ^||
-          import ^|| xopen ^|| xinclude ^|| xmodule ^|| module_end ^||
-          macro_expand ^|| macro_call statement ^|| expr
+          import ^|| xopen ^|| xinclude ^|| xmodule ^|| forward ^||
+          macro_expand ^|| macro_call statement ^|| module_end ^|| expr
         end
 
     and xlet () =
@@ -990,6 +1029,15 @@ m4_changequote([`],['])
                             value2
                           else
                             Node.Var(Scope.frame scope + 1)
+                        in
+                        let scope =
+                          if Scope.is_fwd_decl scope sym then
+                            begin
+                              fix_fwd_decl (Scope.get_fwd_decl scope sym) node;
+                              Scope.remove_fwd_decl scope sym
+                            end
+                          else
+                            scope
                         in
                         let scope2 = Scope.replace_ident scope sym node
                         in
@@ -1055,12 +1103,16 @@ m4_changequote([`],['])
               match lst with
               | [Num(n); Ident(sym); Program(node)] ->
                   begin
+                    let pos = Node.Attrs.get_pos attrs
+                    in
+                    if Scope.is_fwd_decl scope sym then
+                      Error.error pos "macros must be declared before use";
                     match node with
                     | Node.Lambda(body, frame, call_type, _, lam_attrs) ->
                         begin
                           if frame <> 0 then
                             begin
-                              Error.error (Node.Attrs.get_pos attrs) "macros cannot depend on definitions that require evaluation";
+                              Error.error pos "macros cannot depend on definitions that require evaluation";
                               scope
                             end
                           else
@@ -1362,6 +1414,29 @@ m4_changequote([`],['])
              raise (ParseFailure(Some(TokenStream.position strm),
                                  "internal error: module failure",
                                  (fun () -> assert false)))))
+
+    and forward () =
+      recursive
+        begin
+          rule
+            (discard
+               (keyword sym_forward +! name_list
+                  ++
+                  change_scope
+                  (fun lst attrs scope ->
+                    let pos = Node.Attrs.get_pos attrs
+                    in
+                    let rec aux lst scope =
+                      match lst with
+                      | Ident(sym) :: t ->
+                          let id = add_fwd_decl sym pos
+                          in
+                          aux t (Scope.add_fwd_decl scope sym id)
+                      | [] -> scope
+                      | _ -> assert false
+                    in
+                    aux lst scope)))
+        end
 
     and expr () =
       recursive
@@ -1759,7 +1834,7 @@ m4_changequote([`],['])
               try
                 Program(Scope.find_ident scope sym)
               with Not_found ->
-                Error.error (Node.Attrs.get_pos attrs) "unbound identifier";
+                Error.error (Node.Attrs.get_pos attrs) ("unbound identifier: '" ^ Symbol.to_string sym ^ "'");
                 Program(Node.Nil)
             end
         | _ -> assert false)
@@ -1845,11 +1920,12 @@ m4_changequote([`],['])
       loop
         (fun () -> execute program lexbuf symtab initial_scope)
     in
+    check_fwd_decls ();
     (get_singleton_node lst, scope)
   in
 
-  let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include; sym_macro;
-                  sym_match; sym_try]
+  let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include; sym_forward;
+                  sym_macro; sym_match; sym_try]
   and builtins = [(fun x -> Core_builtins.declare_builtins x symtab);
                   (fun x -> List_builtins.declare_builtins x symtab)]
   in

@@ -185,6 +185,11 @@ let get_free_vars node =
   in
   aux node 0 (-1) Utils.IntSet.empty
 
+let largest_frame node =
+  let fvars = get_free_vars node
+  in
+  Utils.IntSet.fold (fun x acc -> max x acc) fvars (-1)
+
 let eta_reduce node =
   if Node.is_quoted node then
     match Node.unquote node with

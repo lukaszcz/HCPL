@@ -9,7 +9,7 @@
 <!ENTITY SIDENT "[a-z$A-Z_]\w*[-$.]\w*">
 ]>
 <language name="IPL" version="1.00" section="Sources" indenter="normal" extensions="*.ipl"
-          priority="10" author="Lukasz Czajka" license="LGPL">
+          priority="10" author="Lukasz Czajka" license="GPL">
 
   <highlighting>
 
@@ -20,6 +20,7 @@
       <item> import </item>
       <item> open </item>
       <item> include </item>
+      <item> forward </item>
       <item> macro </item>
       <item> lemma </item>
       <item> theorem </item>
@@ -32,6 +33,7 @@
       <item> import </item>
       <item> open </item>
       <item> include </item>
+      <item> forward </item>
       <item> macro </item>
       <item> match </item>
       <item> when </item>

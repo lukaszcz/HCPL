@@ -16,6 +16,7 @@ type t = { identtab : identtab_t; frame : int; scopenum : int;
            blocks : Symbol.t Symbol.Map.t;
            macroseps : Symbol.Set.t;
            syntaxlst : syntaxlst_t;
+           fwds : (int (* id *) * int (* frame *) * Node.t ref) Symbol.Map.t;
            mutable line_num : int }
 
 exception Duplicate_ident
@@ -34,6 +35,7 @@ let empty = { identtab = Symbol.Map.empty;
               blocks = Symbol.Map.empty;
               macroseps = Symbol.Set.empty;
               syntaxlst = [];
+              fwds = Symbol.Map.empty;
               line_num = 0 }
 
 let empty_repl = { empty with is_repl_mode = true }
@@ -91,6 +93,24 @@ let identtab scope =
     )
     scope.identtab
     Symbol.Map.empty
+
+let add_fwd_decl scope sym id =
+  let rnode = ref Node.Nil
+  in
+  let fwds2 = Symbol.Map.add sym (id, scope.scopenum, rnode) scope.fwds
+  in
+  replace_ident { scope with fwds = fwds2 } sym (Node.Proxy(rnode))
+
+let is_fwd_decl scope sym =
+  Symbol.Map.mem sym scope.fwds
+
+let get_fwd_decl scope sym =
+  Symbol.Map.find sym scope.fwds
+
+let remove_fwd_decl scope sym =
+  let fwds2 = Symbol.Map.remove sym scope.fwds
+  in
+  { scope with fwds = fwds2 }
 
 let enter_module scope (sym : Symbol.t) =
   let rec loop lst acc =

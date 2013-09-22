@@ -15,4 +15,5 @@ val subst : Node.t -> Node.t -> Node.t -> Node.t
 val lift : Node.t -> Node.t -> Node.t
 val close : Node.t -> Node.t
 val get_free_vars : Node.t -> Utils.IntSet.t
+val largest_frame : Node.t -> int
 val eta_reduce : Node.t -> Node.t

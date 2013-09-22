@@ -1,0 +1,28 @@
+
+// forward declarations
+
+forward f, g, h;
+
+let f = \x {
+   if x < 1 then
+      1
+   else
+      x * g (x - 1)
+};
+
+let g = \x {
+   if x < 1 then
+      1
+   else
+      x * h (x - 1)
+};
+
+let h = \x {
+   if x < 1 then
+      1
+   else
+      x * f (x - 1)
+};
+
+print (f 5);
+print (f 10);
