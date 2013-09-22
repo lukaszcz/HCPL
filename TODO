@@ -1,26 +1,28 @@
 
-* Don't inherit identifiers from opened modules by default
+* Don't exit on too many errors in repl mode
 * stacktrace
 
-(3-5 days)
+(1 day)
 * auto-type improvement
 * even more logic tests
+(3-4 days)
 * More logic (induction, sets etc)
 
 (2 days)
 * auto tactic
 
 (2 days)
-* Don't exit on too many errors in repl mode
 * Makefile target: install
 * examples
 * version 0.1
 
+* inherit & override
 * fix comparing/matching recursive data structures
 * names preserved for variables in fix etc
 * def
 * update 'thesis' in *-intro
 * intros, forall-intros, impl-intros
+* improve auto tactic
 * Get rid of quadratic time in join-tokens -- improve token list representation.
 * CAppl
 * macro priorities instead of syntax macrosep

@@ -46,20 +46,25 @@ let push_ident_scope scope = { scope with scopenum = scope.scopenum + 1; module_
 
 let nesting scope = scope.scopenum
 
-let add_ident scope sym node =
+let add_ident_aux scope sym node scnum2 =
   let newtab =
     try
       let (_, scnum) = Symbol.Map.find sym scope.identtab
       in
       assert (scnum <= scope.scopenum);
       if scnum < scope.scopenum then
-        Symbol.Map.add sym (node, scope.scopenum) scope.identtab
+        Symbol.Map.add sym (node, scnum2) scope.identtab
       else
         raise Duplicate_ident
     with
-      Not_found -> Symbol.Map.add sym (node, scope.scopenum) scope.identtab
+      Not_found -> Symbol.Map.add sym (node, scnum2) scope.identtab
   in
   { scope with identtab = newtab }
+
+let add_ident scope sym node = add_ident_aux scope sym node scope.scopenum
+
+let import_ident scope sym node =
+  add_ident_aux scope sym node (scope.scopenum - 1)
 
 let find_ident scope sym =
   let node = fst (Symbol.Map.find sym scope.identtab)
@@ -205,12 +210,14 @@ let pop_frame scope =
 let rewrite scope lst =
   Opertab.rewrite scope.opertab lst
 
-let add_oper scope sym prio assoc arity =
+let add_oper_aux save scope sym prio assoc arity =
   let tab = Opertab.add scope.opertab sym prio assoc arity
   in
-  let slst = (Syntax.Oper(sym, prio, assoc, arity), scope.scopenum) :: scope.syntaxlst
+  let slst = if save then (Syntax.Oper(sym, prio, assoc, arity), scope.scopenum) :: scope.syntaxlst else scope.syntaxlst
   in
   { scope with opertab = tab; syntaxlst = slst }
+
+let add_oper = add_oper_aux true
 
 let drop_oper scope sym =
   let tab = Opertab.drop scope.opertab sym
@@ -225,22 +232,26 @@ let drop_oper scope sym =
   in
   { scope with opertab = tab; syntaxlst = slst }
 
-let add_block scope beg_sym end_sym =
+let add_block_aux save scope beg_sym end_sym =
   let blocks2 = Symbol.Map.add beg_sym end_sym scope.blocks
   and kwds2 = Symbol.Set.add end_sym (Symbol.Set.add beg_sym scope.permanent_keywords)
   in
-  let slst2 = (Syntax.Block(beg_sym, end_sym), scope.scopenum) :: scope.syntaxlst
+  let slst2 = if save then (Syntax.Block(beg_sym, end_sym), scope.scopenum) :: scope.syntaxlst else scope.syntaxlst
   in
   { scope with blocks = blocks2; permanent_keywords = kwds2; syntaxlst = slst2 }
+
+let add_block = add_block_aux true
 
 let get_block_end scope beg_sym =
   Symbol.Map.find beg_sym scope.blocks
 
-let add_macrosep scope sym =
+let add_macrosep_aux save scope sym =
   let mseps2 = Symbol.Set.add sym scope.macroseps
-  and slst2 = (Syntax.Macrosep(sym), scope.scopenum) :: scope.syntaxlst
+  and slst2 = if save then (Syntax.Macrosep(sym), scope.scopenum) :: scope.syntaxlst else scope.syntaxlst
   in
   { scope with macroseps = mseps2; syntaxlst = slst2 }
+
+let add_macrosep = add_macrosep_aux true
 
 let is_macrosep scope sym =
   Symbol.Set.mem sym scope.macroseps
@@ -259,9 +270,9 @@ let get_syntax scope =
 let rec add_syntax scope lst =
   match lst with
   | Syntax.Oper(sym, prio, assoc, arity) :: t ->
-      add_syntax (add_oper scope sym prio assoc arity) t
+      add_syntax (add_oper_aux false scope sym prio assoc arity) t
   | Syntax.Block(beg_sym, end_sym) :: t ->
-      add_syntax (add_block scope beg_sym end_sym) t
+      add_syntax (add_block_aux false scope beg_sym end_sym) t
   | Syntax.Macrosep(sym) :: t ->
-      add_syntax (add_macrosep scope sym) t
+      add_syntax (add_macrosep_aux false scope sym) t
   | [] -> scope

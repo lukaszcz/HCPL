@@ -696,7 +696,7 @@ m4_changequote([`],['])
             end
         | _ -> assert false)
 
-    and add_idents f =
+    and import_idents f =
       (fun sym module_node identtab syntax attrs scope ->
         Symbol.Map.fold
           (fun k node scope ->
@@ -709,7 +709,7 @@ m4_changequote([`],['])
                 | _ -> Node.BRecordGet(module_node, Node.Sym(k))
             in
             try
-              Scope.add_ident scope (f sym k) node2
+              Scope.import_ident scope (f sym k) node2
             with Scope.Duplicate_ident ->
               Error.error (Node.Attrs.get_pos attrs) ("duplicate identifier: " ^ (Symbol.to_string (f sym k)));
               scope
@@ -722,8 +722,9 @@ m4_changequote([`],['])
       Scope.add_syntax scope syntax
     in
 
-    let add_idents_and_syntax f sym module_node identtab syntax attrs scope =
-      Scope.add_syntax (add_idents f sym module_node identtab syntax attrs scope) syntax
+    let open_idents_and_syntax sym module_node identtab syntax attrs scope =
+      Scope.add_syntax (import_idents join_syms sym module_node identtab syntax attrs
+                          (import_idents (fun _ k -> k) sym module_node identtab syntax attrs scope)) syntax
 
     and read_macro_args strm scope args_num =
       let rec read_raw_tokens strm cnt acc =
@@ -1305,10 +1306,10 @@ m4_changequote([`],['])
               maybe (symbol sym_from) ++ catch_errors name ++ (load_module add_syntax))
 
     and import =
-      rule (keyword sym_import +! catch_errors name ++ (load_module (add_idents join_syms)))
+      rule (keyword sym_import +! catch_errors name ++ (load_module (import_idents join_syms)))
 
     and xopen =
-      rule (keyword sym_open +! catch_errors name ++ (load_module (add_idents_and_syntax (fun _ k -> k))))
+      rule (keyword sym_open +! catch_errors name ++ (load_module open_idents_and_syntax))
 
     and xinclude =
       rule
@@ -1376,7 +1377,7 @@ m4_changequote([`],['])
                             try
                               let scope4 = Scope.add_ident (Scope.add_ident scope module_name m2) sym m2
                               in
-                              add_idents join_syms sym m2 identtab syntax attrs scope4
+                              import_idents join_syms sym m2 identtab syntax attrs scope4
                             with Scope.Duplicate_ident ->
                               Error.error (Node.Attrs.get_pos attrs) "duplicate identifier";
                               scope

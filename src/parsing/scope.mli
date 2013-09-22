@@ -23,6 +23,7 @@ val nesting : t -> int
 (* raises Duplicate_ident if symbol already present in the most recent
    scope *)
 val add_ident : t -> Symbol.t -> Node.t -> t
+val import_ident : t -> Symbol.t -> Node.t -> t
 (* raises Not_found if not found; find_ident automatically translates
    Var(idx) to Var(frame - idx) (de Bruijn form) *)
 val find_ident : t -> Symbol.t -> Node.t
