@@ -148,6 +148,7 @@ let exitcode =
     Arg.parse (argspec ()) (fun filename -> run filename (open_in filename)) usage_msg;
     if !file_count = 0 then
       begin
+        Config.set_repl_mode !f_interactive;
         if !f_interactive then
           run_repl "stdin" stdin
         else

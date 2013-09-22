@@ -23,7 +23,7 @@ let pos_to_string apos =
 let print_error idx pos msg =
   prerr_endline (pos_to_string pos ^ (if pos = None then "" else " ") ^ msg);
   err_count.(idx) <- err_count.(idx) + 1;
-  if err_count.(idx) > max_error_count then
+  if not (Config.is_repl_mode ()) && err_count.(idx) > max_error_count then
     begin
       prerr_endline "Too many errors, exiting...";
       exit 1;
