@@ -4,6 +4,7 @@
 (1 day)
 * auto-type improvement
 * even more logic tests
+
 (3-4 days)
 * More logic (induction, sets etc)
 
@@ -16,9 +17,9 @@
 * version 0.1
 
 * inherit & override
-* fix comparing/matching recursive data structures
-* names preserved for variables in fix etc
-* def
+* fix comparing & matching recursive data structures
+* names should be preserved for variables in fix etc
+* def macro
 * update 'thesis' in *-intro
 * intros, forall-intros, impl-intros
 * improve auto tactic

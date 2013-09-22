@@ -198,6 +198,57 @@ let macro_tmp lst =
       end
   | _ -> failwith "macro_tmp"
 
+let macro_file lst =
+  match lst with
+  | x :: _ ->
+      begin
+        let pos2 =
+          match x with
+          | Tokens([(_, pos)]) -> pos
+          | _ -> Lexing.dummy_pos
+        in
+        match Eval.macro_pos () with
+        | Some(pos) ->
+            Tokens([(Token.String(pos.Lexing.pos_fname), pos2)])
+        | None ->
+            Tokens([(Token.String(pos2.Lexing.pos_fname), pos2)])
+      end
+  | _ -> assert false
+
+let macro_line lst =
+  match lst with
+  | x :: _ ->
+      begin
+        let pos2 =
+          match x with
+          | Tokens([(_, pos)]) -> pos
+          | _ -> Lexing.dummy_pos
+        in
+        match Eval.macro_pos () with
+        | Some(pos) ->
+            Tokens([(Token.Number(Big_int.big_int_of_int pos.Lexing.pos_lnum), pos2)])
+        | None ->
+            Tokens([(Token.Number(Big_int.big_int_of_int pos2.Lexing.pos_lnum), pos2)])
+      end
+  | _ -> assert false
+
+let macro_column lst =
+  match lst with
+  | x :: _ ->
+      begin
+        let pos2 =
+          match x with
+          | Tokens([(_, pos)]) -> pos
+          | _ -> Lexing.dummy_pos
+        in
+        match Eval.macro_pos () with
+        | Some(pos) ->
+            Tokens([(Token.Number(Big_int.big_int_of_int (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)), pos2)])
+        | None ->
+            Tokens([(Token.Number(Big_int.big_int_of_int (pos2.Lexing.pos_cnum - pos2.Lexing.pos_bol)), pos2)])
+      end
+  | _ -> assert false
+
 let unique_int =
   let id = ref 0
   in
@@ -311,6 +362,9 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "split-tokens") (split_tokens, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "error") (runtime_error, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_macro_tmp") (macro_tmp, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_file") (macro_file, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_line") (macro_line, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_column") (macro_column, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "unique-int") (unique_int, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "join-symbols") (join_symbols, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "try") (xtry, 2, CallByName) in

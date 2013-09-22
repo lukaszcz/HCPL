@@ -419,6 +419,12 @@ m4_changequote([`],['])
   and sym_quote2 = Symtab.find symtab "quote"
   and sym_join_tokens = Symtab.find symtab "join-tokens"
   and sym_macro_tmp = Symtab.find symtab "__ipl_macro_tmp"
+  and sym_macro_file = Symtab.find symtab "__ipl_file"
+  and sym_macro_line = Symtab.find symtab "__ipl_line"
+  and sym_macro_column = Symtab.find symtab "__ipl_column"
+  and sym_file = Symtab.find symtab "file"
+  and sym_line = Symtab.find symtab "line"
+  and sym_column = Symtab.find symtab "column"
   and sym_paste_tmp = Symtab.find symtab "#$"
   and sym_macro_expand = Symtab.find symtab "#^"
   and sym_macro_quote = Symtab.find symtab "#'"
@@ -924,7 +930,7 @@ m4_changequote([`],['])
                                let node2 =
                                  begin
                                    try
-                                     Eval.eval_macro symtab node args n
+                                     Eval.eval_macro (Some pos) symtab node args n
                                    with
                                      Error.RuntimeError(node) ->
                                        let msg =
@@ -1627,6 +1633,9 @@ m4_changequote([`],['])
         (fun () (lst, attrs, strm, scope) cont ->
           let join_tokens = Scope.find_ident scope sym_join_tokens
           and macro_tmp = Scope.find_ident scope sym_macro_tmp
+          and macro_file = Scope.find_ident scope sym_macro_file
+          and macro_line = Scope.find_ident scope sym_macro_line
+          and macro_column = Scope.find_ident scope sym_macro_column
           in
           let rec aux strm acc lst2 cnt =
             let tok = TokenStream.token strm
@@ -1670,23 +1679,32 @@ m4_changequote([`],['])
             else if Token.eq tok (Token.Symbol(sym_paste_tmp)) then
               let strm = TokenStream.next strm
               in
+              let join_aux node0 =
+                let node = Node.Appl(node0, Node.Tokens([(Token.Eof, TokenStream.position strm)]), None)
+                in
+                aux (TokenStream.next strm) []
+                  (if acc = [] then
+                    node :: lst2
+                  else
+                    Node.Appl(Node.Appl(join_tokens, Node.Tokens(List.rev acc), None), node, None) :: lst2)
+                  cnt
+              in
               match TokenStream.token strm with
               | Token.Number(num) ->
                   let n = Big_int.int_of_big_int num
                   in
                   if n < 0 || n > 9 then
                     Error.error (Some(TokenStream.position strm)) "expected a number in the range 0-9";
-                  let node = Node.Appl(Node.Appl(macro_tmp, Bignum.from_big_int num, None),
-                                       Node.Tokens([(TokenStream.token strm, TokenStream.position strm)]), None)
-                  in
-                  aux (TokenStream.next strm) []
-                    (if acc = [] then
-                      node :: lst2
-                    else
-                      Node.Appl(Node.Appl(join_tokens, Node.Tokens(List.rev acc), None), node, None) :: lst2)
-                    cnt
+                  join_aux (Node.Appl(macro_tmp, Bignum.from_big_int num, None))
+              | Token.Symbol(sym) when Symbol.eq sym sym_file ->
+                  join_aux macro_file
+              | Token.Symbol(sym) when Symbol.eq sym sym_line ->
+                  join_aux macro_line
+              | Token.Symbol(sym) when Symbol.eq sym sym_column ->
+                  join_aux macro_column
               | _ ->
-                  Error.error (Some(TokenStream.position strm)) "expected a number in the range 0-9";
+                  Error.error (Some(TokenStream.position strm))
+                    "expected 'file', 'line', 'column', or a number in the range 0-9";
                   aux (TokenStream.next strm) acc lst2 cnt
             else
               aux (TokenStream.next strm) ((tok, pos) :: acc) lst2 cnt

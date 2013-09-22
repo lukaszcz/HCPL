@@ -672,8 +672,9 @@ let eval_in node env = do_eval node env (Env.length env)
 let macro_tmp_id = ref 0
 let extra_macro_args_ref = ref []
 let macro_symtab_ref = ref None
+let macro_pos_ref = ref None
 
-let eval_macro symtab node args args_num =
+let eval_macro pos symtab node args args_num =
   let n = 10
   in
   let rec mkextra m acc =
@@ -687,6 +688,7 @@ let eval_macro symtab node args args_num =
   in
   extra_macro_args_ref := mkextra n [];
   macro_symtab_ref := Some(symtab);
+  macro_pos_ref := pos;
   Utils.try_finally
     (fun () ->
       if args_num < 0 then
@@ -706,7 +708,8 @@ let eval_macro symtab node args args_num =
         eval (mkappl node args))
     (fun () ->
       extra_macro_args_ref := [];
-      macro_symtab_ref := None)
+      macro_symtab_ref := None;
+      macro_pos_ref := None)
 
 let extra_macro_args () = !extra_macro_args_ref
 
@@ -714,3 +717,5 @@ let macro_symtab () =
   match !macro_symtab_ref with
   | Some(symtab) -> symtab
   | None -> Error.runtime_error "symbol table may be used only during macro evaluation"
+
+let macro_pos () = !macro_pos_ref
