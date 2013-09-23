@@ -4,46 +4,82 @@
  */
 
 tactic auto-type = \phi {
-   let p = find-fact phi;
-   if is-proof p then
-      p
-   else {
-      match phi with
-      | '(true in Prop) ->
-         true-type-intro
-      | '(false in Prop) ->
-         false-type-intro
-      | '((%a and %b) in Prop) ->
-         and-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
-      | '((%a or %b) in Prop) ->
-         or-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
-      | '((%a => %b) in Prop) ->
-         impl-type-intro (auto-type '(a in Prop)) { suppose a; auto-type '(b in Prop) }
-      | '((%a <=> %b) in Prop) ->
-         equiv-type-intro {
-            suppose b;
-            auto-type '(a in Prop)
-         }{
-            suppose a;
-            auto-type '(b in Prop)
-         }
-      | '((not %a) in Prop) ->
-         not-type-intro (auto-type '(a in Prop))
-      | '((ALL %a %b) in Prop) ->
-         forall-type-intro (auto-type '(a in Type)) \x {
-            suppose '(x in a);
-            auto-type '(b x in Prop)
-         }
-      | '((EX %a %b) in Prop) ->
-         exists-type-intro (auto-type '(a in Type)) \x {
-            suppose '(x in a);
-            auto-type '(b x in Prop)
-         }
-      | '(Prop in Type) ->
-         prop-type-intro
-      | '((%a -> %b) in Type) ->
-         fun-type-intro (auto-type '(a in Type)) (auto-type '(b in Type))
-      | %_ ->
-         error ("auto-type failed on: " ^ to_string phi)
-   }
+   let aux = \phi \lim {
+      let p = find-fact phi;
+      if is-proof p then
+         p
+      else {
+         match phi with
+         | '(true in Prop) ->
+            true-type-intro
+         | '(false in Prop) ->
+            false-type-intro
+         | '((%a and %b) in Prop) ->
+            and-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
+         | '((%a or %b) in Prop) ->
+            or-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
+         | '((%a => %b) in Prop) ->
+            impl-type-intro (auto-type '(a in Prop)) { suppose a; auto-type '(b in Prop) }
+         | '((%a <=> %b) in Prop) ->
+            equiv-type-intro {
+               suppose b;
+               auto-type '(a in Prop)
+            }{
+               suppose a;
+               auto-type '(b in Prop)
+            }
+         | '((not %a) in Prop) ->
+            not-type-intro (auto-type '(a in Prop))
+         | '((ALL %a %b) in Prop) ->
+            forall-type-intro (auto-type '(a in Type)) \x {
+               suppose '(x in a);
+               auto-type '(b x in Prop)
+            }
+         | '((EX %a %b) in Prop) ->
+            exists-type-intro (auto-type '(a in Type)) \x {
+               suppose '(x in a);
+               auto-type '(b x in Prop)
+            }
+         | '(Prop in Type) ->
+            prop-type-intro
+         | '((%a -> %b) in Type) ->
+            fun-type-intro (auto-type '(a in Type)) (auto-type '(b in Type))
+         | '(%a in %tp) ->
+            if lim > 1 then {
+               let a1 = reduce a
+               let p = try-apply aux (lim - 1) '(a1 in tp)
+               in
+               if p = () then {
+                  let tp1 = reduce tp
+                  let p = try-apply aux (lim - 1) '(a in tp1)
+                  in
+                  if p = () then {
+                     let p = try-apply aux (lim - 1) '(a1 in tp1)
+                     in
+                     if p = () then {
+                        aux (lim - 1) (reduce '(a1 in tp1))
+                     } else
+                        p
+                  } else
+                     p
+               } else
+                  p
+            } else if lim > 0 then {
+               let a1 = eval-limited a eval-limit
+               let tp1 = eval-limited tp eval-limit
+               let atp = '(a1 in tp1)
+               let p = try-apply aux 0 atp
+               in
+               if p = () then {
+                  aux 0 (eval-limited atp eval-limit)
+               } else
+                  p
+            } else {
+               error ("auto-type failed on: " ^ to_string phi)
+            }
+         | %_ ->
+            error ("auto-type failed on: " ^ to_string phi)
+      }
+   };
+   aux phi (eq-limit + 1)
 };

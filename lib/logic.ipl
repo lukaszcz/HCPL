@@ -106,23 +106,6 @@ macro call-tactic-with = \args {
    | %_ -> error "call-tactic-with: wrong arguments"
 }
 
-macro try-tactic = \args {
-   match args with
-   | %tac :: %t ->
-      let rest = join-tokens-list t
-      in
-      #<
-         begin
-            try
-               #tac #rest
-            with %_ -> ()
-         end
-      >#
-   | %_ -> error "try-tactic: wrong arguments"
-}
-
-macro try-rule = \args { mk-macro-call try-tactic args }
-
 let eval-limit = 1000
 let eq-limit = 100
 

@@ -734,9 +734,9 @@ m4_changequote([`],['])
 
     and read_macro_args strm scope args_num =
       let rec read_raw_tokens strm cnt acc =
-        let tok = Scope.strm_token scope strm
-        and pos = Scope.strm_position scope strm
-        and strm2 = Scope.strm_next scope strm
+        let tok = TokenStream.token strm
+        and pos = TokenStream.position strm
+        and strm2 = TokenStream.next strm
         in
         if Token.eq tok Token.TokensEnd then
           begin
@@ -750,9 +750,9 @@ m4_changequote([`],['])
       in
 
       let rec read_in_parens strm left right cnt acc =
-        let tok = Scope.strm_token scope strm
-        and pos = Scope.strm_position scope strm
-        and strm2 = Scope.strm_next scope strm
+        let tok = TokenStream.token strm
+        and pos = TokenStream.position strm
+        and strm2 = TokenStream.next strm
         in
         let acc2 = (tok, pos) :: acc
         in
@@ -807,7 +807,7 @@ m4_changequote([`],['])
               try
                 let end_sym = Scope.get_block_end scope sym
                 in
-                aux_read_in_parens (Token.Keyword(sym)) (Token.Keyword(end_sym))
+                aux_read_in_parens (Token.Symbol(sym)) (Token.Symbol(end_sym))
               with
                 Not_found ->
                   read_progn (Scope.strm_next scope strm) ((tok, pos) :: acc)
@@ -851,7 +851,7 @@ m4_changequote([`],['])
                 let end_sym = Scope.get_block_end scope sym
                 in
                 read_in_parens (Scope.strm_next scope strm)
-                  (Token.Keyword(sym)) (Token.Keyword(end_sym)) 0 ((tok, pos) :: acc)
+                  (Token.Symbol(sym)) (Token.Symbol(end_sym)) 0 ((tok, pos) :: acc)
               with
                 Not_found ->
                   if fail_on_sep || Symbol.eq sym sym_match then

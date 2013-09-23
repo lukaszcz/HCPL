@@ -123,3 +123,18 @@ let trace-with = \file \line \column \arg \&#block {
 macro(1) trace = \block {
    #< trace-with #$file #$line #$column "" #block >#
 };
+
+macro try-apply = \args {
+   if matches args (%_ :: %_) then {
+      let toks = join-tokens-list args
+      in
+      #<
+         begin
+            try
+               #toks
+            with %_ -> ()
+         end
+      >#
+   } else
+      error "try-apply: wrong arguments"
+};
