@@ -1,7 +1,6 @@
 (* core_builtins.ml: Core builtins implementation.
 
    Copyright (C) 2013 by Łukasz Czajka
-
 *)
 
 open Node
@@ -13,6 +12,31 @@ let is_number lst =
       if Node.is_immediate x then
         begin
           if Bignum.is_number x then True else False
+        end
+      else
+        x
+  | _ -> assert false
+
+let is_string lst =
+  match lst with
+  | x :: _ ->
+      if Node.is_immediate x then
+        begin
+          match x with String(_) -> True | _ -> False
+        end
+      else
+        x
+  | _ -> assert false
+
+let is_lambda lst =
+  match lst with
+  | x :: _ ->
+      if Node.is_immediate x then
+        begin
+          if Node.is_lambda x then
+            True
+          else
+            False
         end
       else
         x
@@ -173,6 +197,17 @@ let split_tokens lst =
   match lst with
   | Tokens(toks) :: _ -> List.fold_right (fun x acc -> Cons(Tokens([x]), acc)) toks Nil
   | _ -> Error.runtime_error "split-tokens: bad argument"
+
+let tokens_to_string lst =
+  match lst with
+  | Tokens(toks) :: _ -> String(List.fold_right (fun (t, _) acc -> Token.to_string t ^ acc) toks "")
+  | _ -> Error.runtime_error "tokens-to-string: bad argument"
+
+let to_tokens lst =
+  match lst with
+  | String(s) :: _ -> Tokens([Token.String(s), Lexing.dummy_pos])
+  | x :: _ when Bignum.is_number x -> Tokens([Token.Number(Bignum.to_big_int x), Lexing.dummy_pos])
+  | _ -> Error.runtime_error "to_tokens: bad argument"
 
 (* runtime errors *)
 
@@ -340,6 +375,8 @@ let declare_builtins scope symtab =
     (* declare other builtins *)
 
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "is-number") (is_number, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "is-string") (is_string, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "is-lambda") (is_lambda, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
@@ -360,6 +397,8 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "occurs-check") (occurs_check, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "join-tokens") (join_tokens, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "split-tokens") (split_tokens, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "tokens-to-string") (tokens_to_string, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_tokens") (to_tokens, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "error") (runtime_error, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_macro_tmp") (macro_tmp, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_file") (macro_file, 1, CallByValue) in

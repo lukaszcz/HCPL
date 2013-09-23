@@ -3,7 +3,7 @@
  * Copyright (C) 2013 by Lukasz Czajka
  */
 
-let pexpand = \a \p {
+rule pexpand = \a \p {
    let phi = goal p
    in
    if eq phi (reduce a) or eq phi (reduce-eta a) then
@@ -12,19 +12,19 @@ let pexpand = \a \p {
       error2 (phi, a) "cannot expand"
 }
 
-let preduce = \p {
+rule preduce = \p {
    proof-of (reduce (goal p))
 }
 
-let preduce-eta = \p {
+rule preduce-eta = \p {
    proof-of (reduce-eta (goal p))
 }
 
-let peval = \p {
+rule peval = \p {
    proof-of (eval (goal p))
 }
 
-let peval-limited = \p \lim {
+rule peval-limited = \p \lim {
    proof-of (eval-limited (goal p) lim)
 }
 
@@ -53,7 +53,7 @@ macro suppose = \args {
    | %_ -> error "suppose: wrong arguments"
 };
 
-let impl-intro = \p1 \p2 {
+rule impl-intro = \p1 \p2 {
    match goal p1, goal p2 with
    | ('(%b in Prop), '(ASSM %a %x)) ->
       if eq a b then
@@ -63,7 +63,7 @@ let impl-intro = \p1 \p2 {
    | %_ -> error2 (p1, p2) "impl-intro: expected a typing derivation and a supposition"
 }
 
-let impl-elim = \p1 \p2 {
+rule impl-elim = \p1 \p2 {
    let form = goal p2
    in
    match goal p1 with
@@ -71,7 +71,7 @@ let impl-elim = \p1 \p2 {
    | %_ -> error2 p1 "impl-elim: expected implication"
 }
 
-let impl-type-intro = \p1 \p2 {
+rule impl-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%phi1 in Prop), '(ASSM %phi2 (%psi in Prop)) ->
       if eq phi1 phi2 then
@@ -82,13 +82,13 @@ let impl-type-intro = \p1 \p2 {
    | %_ -> error2 (p1, p2) "impl-type-intro: wrong arguments"
 }
 
-let impl-type-elim = \p {
+rule impl-type-elim = \p {
    match goal p with
    | '((%a => %_) in Prop) -> proof-of '(a in Prop)
    | %_ -> error2 p "impl-type-elim: wrong argument"
 }
 
-let forall-intro = \p1 \f {
+rule forall-intro = \p1 \f {
    var-intro x {
       let p2 = f x
       in
@@ -103,7 +103,7 @@ let forall-intro = \p1 \f {
    }
 };
 
-let forall-elim = \p1 \p2 {
+rule forall-elim = \p1 \p2 {
    match goal p1, goal p2 with
    | ('(ALL %a %phi), '(%t in %a1)) when eq a a1 ->
       proof-of '(phi t)
@@ -112,7 +112,7 @@ let forall-elim = \p1 \p2 {
    | %_ -> error2 (p1, p2) "forall-elim: wrong arguments"
 };
 
-let forall-type-intro = \p1 \f {
+rule forall-type-intro = \p1 \f {
    var-intro x {
       let p2 = f x
       in
@@ -127,14 +127,14 @@ let forall-type-intro = \p1 \f {
    }
 };
 
-let exists-intro = \p1 \p2 \p3 {
+rule exists-intro = \p1 \p2 \p3 {
    match (goal p1, goal p2, goal p3) with
    | ('(%a in Type), '(%t in %a1), '(%phi %t1)) when eq a a1 and eq t t1 ->
       '(EX a phi)
    | %_ -> error2 (p1, p2, p3) "exists-intro: wrong arguments"
 };
 
-let exists-elim = \p1 \f {
+rule exists-elim = \p1 \f {
    var-intro x {
       let p2 = f x
       in
@@ -151,7 +151,7 @@ let exists-elim = \p1 \f {
    }
 };
 
-let exists-type-intro = \p1 \f {
+rule exists-type-intro = \p1 \f {
    var-intro x {
       let p2 = f x
       in
@@ -166,25 +166,25 @@ let exists-type-intro = \p1 \f {
    }
 }
 
-let or-intro-left = \p \right {
+rule or-intro-left = \p \right {
    let left = goal p
    in
    proof-of '(left or right)
 }
 
-let or-intro-right = \left \p {
+rule or-intro-right = \left \p {
    let right = goal p
    in
    proof-of '(left or right)
 }
 
-let or-intro = \x \y {
+rule or-intro = \x \y {
    match x with
    | proof-of %phi -> or-intro-left x y
    | %_ -> or-intro-right x y
 }
 
-let or-elim = \p \p1 \p2 {
+rule or-elim = \p \p1 \p2 {
    match (goal p, goal p1, goal p2) with
    | ('(%a or %b), '(ASSM %a1 %c), '(ASSM %b1 %c1)) when eq a a1 and eq b b1 and eq c c1 ->
       proof-of c
@@ -197,44 +197,44 @@ let or-elim = \p \p1 \p2 {
    | %_ -> error2 (p, p1, p2) "or-elim: wrong arguments"
 }
 
-let or-type-intro = \p1 \p2 {
+rule or-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%phi in Prop), '(%psi in Prop) -> proof-of '((phi or psi) in Prop)
    | %_ -> error2 (p1, p2) "or-type-intro: wrong arguments"
 }
 
-let and-intro = \p1 \p2 {
+rule and-intro = \p1 \p2 {
    let a = goal p1
    let b = goal p2
    in
    proof-of '(a and b)
 }
 
-let and-elim-left = \p {
+rule and-elim-left = \p {
    match goal p with
    | '(%a and %_) -> proof-of a
    | %_ -> error2 p "and-elim-left: wrong argument"
 }
 
-let and-elim-right = \p {
+rule and-elim-right = \p {
    match goal p with
    | '(%_ and %b) -> proof-of b
    | %_ -> error2 p "and-elim-right: wrong argument"
 }
 
-let and-type-intro = \p1 \p2 {
+rule and-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%a in Prop), '(%b in Prop) -> proof-of '((a and b) in Prop)
    | %_ -> error2 (p1, p2) "and-type-intro: wrong arguments"
 }
 
-let equiv-intro = \p1 \p2 {
+rule equiv-intro = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%phi => %psi), '(%psi1 => %phi1) when eq phi phi1 and eq psi psi1 -> proof-of '(phi <=> psi)
    | %_ -> error2 (p1, p2) "equiv-intro: wrong arguments"
 }
 
-let equiv-type-intro = \p1 \p2 {
+rule equiv-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%phi in Prop), '(%psi in Prop) ->
       proof-of '((phi <=> psi) in Prop)
@@ -248,19 +248,19 @@ let equiv-type-intro = \p1 \p2 {
       error2 (p1, p2) "equiv-type-intro: wrong arguments"
 }
 
-let equiv-elim = \p1 \p2 {
+rule equiv-elim = \p1 \p2 {
    match goal p1 with
    | '(%phi <=> %psi) when eq phi (goal p2) -> proof-of psi
    | '(%phi <=> %psi) when eq psi (goal p2) -> proof-of phi
 }
 
-let false-elim = \phi \p {
+rule false-elim = \phi \p {
    match p with
    | proof-of false -> proof-of phi
    | %_ -> error2 p "false-elim: wrong argument"
 }
 
-let not-intro-2 = \p1 \p2 {
+rule not-intro-2 = \p1 \p2 {
    match (goal p1, goal p2) with
    | ('(%a in Prop), '(ASSM %a1 false)) when eq a a1 ->
       proof-of '(not a)
@@ -283,7 +283,7 @@ macro not-intro = \args {
    | %_ -> error "not-intro: wrong arguments"
 }
 
-let not-elim = \p1 \p2 {
+rule not-elim = \p1 \p2 {
    let a = goal p1;
    let b = goal p2;
    if eq a '(not b) or eq '(not a) b then
@@ -292,19 +292,19 @@ let not-elim = \p1 \p2 {
       error2 (p1, p2) "not-elim: wrong arguments"
 }
 
-let not-type-intro = \p {
+rule not-type-intro = \p {
    match goal p with
    | '(%g in Prop) -> proof-of '((not g) in Prop)
    | %_ -> error2 p "not-type-intro: wrong argument"
 }
 
-let not-type-elim = \p {
+rule not-type-elim = \p {
    match goal p with
    | '((not %a) in Prop) -> proof-of '(a in Prop)
    | %_ -> error2 p "not-type-elim: wrong argument"
 }
 
-let contradiction = \p {
+rule contradiction = \p {
    match goal p with
    | '((not %x) => false) -> proof-of x
    | '(not (not %x)) -> proof-of x
@@ -312,7 +312,7 @@ let contradiction = \p {
    | %_ -> error2 p "contradiction: wrong argument"
 }
 
-let prop-intro = \p {
+rule prop-intro = \p {
    let phi = goal p
    in
    proof-of '(phi in Prop)
@@ -320,50 +320,50 @@ let prop-intro = \p {
 
 let prop-type-intro = proof-of '(Prop in Type)
 
-let fun-type-intro = \p1 \p2 {
+rule fun-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%a in Type), '(%b in Type) -> proof-of '((a -> b) in Type)
    | %_ -> error2 (p1, p2) "fun-type-intro: wrong arguments"
 }
 
-let equal-intro = \a \b {
+rule equal-intro = \a \b {
    if eq a b then
       proof-of '(a = b)
    else
       error2 (a, b) "equal-intro: not equal"
 }
 
-let equal-elim = \p1 \p2 {
+rule equal-elim = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%a = %b), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
    | %_ -> error2 (p1, p2) "equal-elim: wrong arguments"
 }
 
-let equal-sym = \p {
+rule equal-sym = \p {
    match goal p with
    | '(%a = %b) -> proof-of '(b = a)
    | %_ -> error2 p "equal-sym: wrong argument"
 }
 
-let equal-trans = \p1 \p2 {
+rule equal-trans = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%a = %b), '(%b1 = %c) when eq b b1 -> proof-of '(a = c)
    | %_ -> error2 (p1, p2) "equal-trans: wrong arguments"
 }
 
-let equal-cong = \p1 \p2 {
+rule equal-cong = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%a = %b), '(%c = %d) -> proof-of '(a c = b d)
    | %_ -> error2 (p1, p2) "equal-cong: wrong arguments"
 }
 
-let bool-ext-true = \p {
+rule bool-ext-true = \p {
    let g = goal p
    in
    proof-of '(g = true)
 }
 
-let bool-ext-false = \p {
+rule bool-ext-false = \p {
    match goal p with
    | '(not %a) -> '(a = false)
    | %_ -> error2 p "bool-ext-false: wrong argument"
@@ -378,7 +378,10 @@ let faith = proof-of
 
 macro(0) facts = \_ { #< __ipl_facts ># }
 
-macro(1) fact = \phi #< check-in-list __ipl_facts #phi "not a known fact" >#
+macro(1) fact = \phi #<
+   trace-with #$file #$line #$column "fact"
+      (check-in-list __ipl_facts #phi "not a known fact")
+>#
 macro(1) is-fact = \x #< is-in-list __ipl_facts #x >#
 macro(1) find-fact = \x #< find-in-list __ipl_facts #x >#
 macro(1) match-facts = \pat #< match-in-list __ipl_facts #pat >#

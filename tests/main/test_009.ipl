@@ -41,13 +41,14 @@ let sqrt = \x {
    let aux = \x \top \bot {
       if top - bot <= 1 then
          bot
-      else
+      else {
          let y = (top + bot) div 2
          in
          if y * y > x then
             aux x y bot
          else
             aux x top y
+      }
    };
    aux x (x + 1) 0
 };

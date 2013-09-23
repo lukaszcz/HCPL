@@ -1,9 +1,9 @@
 
 // laziness & higher-order functions
 
-let filter = \lst \p . match lst with (%x, %t) -> if p x then (cons& x (filter t p)) else filter t p
-let take = \lst \n . if n = 0 then [] else match lst with (%h, %t) -> (cons h (take t (n - 1)))
-let nth = \lst \n . match lst with (%x, %t) -> if n = 1 then x else nth t (n - 1)
+let filter = \lst \p { match lst with (%x, %t) -> if p x then (cons& x (filter t p)) else filter t p }
+let take = \lst \n { if n = 0 then [] else match lst with (%h, %t) -> (cons h (take t (n - 1))) }
+let nth = \lst \n { match lst with (%x, %t) -> if n = 1 then x else nth t (n - 1) }
 let numbers = \n . cons& n (numbers (n + 1))
 
 let divisible = \n \x . x mod n /= 0

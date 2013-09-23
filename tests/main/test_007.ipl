@@ -1,8 +1,8 @@
 
 let lst = [1, 2, 3, 4]
 
-let head = \x match x with (%h, %_) -> h | %_ -> ()
-let tail = \x match x with (%_, %t) -> t | %_ -> []
+let head = \x { match x with (%h, %_) -> h | %_ -> () }
+let tail = \x { match x with (%_, %t) -> t | %_ -> [] }
 
 ;;;
 

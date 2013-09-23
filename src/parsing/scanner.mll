@@ -22,6 +22,8 @@ rule read_token symtab = parse
   | '!'                            { Token.Force }
   | '&'                            { Token.Lazy }
   | "&#"                           { Token.Leave }
+  | "$."                           { Token.ReadExpr }
+  | "$.."                          { Token.ReadProgn }
   | '#'                            { Token.Paste }
   | "#<"                           { Token.TokensStart }
   | ">#"                           { Token.TokensEnd }

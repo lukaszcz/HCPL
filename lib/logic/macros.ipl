@@ -15,19 +15,24 @@ macro assume = \args {
       | %_ -> join-tokens-list lst
    };
    let aux = \name \assm \tp \block {
-      let tp2 = if tp = () then #< (auto-type '(#$0 in Prop)) ># else tp;
+      let tp2 = if tp = () then #< (auto-type '(#$0 in Prop)) ># else #< (#tp) >#;
+      let trace-tok = #< trace-with #$file #$line #$column "assume">#;
       if name = () and block = () then
-         #< let #$0 = #assm in impl-intro #tp2 << __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts .. >#
+         #<
+            #trace-tok $..
+            let #$0 = #assm in impl-intro #tp2
+               << __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts .. >#
       else if name = () then
-         #< { let #$0 = #assm in impl-intro #tp2 (suppose #$0 #block) } >#
+         #< (#trace-tok { let #$0 = #assm in impl-intro #tp2 (suppose #$0 #block) }) >#
       else if block = () then
          #<
+            #trace-tok $..
             let #$0 = #assm;
             let #name = proof-of #$0;
             impl-intro #tp2 << __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts ..
          >#
       else
-         #< { let #$0 = #assm in impl-intro #tp2 (suppose #name : #$0 #block) } >#
+         #< (#trace-tok { let #$0 = #assm in impl-intro #tp2 (suppose #name : #$0 #block) }) >#
    };
    match args with
    | [%a] ->
@@ -56,7 +61,7 @@ macro fix = \args {
       | %h :: %t ->
          let r = aux t tp tp-deriv body
          in
-         #< forall-intro #tp-deriv \#h .. suppose '(#h in #tp); #r >#
+         #< trace-with #$file #$line #$column "fix" $. forall-intro (#tp-deriv) \#h .. suppose '(#h in (#tp)); #r >#
       | [] -> body
    };
    match List.split-once (= #< : >#) args with
@@ -113,6 +118,7 @@ macro obtain = \args {
    let aux = \v \p \b {
       if b = () then
          #<
+            trace-with #$file #$line #$column "obtain" $..
             let #$0 = $p
             in
             exists-elim #p \#v ..
@@ -128,6 +134,7 @@ macro obtain = \args {
          >#
       else
          #<{
+            trace-with #$file #$line #$column "obtain" $..
             let #$0 = $p
             in
             exists-elim #p \#v {
@@ -153,7 +160,6 @@ macro obtain = \args {
             aux v p ()
          | [%lst1, %lst2] ->
             let p = join-tokens-list lst1
-            in
             let b = join-tokens-list lst2
             in
             aux v p b
@@ -171,12 +177,14 @@ macro lemma = \args {
    match args with
    | [%name, %formula, %xproof] ->
       #<
+         trace-with #$file #$line #$column "lemma" $..
          let #$0 = #formula;
          let #name = { let thesis = #$0; (#xproof) };
          remember (verify #$0 #name)
       >#
    | [%formula, %xproof] ->
       #<
+         trace-with #$file #$line #$column "lemma" $..
          let #$0 = #formula;
          let #$1 = { let thesis = #$0; (#xproof) };
          remember (verify #$0 #$1)
@@ -233,9 +241,14 @@ macro forall = \args { mk-macro-call all args }
 macro show = \args {
    let aux = \name \formula \p {
       if name = () then
-         #< remember (let #$0 = #formula in verify #$0 #p) >#
+         #< trace-with #$file #$line #$column "show" (remember (let #$0 = #formula in verify #$0 #p)) >#
       else
-         #< let #$0 = #formula in let #name = verify #$0 #p in remember #name >#
+         #<
+            trace-with #$file #$line #$column "show" $..
+            let #$0 = #formula;
+            let #name = verify #$0 #p;
+            remember #name
+         >#
    };
    let pr =
       match args with

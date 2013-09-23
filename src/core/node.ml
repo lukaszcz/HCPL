@@ -209,6 +209,8 @@ let is_closed (node : t) =
     | Lambda(_, 0, _, _, _) | Closure(_) -> true
     | _ -> false
 
+let is_lambda node = match node with Lambda(_) | LambdaClosure(_) -> true | _ -> false
+
 let smallint_value (node : t) = assert (is_smallint node); (Obj.magic node) asr 1
 
 let is_smallint_value v = v <= max_int asr 1 && v >= min_int asr 1
@@ -328,7 +330,7 @@ let call_type_to_string call_type =
   match call_type with
   | CallByValue -> "!"
   | CallByNeed -> "&"
-  | CallByName -> "#"
+  | CallByName -> "&#"
 
 let to_string node =
   let rec prn node limit =

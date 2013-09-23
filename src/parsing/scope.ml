@@ -245,6 +245,20 @@ let add_block = add_block_aux true
 let get_block_end scope beg_sym =
   Symbol.Map.find beg_sym scope.blocks
 
+let is_block_end scope end_sym =
+  try
+    Symbol.Map.fold
+      (fun k sym acc ->
+        if Symbol.eq sym end_sym then
+          raise Exit
+        else
+          acc
+      )
+      scope.blocks
+      false
+  with
+  | Exit -> true
+
 let add_macrosep_aux save scope sym =
   let mseps2 = Symbol.Set.add sym scope.macroseps
   and slst2 = if save then (Syntax.Macrosep(sym), scope.scopenum) :: scope.syntaxlst else scope.syntaxlst

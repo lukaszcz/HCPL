@@ -30,6 +30,8 @@ type t =
   | Force
   | Lazy
   | Leave
+  | ReadExpr
+  | ReadProgn
   | Paste
   | TokensStart
   | TokensEnd
@@ -71,6 +73,8 @@ let to_string x =
   | Force -> "!"
   | Lazy -> "&"
   | Leave -> "&#"
+  | ReadExpr -> "$."
+  | ReadProgn -> "$.."
   | Paste -> "#"
   | TokensStart -> "#<"
   | TokensEnd -> ">#"

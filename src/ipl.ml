@@ -20,12 +20,14 @@ let catch_error f =
       try
         f (); 0
       with
-        Error.RuntimeError(node) ->
+      | Error.RuntimeError(node) ->
           raise (Error.RuntimeError(Eval.eval node))
     end
   with
   | Error.RuntimeError(Node.String(msg)) ->
       print_endline ("runtime error: " ^ msg); 1
+  | Error.RuntimeError(node) when Node.is_lambda node ->
+      ignore (Eval.eval (Node.Appl(node, Node.Nil, None))); 1
   | Error.RuntimeError(node) ->
       print_endline ("runtime error: " ^ Node.to_string node); 1
   | Sys_error(msg) ->

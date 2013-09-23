@@ -45,13 +45,10 @@ syntax operator , is right, binary, after or;
 syntax operator >> is left, binary, after ,;
 syntax operator << is left, binary, prio >>;
 
-syntax operator $. is right, binary, after <<;
-
 syntax block begin end;
 
 syntax macrosep >>;
 syntax macrosep <<;
-syntax macrosep $.;
 
 let o = \f \g \x . f (g x);
 let comp = \f \g \x . g (f x);
@@ -62,7 +59,6 @@ let /=  = \x \y . not (x = y);
 let when = \&#x \&#y . if x then y else ();
 let >> = \x \f . f x;
 let << = \&#f . f;
-let $. = <<;
 let ## = join-tokens;
 
 let matches = \x \y . xmatch x y \_ true \_ false;
@@ -110,3 +106,20 @@ macro(2) mk-call = \x \y {
 };
 
 macro mk-macro-call = \args { mk-call mk-call args }
+
+let trace-with = \file \line \column \arg \&#block {
+   let mkmsg =
+      \_ . file ^ ":" ^ to_string line ^ ":" ^ to_string column ^ if arg = "" then "" else ": " ^ arg
+   in
+   try
+      block
+   with
+   | %f when is-lambda f ->
+      raise \_ { f (); print (mkmsg ()); }
+   | %e ->
+      raise \_ { print e; print ""; print "stacktrace:"; print ""; print (mkmsg ()); }
+};
+
+macro(1) trace = \block {
+   #< trace-with #$file #$line #$column "" #block >#
+};

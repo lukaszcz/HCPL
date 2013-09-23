@@ -748,6 +748,7 @@ m4_changequote([`],['])
         else
           read_raw_tokens strm2 (if Token.eq tok Token.TokensStart then cnt + 1 else cnt) ((tok, pos) :: acc)
       in
+
       let rec read_in_parens strm left right cnt acc =
         let tok = Scope.strm_token scope strm
         and pos = Scope.strm_position scope strm
@@ -771,133 +772,183 @@ m4_changequote([`],['])
         else
           read_in_parens strm2 left right cnt acc2
       in
+
+      let rec read_expr strm acc =
+        let tok = Scope.strm_token scope strm
+        in
+        match tok with
+        | Token.Symbol(sym) when Scope.is_macrosep scope sym ->
+            read_expr (Scope.strm_next scope strm) ((tok, Scope.strm_position scope strm) :: acc)
+        | _ ->
+            begin
+              try
+                let (acc2, strm2) = read_arg false strm acc
+                in
+                read_expr strm2 acc2
+              with
+              | Exit -> (acc, strm)
+            end
+
+      and read_progn strm acc =
+        let tok = Scope.strm_token scope strm
+        and pos = Scope.strm_position scope strm
+        in
+        let aux_read_in_parens lparen rparen =
+          let (acc2, strm2) =
+            read_in_parens (Scope.strm_next scope strm) lparen rparen 0 ((tok, pos) :: acc)
+          in
+          read_progn strm2 acc2
+        in
+        match tok with
+        | Token.Keyword(sym) when Scope.is_block_end scope sym ->
+            (acc, strm)
+        | Token.Keyword(sym) ->
+            begin
+              try
+                let end_sym = Scope.get_block_end scope sym
+                in
+                aux_read_in_parens (Token.Keyword(sym)) (Token.Keyword(end_sym))
+              with
+                Not_found ->
+                  read_progn (Scope.strm_next scope strm) ((tok, pos) :: acc)
+            end
+        | Token.LeftParen ->
+            aux_read_in_parens Token.LeftParen Token.RightParen
+        | Token.LeftParenSqr ->
+            aux_read_in_parens Token.LeftParenSqr Token.RightParenSqr
+        | Token.LeftParenCurl ->
+            aux_read_in_parens Token.LeftParenCurl Token.RightParenCurl
+        | Token.TokensStart ->
+            let (acc2, strm2) =
+              read_raw_tokens (Scope.strm_next scope strm) 0 ((tok, pos) :: acc)
+            in
+            read_progn strm2 acc2
+        | Token.RightParen | Token.RightParenSqr | Token.RightParenCurl |
+          Token.TokensEnd | Token.Eof ->
+            (acc, strm)
+        | _ ->
+            read_progn (Scope.strm_next scope strm) ((tok, pos) :: acc)
+
+      and read_arg fail_on_sep strm acc =
+        let tok = Scope.strm_token scope strm
+        and pos = Scope.strm_position scope strm
+        in
+        let error () =
+          Error.error (Some pos) "complex macro arguments should be enclosed in parentheses";
+          raise Exit
+        and success () =
+          if args_num > 0 then
+            Error.error (Some pos) "not enough macro arguments";
+          raise Exit
+        in
+        let aux_read_in_parens lparen rparen =
+          read_in_parens (Scope.strm_next scope strm) lparen rparen 0 ((tok, pos) :: acc)
+        in
+        match tok with
+        | Token.Keyword(sym) ->
+            begin
+              try
+                let end_sym = Scope.get_block_end scope sym
+                in
+                read_in_parens (Scope.strm_next scope strm)
+                  (Token.Keyword(sym)) (Token.Keyword(end_sym)) 0 ((tok, pos) :: acc)
+              with
+                Not_found ->
+                  if fail_on_sep || Symbol.eq sym sym_match then
+                    error ()
+                  else
+                    success ()
+            end
+        | Token.Symbol(sym) when Symbol.eq sym sym_quote || Symbol.eq sym sym_quote2 ->
+            begin
+              let strm2 = Scope.strm_next scope strm
+              in
+              let tok2 = Scope.strm_token scope strm2
+              and pos2 = Scope.strm_position scope strm2
+              in
+              let aux2 lparen rparen =
+                read_in_parens (Scope.strm_next scope strm2)
+                  lparen rparen 0 ((tok2, pos2) :: (tok, pos) :: acc)
+              in
+              match tok2 with
+              | Token.LeftParen ->
+                  aux2 Token.LeftParen Token.RightParen
+              | Token.LeftParenCurl ->
+                  aux2 Token.LeftParenCurl Token.RightParenCurl
+              | Token.Symbol(sym) ->
+                  let strm3 = Scope.strm_next scope strm2
+                  in
+                  (((tok, pos) :: (tok2, pos2) :: acc), strm3)
+              | _ ->
+                  error ()
+            end
+        | Token.Symbol(sym) when Scope.is_macrosep scope sym ->
+            if fail_on_sep then
+              error ()
+            else
+              success ()
+        | Token.Symbol(_) | Token.Number(_) | Token.String(_) | Token.Placeholder | Token.Placeholder_generic |
+          Token.Placeholder_ignore | Token.True | Token.False ->
+            (((tok, pos) :: acc), Scope.strm_next scope strm)
+        | Token.LeftParen ->
+            aux_read_in_parens Token.LeftParen Token.RightParen
+        | Token.LeftParenSqr ->
+            aux_read_in_parens Token.LeftParenSqr Token.RightParenSqr
+        | Token.LeftParenCurl ->
+            aux_read_in_parens Token.LeftParenCurl Token.RightParenCurl
+        | Token.TokensStart ->
+            read_raw_tokens (Scope.strm_next scope strm) 0 ((tok, pos) :: acc)
+        | Token.Lambda ->
+            begin
+              let strm2 = Scope.strm_next scope strm
+              in
+              let tok2 = Scope.strm_token scope strm2
+              and pos2 = Scope.strm_position scope strm2
+              in
+              let acc2 = (tok2, pos2) :: (tok, pos) :: acc
+              in
+              match tok2 with
+              | Token.Symbol(sym) ->
+                  begin
+                    let strm3 = Scope.strm_next scope strm2
+                    in
+                    let tok3 = Scope.strm_token scope strm3
+                    and pos3 = Scope.strm_position scope strm3
+                    in
+                    match tok3 with
+                    | Token.Symbol(sym) when Symbol.eq sym sym_dot ->
+                        read_expr (Scope.strm_next scope strm3) ((tok3, pos3) :: acc2)
+                    | Token.Symbol(sym) when Symbol.eq sym sym_dot_dot ->
+                        read_progn (Scope.strm_next scope strm3) ((tok3, pos3) :: acc2)
+                    | _ ->
+                        read_arg true strm3 acc2
+                  end
+              | _ ->
+                  error ()
+            end
+        | Token.RightParen | Token.RightParenSqr | Token.RightParenCurl |
+          Token.LetEager | Token.LetLazy | Token.LetCBN | Token.Sep |
+          Token.TokensEnd | Token.Eof ->
+            if fail_on_sep then
+              error ()
+            else
+              success ()
+        | _ ->
+            error ()
+      in
+
       let rec aux strm args_num acc =
         if args_num = 0 then
           (List.rev acc, strm)
         else
-          let tok = Scope.strm_token scope strm
-          and pos = Scope.strm_position scope strm
-          in
-          let error () =
-            Error.error (Some pos) "complex macro arguments should be enclosed in parentheses";
-            (List.rev acc, strm)
-          and success () =
-            if args_num > 0 then
-              Error.error (Some pos) "not enough macro arguments";
-            (List.rev acc, strm)
-          in
-          let aux_read_in_parens lparen rparen =
-            let (lst, strm2) =
-              read_in_parens (Scope.strm_next scope strm) lparen rparen 0 [(tok, pos)]
+          try
+            let (lst, strm2) = read_arg false strm []
             in
-            aux strm2 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
-          in
-          match tok with
-          | Token.Keyword(sym) ->
-              begin
-                try
-                  let end_sym = Scope.get_block_end scope sym
-                  in
-                  let (lst, strm2) =
-                    read_in_parens (Scope.strm_next scope strm)
-                      (Token.Keyword(sym)) (Token.Keyword(end_sym)) 0 [(tok, pos)]
-                  in
-                  aux strm2 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
-                with
-                  Not_found ->
-                    if Symbol.eq sym sym_match then
-                      error ()
-                    else
-                      success ()
-              end
-          | Token.Symbol(sym) when Symbol.eq sym sym_quote || Symbol.eq sym sym_quote2 ->
-              begin
-                let strm2 = Scope.strm_next scope strm
-                in
-                let tok2 = Scope.strm_token scope strm2
-                and pos2 = Scope.strm_position scope strm2
-                in
-                let aux2 lparen rparen =
-                  let (lst, strm3) =
-                    read_in_parens (Scope.strm_next scope strm2)
-                      lparen rparen 0 [(tok2, pos2); (tok, pos)]
-                  in
-                  aux strm3 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
-                in
-                match tok2 with
-                | Token.LeftParen ->
-                    aux2 Token.LeftParen Token.RightParen
-                | Token.LeftParenCurl ->
-                    aux2 Token.LeftParenCurl Token.RightParenCurl
-                | Token.Symbol(sym) ->
-                    let strm3 = Scope.strm_next scope strm2
-                    in
-                    aux strm3 (args_num - 1) (Node.Tokens([(tok, pos); (tok2, pos2)]) :: acc)
-                | _ ->
-                    error ()
-              end
-          | Token.Symbol(sym) when Scope.is_macrosep scope sym ->
-              success ()
-          | Token.Symbol(_) | Token.Number(_) | Token.String(_) | Token.Placeholder | Token.Placeholder_generic |
-            Token.Placeholder_ignore | Token.True | Token.False ->
-              aux (Scope.strm_next scope strm) (args_num - 1) (Node.Tokens([(tok, pos)]) :: acc)
-          | Token.LeftParen ->
-              aux_read_in_parens Token.LeftParen Token.RightParen
-          | Token.LeftParenSqr ->
-              aux_read_in_parens Token.LeftParenSqr Token.RightParenSqr
-          | Token.LeftParenCurl ->
-              aux_read_in_parens Token.LeftParenCurl Token.RightParenCurl
-          | Token.TokensStart ->
-              let (lst, strm2) = read_raw_tokens (Scope.strm_next scope strm) 0 [(tok, pos)]
-              in
-              aux strm2 (args_num - 1) (Node.Tokens(List.rev lst) :: acc)
-          | Token.Lambda ->
-              let rec aux2 strm2 lst2 =
-                let tok2 = Scope.strm_token scope strm2
-                and pos2 = Scope.strm_position scope strm2
-                in
-                match tok2 with
-                | Token.Symbol(sym) ->
-                    begin
-                      let strm3 = Scope.strm_next scope strm2
-                      in
-                      let tok3 = Scope.strm_token scope strm3
-                      and pos3 = Scope.strm_position scope strm3
-                      in
-                      let lst3 = (tok3, pos3) :: (tok2, pos2) :: lst2
-                      in
-                      let aux3 lparen rparen =
-                        let (lst4, strm4) =
-                          read_in_parens (Scope.strm_next scope strm3)
-                            lparen rparen 0 lst3
-                        in
-                        aux strm4 (args_num - 1) (Node.Tokens(List.rev lst4) :: acc)
-                      in
-                      match tok3 with
-                      | Token.LeftParen ->
-                          aux3 Token.LeftParen Token.RightParen
-                      | Token.LeftParenCurl ->
-                          aux3 Token.LeftParenCurl Token.RightParenCurl
-                      | Token.LeftParenSqr ->
-                          aux3 Token.LeftParenSqr Token.RightParenSqr
-                      | Token.Symbol(_) ->
-                          aux (Scope.strm_next scope strm3) (args_num - 1)
-                            (Node.Tokens(List.rev lst3) :: acc)
-                      | Token.Lambda ->
-                          aux2 (Scope.strm_next scope strm3) lst3
-                      | _ ->
-                          error ()
-                    end
-                | _ ->
-                    error ()
-              in
-              aux2 (Scope.strm_next scope strm) [(tok, pos)]
-          | Token.RightParen | Token.RightParenSqr | Token.RightParenCurl |
-            Token.LetEager | Token.LetLazy | Token.LetCBN | Token.Sep |
-            Token.TokensEnd | Token.Eof ->
-              success ()
-          | _ ->
-              error ()
+            let toks = Node.Tokens(List.rev lst)
+            in
+            aux strm2 (args_num - 1) (toks :: acc)
+          with Exit ->
+            (List.rev acc, strm)
       in
       aux strm args_num []
     in
@@ -982,6 +1033,7 @@ m4_changequote([`],['])
     and repl_statements () =
       recursive
         begin
+          macro_call repl_statements ^||
           xlet ^||
           begin
             (token Token.Sep +> return (Program(Node.Nil)) ^||
@@ -1448,7 +1500,7 @@ m4_changequote([`],['])
     and expr () =
       recursive
         begin
-          xlet ^|| macro_call expr ^|| macro_quote ^|| appl
+          macro_call expr ^|| macro_quote ^|| appl
         end
 
     and macro_call rule () (lst, attrs, strm, scope) cont =
@@ -1534,6 +1586,8 @@ m4_changequote([`],['])
           block ^||
           lparen +! new_scope (catch_errors (progn ++ rparen)) ^||
           lparen_curl +! new_scope (catch_errors (progn ++ rparen_curl)) ^||
+          token Token.ReadExpr +! catch_errors expr ^||
+          token Token.ReadProgn +! catch_errors progn ^||
           token Token.Lazy +! term +> (fun lst _ _ -> Program(Node.Delay(Node.optimize (get_singleton_node lst)))) ^||
           token Token.Force +! term +> (fun lst _ _ -> Program(Node.Force(Node.optimize (get_singleton_node lst)))) ^||
           token Token.Leave +! term +> (fun lst _ _ -> Program(Node.Leave(Node.optimize (get_singleton_node lst)))) ^||
@@ -1565,7 +1619,7 @@ m4_changequote([`],['])
                new_ident_scope
                (new_frame
                   (ident_lambda ++ discard (maybe ret_atype) ++
-                     (symbol sym_dot_dot +! (catch_errors progn)
+                     (symbol sym_dot_dot +! new_scope (catch_errors progn)
                      ^||
                       symbol sym_dot +! (catch_errors expr)
                      ^||
@@ -1653,9 +1707,12 @@ m4_changequote([`],['])
             else if Token.eq tok Token.Paste then
               let strm = TokenStream.next strm
               in
-              match TokenStream.token strm with
+              let tok2 = TokenStream.token strm
+              and pos2 = TokenStream.position strm
+              in
+              match tok2 with
               | Token.Symbol(sym) when Symbol.eq sym sym_paste_tmp ->
-                  aux (TokenStream.next strm) ((tok, pos) :: acc) lst2 cnt
+                  aux (TokenStream.next strm) ((tok2, pos2) :: acc) lst2 cnt
               | Token.Symbol(sym) ->
                   begin
                     try
@@ -1671,8 +1728,8 @@ m4_changequote([`],['])
                       Error.error (Some(TokenStream.position strm)) "undeclared identifier";
                       aux (TokenStream.next strm) acc lst2 cnt
                   end
-              | Token.Paste ->
-                  aux (TokenStream.next strm) ((tok, pos) :: acc) lst2 cnt
+              | Token.Paste | Token.TokensStart | Token.TokensEnd ->
+                  aux (TokenStream.next strm) ((tok2, pos2) :: acc) lst2 cnt
               | _ ->
                   Error.error (Some(TokenStream.position strm)) "expected identifier";
                   aux (TokenStream.next strm) acc lst2 cnt
@@ -1778,7 +1835,7 @@ m4_changequote([`],['])
                           (symbol sym_when +! new_keyword sym_arrow (catch_errors expr)
                             ^|| empty +> return (Program Node.True)) ++
                           symbol sym_arrow ++
-                          new_keyword sym_match_sep (catch_errors expr)
+                          new_keyword sym_match_sep (catch_errors progn)
                     and placeholders = Scope.placeholders scope
                     in
                     let n = List.length placeholders
@@ -1786,7 +1843,7 @@ m4_changequote([`],['])
                     (mkparse placeholders >>
                      (fun lst attrs _ ->
                        match lst with
-                       | [Program(cond); Program(body)] -> MatchBranch(cond, body, n)
+                       | [Program(cond); Program(body)] -> MatchBranch(Node.optimize cond, Node.optimize body, n)
                        | _ -> assert false))
                       () state cont)))
         end

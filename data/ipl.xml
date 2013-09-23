@@ -5,7 +5,7 @@
 <!ENTITY OPER "[&OPER0;][&OPER0;]*">
 <!ENTITY IDENT0 "[-$.a-zA-Z0-9_][-$.a-zA-Z0-9_]*">
 <!ENTITY IDENT "[a-z$A-Z_][-$.a-zA-Z0-9_]*">
-<!ENTITY SSIDENT "[a-z$A-Z_]\w*[-$.]\w*[-$.]\w*">
+<!ENTITY SSIDENT "[a-z$A-Z_]\w*[-$.]\w\w*[-$.]&IDENT;">
 <!ENTITY SIDENT "[a-z$A-Z_]\w*[-$.]\w*">
 ]>
 <language name="IPL" version="1.00" section="Sources" indenter="normal" extensions="*.ipl"
@@ -25,6 +25,7 @@
       <item> lemma </item>
       <item> theorem </item>
       <item> tactic </item>
+      <item> rule </item>
     </list>
 
     <list name="keywords">
@@ -47,6 +48,7 @@
       <item> lemma </item>
       <item> theorem </item>
       <item> tactic </item>
+      <item> rule </item>
     </list>
 
     <list name="operators">
@@ -250,7 +252,14 @@
       <context attribute="Macro Region" lineEndContext="#stay" name="Macro">
         <DetectSpaces />
         <RegExpr attribute="Paste" context="#stay" String="#&IDENT;" />
+        <Detect2Chars attribute="Macro Region" context="Macro" char="#" char1="&lt;" beginRegion="macro" />
+        <DetectChar attribute="Paste" context="PasteQuote" char="#" />
         <Detect2Chars attribute="Macro Region" context="#pop" char="&gt;" char1="#" endRegion="macro" />
+      </context>
+
+      <context attribute="Macro Region" lineEndContext="#stay" fallthrough="true" fallthroughContext="#pop" name="PasteQuote">
+        <DetectSpaces />
+        <RegExpr attribute="Macro Region" context="#pop" String="#&IDENT;" />
       </context>
 
       <context attribute="String" lineEndContext="#stay" name="string" >

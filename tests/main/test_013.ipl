@@ -11,7 +11,7 @@ let filter = \f \lst {
 let gen = \n \m \acc {
    if m + n = 0 then
       acc
-   else
+   else {
       let x =
          if random (m + n) < n then
             1
@@ -19,6 +19,7 @@ let gen = \n \m \acc {
             -1
       in
       gen (n - x * (x + 1) div 2) (m - x * (x - 1) div 2) (x :: acc)
+   }
 }
 
 let sum = \lst {
