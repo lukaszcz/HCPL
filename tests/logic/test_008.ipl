@@ -1,0 +1,31 @@
+
+// type inference test
+
+open Logic;
+
+let f1 = \x \y . ex p : Prop . (p or x) and y;
+let f2 = \x \y . x y;
+let f3 = \x . ex f : Prop -> Prop . f x;
+let f4 = \x .
+   ex p : Prop . p <=> x;
+let f5 = \x \y .
+   ex p, q : Prop .
+   forall a, b : Prop -> Prop .
+      ((ex z : Prop . a z => b (a (b x))) => p or (x and a y)) and (y <=> (x => p));
+
+print (eq (goal (infer-type '(\x x))) '((\x x) in Any -> Any));
+print (eq (goal (infer-type 'f1)) '(f1 in Prop -> Prop -> Prop));
+print (eq (goal (auto-type '(f1 in Prop -> Prop -> Prop))) '(f1 in Prop -> Prop -> Prop));
+print (eq (goal (infer-type 'f2)) '(f2 in (Any -> Any) -> Any -> Any));
+print (eq (goal (infer-type 'f3)) '(f3 in Prop -> Prop));
+print (eq (goal (infer-type 'f4)) '(f4 in Prop -> Prop));
+print (eq (goal (infer-type 'f5)) '(f5 in Prop -> Prop -> Prop));
+
+print (eq (goal (auto-type '(f2 in (Prop -> Prop) -> Prop -> Prop))) '(f2 in (Prop -> Prop) -> Prop -> Prop));
+print (eq (goal (auto-type '(f3 in Prop -> Prop))) '(f3 in Prop -> Prop));
+print (eq (goal (auto-type '(f4 in Prop -> Prop))) '(f4 in Prop -> Prop));
+print (eq (goal (auto-type '(f5 in Prop -> Prop -> Prop))) '(f5 in Prop -> Prop -> Prop));
+
+let q = '(all f, g : (Prop -> Any -> Prop) -> Prop. all x : Prop -> Any -> Prop . f x => g x);
+
+print (eq (goal (infer-type q)) '(q in Prop));

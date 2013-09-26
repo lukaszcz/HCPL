@@ -17,6 +17,11 @@ let max_lambda_body_frame_ref node frame0 =
               Traversal.Continue(max (cframe - n) m)
             else
               Traversal.Continue(m)
+        | Node.FrameRef(frm) ->
+            if frm < frame0 then
+              Traversal.Continue(max frm m)
+            else
+              Traversal.Continue(m)
         | Node.Lambda(body, frame, _, _, _) ->
             if frame < frame0 then
               Traversal.Skip(max (frame - 1) m)

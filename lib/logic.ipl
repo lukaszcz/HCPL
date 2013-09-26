@@ -10,7 +10,7 @@ syntax operator -> is right, binary, after appl;
 syntax operator in is left, binary, after =;
 syntax operator : is left, binary, after =;
 syntax operator => is right, binary, after or;
-syntax operator <=> is right, binary, after =>;
+syntax operator <=> is left, binary, after =>;
 
 syntax block proof qed;
 
@@ -21,42 +21,37 @@ syntax macrosep rule;
 
 let error2 = \p \&#msg { error (msg ^ ": " ^ (to_string p)) }
 
-symbol Type
-symbol Prop
-
 symbol ALL
 symbol EX
 symbol ASSM
 symbol VAR
 
-let in = \x \y . y x
+let in = \&#x \&#y . y x
 let : = (in)
-let -> = \t1 \t2 \f (ALL t1 \x . f x in t2)
-let => = \x \y . if x then y else true
+let -> = \&#t1 \&#t2 \&#f (ALL t1 \x . f x in t2)
+let => = \&#x \&#y . if x then y else true
 let <=> = \x \y . (x => y) and (y => x)
 let proof-of = \x (`__ipl_proof, x)
 let goal = \p { match p with proof-of %x -> x | %_ -> error2 p "expected a proof" }
+let pgoal = \p { match p with proof-of %x -> x | %_ -> true }
 let is-proof = \p . matches p (proof-of %_)
 
 
 /*********************************************************************************/
 /* helper functions & macros */
 
-macro var-intro = \args {
-   match args with
-   | [%x, %b] ->
-      #< { let #$0 = unique-int () in ((\#x #b) '(VAR #$0)) } >#
-   | [%x, #< in >#, %b] ->
-      #< { let #$0 = unique-int () in ((\#x #b) '(VAR #$0)) } >#
-   | [%x] ->
-      #< let #$0 = unique-int (); '(VAR #$0) >> \#x .. >#
-   | %_ -> error "var-intro: wrong arguments"
+let var-intro = \f {
+   let x = unique-int ()
+   in
+   f '(VAR x)
 }
+
+let lambda-body = \f { var-intro \x { apply f x } };
 
 let get-tactic-name = \tac { join-symbols tac (join-symbols #< - ># #< tactic >#) }
 let get-rule-name = \tac { join-symbols tac (join-symbols #< - ># #< rule >#) }
 
-let mk-tactic-apply = \f \args { mk-apply f (#< __ipl_facts ># :: args) }
+let mk-tactic-apply = \f \args { mk-apply f (#< facts ># :: args) }
 let mk-rule-apply = mk-tactic-apply
 
 macro(2) mk-tactic-call = \x \y {
@@ -86,7 +81,7 @@ let mk-tactic-or-rule = \name \mkcall-tok \get-name \id \eq-tok {
                << join-tokens #< trace-with # #$file # #$line # #$column #s { ># (#mkcall-tok #id args)
                << #< } >#
          };
-         let #tac-id = \__ipl_facts
+         let #tac-id = \facts
       >#
    }
 }
@@ -106,25 +101,25 @@ macro call-tactic-with = \args {
    | %_ -> error "call-tactic-with: wrong arguments"
 }
 
-let eval-limit = 1000
+let eval-limit = 10000
 let eq-limit = 100
 
-let eq-aux = \f \x \y {
+let eq = \x \y {
    let aux0 = \x \y \lim0 {
       let aux = \x \y \lim {
-         if f x y then
+         if x = y then
             true
          else if lim = 0 then {
             let xe = eval-limited x eval-limit;
             let ye = eval-limited y eval-limit;
-            if f xe ye then
+            if xe = ye then
                true
             else {
                match xe, ye with
                | '(%a1 %b1), '(%a2 %b2) ->
                   aux0 a1 a2 (lim0 - 1) and aux0 b1 b2 (lim0 - 1)
                | '(\x %_), '(\x %_) ->
-                  var-intro x {
+                  var-intro \x {
                      aux0 '(xe x) '(ye x) (lim0 - 1)
                   }
                | %_ ->
@@ -136,7 +131,7 @@ let eq-aux = \f \x \y {
            let xe = reduce-eta x
            let ye = reduce-eta y
            in
-           if f rx y or f x ry or f xe y or f xe ry or f x ye or f rx ye then
+           if rx = y or x = ry or xe = y or xe = ry or x = ye or rx = ye then
               true
            else
               aux rx ry (lim - 1)
@@ -149,10 +144,6 @@ let eq-aux = \f \x \y {
    };
    aux0 x y eq-limit
 }
-
-let eq = \x \y . eq-aux (=) x y
-
-let qmatches = \x \y . eq-aux matches x y
 
 let is-in-list = \lst \x {
    List.exists (eq x o goal) lst
@@ -171,13 +162,18 @@ let check-in-list = \lst \x \emsg {
       error2 x emsg
 }
 
-let match-in-list-acc = \lst \pat \acc {
-   List.fold (\h . if qmatches (goal h) pat then h :: acc else acc) lst acc
+let match-in-list-aux = \lst \pat \acc {
+   List.fold (\h . if matches (goal h) pat then h :: acc else acc) lst acc
 }
 
 let match-in-list = \lst \pat {
-   match-in-list-acc lst pat []
+   match-in-list-aux lst pat []
 }
+
+let match-first-in-list = \lst \pat {
+   List.find (\x . matches (goal x) pat) lst ()
+}
+
 
 /*********************************************************************************/
 
@@ -187,10 +183,6 @@ let verify = \phi \p {
    else
       error2 p ("not a proof of " ^ to_string phi)
 }
-
-/*********************************************************************************/
-
-let __ipl_facts = []
 
 /*********************************************************************************/
 /* logic rules */
@@ -207,3 +199,7 @@ include "logic/macros.ipl"
 
 include "tactics/auto-type.ipl"
 include "tactics/auto.ipl"
+
+/*********************************************************************************/
+
+let facts = [true-type-intro, false-type-intro, any-type-intro, prop-type-intro];

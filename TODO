@@ -1,34 +1,31 @@
 
-(1 day)
-* even more logic tests
-
 (3-4 days)
 * More logic (induction, sets etc)
-
-(2 days)
-* auto tactic
 
 (2 days)
 * Makefile target: install
 * examples
 * version 0.1
 
+* def (overriding, non-recursive let) & make lemmas etc work with modules
+* auto tactic
 * forward bug (checking frames does not work)
-* inherit & override
+* macro invocation stacktrace
 * fix comparing & matching recursive data structures
 * names should be preserved for variables in fix etc
-* def macro
 * update 'thesis' in *-intro
 * intros, forall-intros, impl-intros
-* improve auto tactic
 * Get rid of quadratic time in join-tokens -- improve token list representation.
 * CAppl
+* inherit Module
+* improve efficiency of type inference
+* Better (O(1)) logic variable handling in fix etc.
 * macro priorities instead of syntax macrosep
 * saving parsed files in binary (*.ipb)
+* lazy matching
 * Improve evaluator efficiency even more
 * Improve quoted match / equal efficiency
 * In the parser, translate closed lets directly into Delayed nodes
 * Type inference (fun macro)
 * Improve Node.to_string (use pretty printing from the Format module)
 * 'syntax drop' for blocks and macroseps
-* Better (O(1)) logic variable handling in fix etc.

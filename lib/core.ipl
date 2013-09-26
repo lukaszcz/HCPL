@@ -96,7 +96,7 @@ let mk-list = \toks {
 let mk-apply = \f \args {
    let z = join-tokens-list args
    in
-   #< #f #z >#
+   #< (#f #z) >#
 };
 
 macro(2) mk-call = \x \y {
@@ -114,10 +114,10 @@ let trace-with = \file \line \column \arg \&#block {
    try
       block
    with
-   | %f when is-lambda f ->
-      raise \_ { f (); print (mkmsg ()); }
+   | (`__ipl_stacktrace, %f) ->
+      raise (`__ipl_stacktrace, \_ { f (); print (mkmsg ()); })
    | %e ->
-      raise \_ { print e; print ""; print "stacktrace:"; print ""; print (mkmsg ()); }
+      raise (`__ipl_stacktrace, \_ { print ("error: " ^ e); print ""; print "stacktrace:"; print ""; print (mkmsg ()); })
 };
 
 macro(1) trace = \block {
@@ -138,3 +138,12 @@ macro try-apply = \args {
    } else
       error "try-apply: wrong arguments"
 };
+
+let try-else = \&#b1 \&#b2 {
+   try
+      b1
+   with
+   | %_ -> b2
+};
+
+let is-lambda = \x . matches x '(\x %_);

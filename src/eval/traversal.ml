@@ -99,7 +99,7 @@ let traverse0 f node acc =
                       r := Dummy;
                       do_traverse f x acc2
                     end
-              | Var(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+              | Var(_) | FrameRef(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
                 True | False | Placeholder | Ignore | Nil | Tokens(_) ->
                   acc2
               | _ -> Debug.print (to_string node); failwith "unknown node"
@@ -199,7 +199,7 @@ let transform0 g f node0 =
                       x := do_transform g f !x;
                       node
                     end
-              | Var(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
+              | Var(_) | FrameRef(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
                 True | False | Placeholder | Ignore | Nil | Tokens(_) ->
                   f node
               | Dummy ->
@@ -225,7 +225,7 @@ let traverse f node acc =
                   Skip(aux x env env_len acc)
               end
             else
-              Continue(acc)
+              f node acc
         | Lambda(body, frame, call_type, times_entered, attrs) ->
             begin
               assert (frame <= env_len);
@@ -248,13 +248,18 @@ let traverse f node acc =
                                (aux x env env_len acc)))
               | [] -> Skip(acc)
             in
-            aux2 branches (aux x env env_len acc)
+            begin
+              match f node acc with
+              | Skip(acc2) -> Skip(acc2)
+              | Continue(acc2) ->
+                  aux2 branches (aux x env env_len acc2)
+            end
         | Closure(x, env, env_len) ->
             Skip(aux x env env_len acc)
         | LambdaClosure(body, env, env_len, call_type, times_entered, attrs) ->
             Skip(aux body (Dummy :: env) (env_len + 1) acc)
         | _ ->
-            Continue(acc))
+            f node acc)
       node
       acc
   in

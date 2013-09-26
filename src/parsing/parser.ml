@@ -878,7 +878,7 @@ m4_changequote([`],['])
               | Token.Symbol(sym) ->
                   let strm3 = Scope.strm_next scope strm2
                   in
-                  (((tok, pos) :: (tok2, pos2) :: acc), strm3)
+                  (((tok2, pos2) :: (tok, pos) :: acc), strm3)
               | _ ->
                   error ()
             end

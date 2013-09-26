@@ -21,7 +21,7 @@ macro assume = \args {
          #<
             #trace-tok $..
             let #$0 = #assm in impl-intro #tp2
-               << __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts .. >#
+               << __ipl_suppose_aux facts #$0 \facts .. >#
       else if name = () then
          #< (#trace-tok { let #$0 = #assm in impl-intro #tp2 (suppose #$0 #block) }) >#
       else if block = () then
@@ -29,7 +29,7 @@ macro assume = \args {
             #trace-tok $..
             let #$0 = #assm;
             let #name = proof-of #$0;
-            impl-intro #tp2 << __ipl_suppose_aux __ipl_facts #$0 \__ipl_facts ..
+            impl-intro #tp2 << __ipl_suppose_aux facts #$0 \facts ..
          >#
       else
          #< (#trace-tok { let #$0 = #assm in impl-intro #tp2 (suppose #name : #$0 #block) }) >#
@@ -79,13 +79,13 @@ macro fix = \args {
                | [%_] ->
                   let tp = join-tokens-list lst2
                   in
-                  aux vars tp #< (auto-type '(#tp in Type)) ># #< >#
+                  aux vars tp #< (auto-type '((#tp) in Type)) ># #< >#
                | [%a, %b] ->
                   let tp = join-tokens-list a
                   in
                   let body = join-tokens-list b
                   in
-                  let r = aux vars tp #< (auto-type '(#tp in Type)) ># body
+                  let r = aux vars tp #< (auto-type '((#tp) in Type)) ># body
                   in
                   #< (#r) >#
                | %_ -> error "fix: wrong arguments"
@@ -196,7 +196,8 @@ macro theorem = \args { mk-macro-call (lemma) args }
 
 macro axiom = \args {
    match args with
-   | [%phi] -> #< (proof-of #phi :: __ipl_facts) >> \__ipl_facts .. >#
+   /* TODO: this should be changed to: def facts = proof-of (#phi) :: facts */
+   | [%phi] -> #< (proof-of (#phi) :: facts) >> \facts .. >#
    | %_ -> error "axiom: wrong arguments"
 }
 
@@ -265,7 +266,7 @@ macro show = \args {
          | %tac :: #< from ># :: %lst2 ->
             let facts = join-tokens-list lst2
             in
-            aux name formula #< (call-tactic-with #tac [ #facts ] #$0) >#
+            aux name formula #< (call-tactic-with #tac (#facts) #$0) >#
          | [%tac] ->
             aux name formula #< (#tac #$0) >#
          | %_ ->
@@ -278,7 +279,7 @@ macro show = \args {
    | %formula :: #< from ># :: %lst1 ->
       let facts = join-tokens-list lst1
       in
-      aux name formula #< (call-tactic-with auto [ #facts ] #$0) >#
+      aux name formula #< (call-tactic-with auto (#facts) #$0) >#
    | [%formula] ->
       aux name formula #< (auto #$0) >#
    | %_ ->

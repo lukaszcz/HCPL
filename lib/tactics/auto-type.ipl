@@ -3,83 +3,311 @@
  * Copyright (C) 2013 by Lukasz Czajka
  */
 
-tactic auto-type = \phi {
-   let aux = \phi \lim {
-      let p = find-fact phi;
-      if is-proof p then
-         p
+symbol TVAR
+
+let t-var-intro = \f {
+   let x = unique-int ()
+   in
+   f '(TVAR x)
+}
+
+let t-subst = \t \s {
+   match t with
+   | '(TVAR %x) ->
+      s t
+   | '(%t1 -> %t2) ->
+      let t1a = t-subst t1 s
+      let t2a = t-subst t2 s
+      in
+      '(t1a -> t2a)
+   | %_ ->
+      t
+}
+
+let t-solve = \lst \assoc {
+   let aux = \x \t \lst \assoc {
+      if occurs-check x t then
+         error "unification failure: occurs-check failed"
       else {
-         match phi with
-         | '(true in Prop) ->
-            true-type-intro
-         | '(false in Prop) ->
-            false-type-intro
-         | '((%a and %b) in Prop) ->
-            and-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
-         | '((%a or %b) in Prop) ->
-            or-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
-         | '((%a => %b) in Prop) ->
-            impl-type-intro (auto-type '(a in Prop)) { suppose a; auto-type '(b in Prop) }
-         | '((%a <=> %b) in Prop) ->
-            equiv-type-intro {
-               suppose b;
-               auto-type '(a in Prop)
-            }{
-               suppose a;
-               auto-type '(b in Prop)
-            }
-         | '((not %a) in Prop) ->
-            not-type-intro (auto-type '(a in Prop))
-         | '((ALL %a %b) in Prop) ->
-            forall-type-intro (auto-type '(a in Type)) \x {
-               suppose '(x in a);
-               auto-type '(b x in Prop)
-            }
-         | '((EX %a %b) in Prop) ->
-            exists-type-intro (auto-type '(a in Type)) \x {
-               suppose '(x in a);
-               auto-type '(b x in Prop)
-            }
-         | '(Prop in Type) ->
-            prop-type-intro
-         | '((%a -> %b) in Type) ->
-            fun-type-intro (auto-type '(a in Type)) (auto-type '(b in Type))
-         | '(%a in %tp) ->
-            if lim > 1 then {
-               let a1 = reduce a
-               let p = try-apply aux (lim - 1) '(a1 in tp)
-               in
-               if p = () then {
-                  let tp1 = reduce tp
-                  let p = try-apply aux (lim - 1) '(a in tp1)
-                  in
-                  if p = () then {
-                     let p = try-apply aux (lim - 1) '(a1 in tp1)
-                     in
-                     if p = () then {
-                        aux (lim - 1) (reduce '(a1 in tp1))
-                     } else
-                        p
-                  } else
-                     p
-               } else
-                  p
-            } else if lim > 0 then {
-               let a1 = eval-limited a eval-limit
-               let tp1 = eval-limited tp eval-limit
-               let atp = '(a1 in tp1)
-               let p = try-apply aux 0 atp
-               in
-               if p = () then {
-                  aux 0 (eval-limited atp eval-limit)
-               } else
-                  p
-            } else {
-               error ("auto-type failed on: " ^ to_string phi)
-            }
-         | %_ ->
-            error ("auto-type failed on: " ^ to_string phi)
+         let xt = \z . t-subst z \y . if y = x then t else y
+         let lst1 = List.map (\pr . (xt (fst pr), xt (snd pr))) lst
+         let assoc1 = List.map (\pr . (fst pr, xt (snd pr))) assoc
+         in
+         t-solve lst1 ((x,t) :: assoc1)
       }
    };
-   aux phi (eq-limit + 1)
+   match lst with
+   | [] ->
+      assoc
+   | ('(TVAR %x), '(TVAR %x1)) :: %lst1 when x = x1 ->
+      t-solve lst1 assoc
+   | ('(TVAR %x), %t) :: %lst1 ->
+      aux '(TVAR x) t lst1 assoc
+   | (%t, '(TVAR %x)) :: %lst1 ->
+      aux '(TVAR x) t lst1 assoc
+   | ('(%tpa1 -> %tpa2), '(%tpb1 -> %tpb2)) :: %lst1 ->
+      t-solve ((tpa1, tpb1) :: (tpa2, tpb2) :: lst1) assoc
+   | (%ta, %tb) :: %lst1 when ta = tb ->
+      t-solve lst1 assoc
+   | %_ ->
+      error "unification failure"
+}
+
+let t-unify = \t1 \t2 {
+   let assoc = t-solve [(t1, t2)] []
+   in
+   \t . t-subst t \x . List.assoc (= x) assoc x
+}
+
+let t-match = \t \pat {
+   let aux = \lst \assoc {
+      match lst with
+      | [] ->
+         assoc
+      | ('(TVAR %x), %t) :: %lst1 ->
+         let t1 = List.assoc (= x) assoc `__ipl_dummy
+         in
+         if t1 = `__ipl_dummy then
+            aux lst1 (('(TVAR x), t) :: assoc)
+         else if t = t1 then
+            aux lst1 assoc
+         else
+            error "match failure"
+      | ('(%ta1 -> %ta2), '(%tb1 -> %tb2)) :: %lst1 ->
+         aux ((ta1, tb1) :: (ta2, tb2) :: lst1) assoc
+      | (%t1, %t2) :: %lst1 when t1 = t2 ->
+         aux lst1 assoc
+      | %_ ->
+         error "match failure"
+   };
+   let assoc = aux [(pat, t)] []
+   in
+   \t . t-subst t \x . List.assoc (= x) assoc x
+}
+
+forward auto-type-tactic;
+
+/* TODO: Type inference is _very_ inefficient. Substitutions should not be represented as functions. */
+
+/* (infer-type-proc phi) returns a triple: (type, f, s) where (type) may contain free
+   t-variables and f is a function which given (facts), (v-assoc) and an appropriate
+   substitution function returns a proof of '(phi1 in type) where phi1 is phi with
+   variables substituted according to v-assoc; s is a substitution used internally (s type = type) */
+let infer-type-proc = \facts \phi {
+   let mk-data = \tp \f \s (tp, f, s)
+   let get-type = \d . fst d
+   let get-fun = \d . fst (snd d)
+   let get-subst = \d . snd (snd d)
+   let aux = \phi \context {
+      let aux2 = \a \b \tp \arule {
+         let da = aux a context
+         let db = aux b context
+         let sa = t-match tp (get-type da)
+         let sb = t-match tp (get-type db)
+         in
+         mk-data
+            << tp
+            << \facts \v-assoc \s {
+                  arule facts ((get-fun da) facts v-assoc (s o sa)) ((get-fun db) facts v-assoc (s o sb))
+               }
+            << sa o (get-subst da) o sb o (get-subst db)
+      };
+      let quant-aux = \a \b \qintro {
+         var-intro \x {
+            let da = aux a context
+            let db = aux (apply b x) ('(x in a) :: context);
+            let sa = t-match Type (get-type da)
+            let sb = t-match Prop (get-type db)
+            in
+            mk-data
+               << Prop
+               << \facts \v-assoc \s {
+                     qintro facts ((get-fun da) facts v-assoc (s o sa)) \y {
+                        suppose '(y in a);
+                        (get-fun db) facts ((x, y) :: v-assoc) (s o sb)
+                     }
+                  }
+               << sa o (get-subst da) o sb o (get-subst db)
+         }
+      };
+      let p = match-first-fact '(phi in %_);
+      match pgoal p with
+      | '(%_ in %tp) ->
+         mk-data tp (\_ \_ \_ p) (\x x)
+      | %_ -> {
+         let psi = List.find (\x . matches x '(phi in %_)) context ();
+         match psi with
+         | '(%_ in %v) ->
+            mk-data
+               << v
+               << \facts \v-assoc \s {
+                     let sv = s v;
+                     let y = List.assoc (= phi) v-assoc ();
+                     find-fact '(y in sv)
+                  }
+               << \x x
+         | %_ -> {
+            match phi with
+            | '(%a and %b) ->
+               aux2 a b Prop and-type-intro-rule
+            | '(%a or %b) ->
+               aux2 a b Prop or-type-intro-rule
+            | '(%a => %b) ->
+               aux2 a b Prop impl-type-intro-rule
+            | '(%a <=> %b) ->
+               aux2 a b Prop equiv-type-intro-rule
+            | '(not %a) ->
+               let da = aux a context
+               let sa = t-match Prop (get-type da)
+               in
+               mk-data
+                  << Prop
+                  << \facts \v-assoc \s {
+                        not-type-intro ((get-fun da) facts v-assoc (s o sa))
+                     }
+                  << sa o (get-subst da)
+            | '(ALL %a %b) ->
+               quant-aux a b forall-type-intro-rule
+            | '(EX %a %b) ->
+               quant-aux a b exists-type-intro-rule
+            | '(%a -> %b) ->
+               aux2 a b Type fun-type-intro-rule
+            | '(%a %b) ->
+               t-var-intro \v {
+                  let da = aux a context
+                  let db = aux b context
+                  let ta = get-type da
+                  let tb = get-type db
+                  let fa = get-fun da
+                  let fb = get-fun db
+                  let s1 = t-unify ta '(tb -> v)
+                  let tb1 = s1 v
+                  in
+                  mk-data
+                     << tb1
+                     << \facts \v-assoc \s {
+                           let s2 = s o s1;
+                           forall-elim
+                              (preduce (fa facts v-assoc s2))
+                              (fb facts v-assoc s2)
+                        }
+                     << s1 o (get-subst da) o (get-subst db)
+               }
+            | '(\x %_) ->
+               t-var-intro \v {
+                  var-intro \x {
+                     let d = aux (apply phi x) ('(x in v) :: context)
+                     let t = get-type d
+                     let f = get-fun d
+                     let s0 = get-subst d
+                     let tv = s0 v
+                     in
+                     mk-data
+                        << '(tv -> t)
+                        << \facts \v-assoc \s {
+                              let st = s t;
+                              let tp = s tv;
+                              fix y : tp with (auto-type-tactic facts '(tp in Type));
+                              f facts ((x, y) :: v-assoc) s
+                           }
+                        << s0
+                  }
+               }
+            | %_ ->
+               error ("infer-type failed on: " ^ to_string phi)
+         }
+      }
+   };
+   aux phi []
+}
+
+tactic infer-type = \phi {
+   let d = infer-type-proc facts phi
+   in
+   (fst (snd d)) facts [] (\t . t-subst t \_ Any)
+}
+
+tactic auto-type = \phi {
+   let do-infer-type = \phi \tp {
+      let d = infer-type-proc facts phi;
+      let t = fst d
+      let f = fst (snd d)
+      let s = t-match tp t
+      in
+      show '(phi in tp) with {
+         f facts [] ((\t . t-subst t \_ Any) o s)
+      }
+   };
+   let p = find-fact phi;
+   if is-proof p then
+      p
+   else {
+      match phi with
+      | '((%a and %b) in Prop) ->
+         and-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
+      | '((%a or %b) in Prop) ->
+         or-type-intro (auto-type '(a in Prop)) (auto-type '(b in Prop))
+      | '((%a => %b) in Prop) ->
+         impl-type-intro (auto-type '(a in Prop)) { suppose a; auto-type '(b in Prop) }
+      | '((%a <=> %b) in Prop) ->
+         equiv-type-intro {
+            suppose b;
+            auto-type '(a in Prop)
+         }{
+            suppose a;
+            auto-type '(b in Prop)
+         }
+      | '((not %a) in Prop) ->
+         not-type-intro (auto-type '(a in Prop))
+      | '((ALL %a %b) in Prop) ->
+         forall-type-intro (auto-type '(a in Type)) \x {
+            suppose '(x in a);
+            let b1 = apply b x;
+            auto-type '(b1 in Prop)
+         }
+      | '((EX %a %b) in Prop) ->
+         exists-type-intro (auto-type '(a in Type)) \x {
+            suppose '(x in a);
+            let b1 = apply b x;
+            auto-type '(b1 in Prop)
+         }
+      | '((%a -> %b) in Type) ->
+         fun-type-intro (auto-type '(a in Type)) (auto-type '(b in Type))
+      | '(%a %b in %tp) ->
+         begin
+            let pa = match-first-fact '(a in (%_ -> %_));
+            match pgoal pa with
+            | '(%_ in (%tb -> %_)) ->
+               forall-elim
+                  (preduce pa)
+                  (auto-type '(b in tb))
+            | %_ -> {
+               let pb = match-first-fact '(b in %_);
+               match pgoal pb with
+               | '(%_ in %tb) ->
+                  forall-elim
+                     (preduce (auto-type '(a in tb -> tp)))
+                     pb
+               | %_ ->
+                  if is-lambda a then {
+                     try-else {
+                        let c = apply a b;
+                        auto-type '(c in tp)
+                     }{
+                        do-infer-type '(a b) tp
+                     }
+                  } else
+                     do-infer-type '(a b) tp
+            }
+         end
+      | '(%f in %t1 -> %t2) ->
+         if is-lambda f then {
+            fix x : t1;
+            let b = apply f x;
+            auto-type '(b in t2)
+         } else
+            error ("auto-type failed on: " ^ to_string phi)
+      | %_ ->
+         error ("auto-type failed on: " ^ to_string phi)
+   }
 };

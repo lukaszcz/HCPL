@@ -9,6 +9,7 @@ type call_t = CallByValue | CallByNeed | CallByName
 type t =
   (* not immediate *)
   | Var of int
+  | FrameRef of int (* used only by the parser *)
   | Proxy of t ref
   | Appl of t * t * attrs_t option (* a b -> Appl(a, b, attrs) *)
   | Cond of t * t * t * attrs_t option
@@ -170,7 +171,7 @@ let is_const (node : t) = Obj.is_int (Obj.repr node)
 let is_immediate node = match node with
     (* note: do not use "| _ -> ..." here so that the compiler warns when we
        forget one of the possibilities *)
-  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
+  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Closure(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
@@ -184,7 +185,7 @@ let is_immediate node = match node with
 let is_immed node = match node with
     (* note: do not use "| _ -> ..." here so that the compiler warns when we
        forget one of the possibilities *)
-  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | Delayed(_) | Proxy(_) |
+  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Closure(_) | Lambda(_) | Builtin(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
@@ -399,6 +400,7 @@ let to_string node =
           | Force(x) -> "!" ^ prn x (limit - 1)
           | Leave(x) -> "#" ^ prn x (limit - 1)
           | Var(i) -> "$" ^ string_of_int i
+          | FrameRef(i) -> "frm-ref$" ^ string_of_int i
           | Proxy(rx) -> prn !rx limit
           | MakeRecord(_) -> "<make-record>"
           | Lambda(body, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type

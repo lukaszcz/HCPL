@@ -1,0 +1,10 @@
+
+let x = ((\x x) 5)
+
+forward g;
+
+let f = \a \b { g a + b };
+
+let g = \y { x * y };
+
+print (f 2 3);

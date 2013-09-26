@@ -9,6 +9,8 @@ val eval_in : Node.t -> Env.t -> Node.t
 val eval_macro : Lexing.position option -> Symtab.t -> Node.t -> Node.t list (* args *) ->
   int (* args_num (-1 if variable number of args) *) -> Node.t
 
+val apply : Node.t -> Node.t -> Node.t
+
 (* the following three functions are not reentrant *)
 val reduce : Node.t -> Node.t (* reduce x = eval_limited x 1 *)
 val eval_limited : Node.t -> int (* limit, -1 for no limit *) -> Node.t

@@ -100,7 +100,7 @@ let identtab scope =
     Symbol.Map.empty
 
 let add_fwd_decl scope sym id =
-  let rnode = ref Node.Nil
+  let rnode = ref (Node.FrameRef(scope.scopenum))
   in
   let fwds2 = Symbol.Map.add sym (id, scope.scopenum, rnode) scope.fwds
   in

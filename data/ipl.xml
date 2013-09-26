@@ -88,8 +88,9 @@
     </list>
 
     <list name="types">
-      <item> Prop </item>
       <item> Type </item>
+      <item> Prop </item>
+      <item> Any </item>
       <item> Nat </item>
       <item> Int </item>
     </list>

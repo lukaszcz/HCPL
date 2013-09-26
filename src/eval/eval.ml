@@ -96,7 +96,7 @@ m4_define(`EVAL', `
     match $1 with
     | Var(n) ->
         ACCESS_VAR($2, $3, n)
-    | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+    | FrameRef(_) | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
       MakeRecord(_) | Closure(_) | Lambda(_) | Builtin(_) |
       BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
       BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
@@ -576,7 +576,7 @@ and do_eval node env env_len =
                     | _ ->
                         loop node env env_len t
                   end
-              | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | Proxy(_) | MakeRecord(_) |
+              | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | FrameRef(_) | Proxy(_) | MakeRecord(_) |
                 BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
                 BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
                 Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | Integer(_) | String(_) |
@@ -668,6 +668,22 @@ let eval_unlimited node =
 let reduce node = eval_limited node 1
 
 let eval_in node env = do_eval node env (Env.length env)
+
+let apply node1 node2 =
+  let do_apply node1 node2 =
+    match node1 with
+    | Lambda(body, 0, _, _, _) ->
+        do_close body [node2] 1
+    | LambdaClosure(body, env2, env2_len, _, _, _) ->
+        do_close body (node2 :: env2) (env2_len + 1)
+    | _ ->
+        Appl(node1, node2, None)
+  in
+  match node1 with
+  | Closure(node, env, env_len) ->
+      do_apply (do_close node env env_len) node2
+  | _ ->
+      do_apply node1 node2
 
 let macro_tmp_id = ref 0
 let extra_macro_args_ref = ref []

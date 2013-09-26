@@ -26,7 +26,7 @@ let catch_error f =
   with
   | Error.RuntimeError(Node.String(msg)) ->
       print_endline ("runtime error: " ^ msg); 1
-  | Error.RuntimeError(node) when Node.is_lambda node ->
+  | Error.RuntimeError(Node.Cons(_, node)) when Node.is_lambda node ->
       ignore (Eval.eval (Node.Appl(node, Node.Nil, None))); 1
   | Error.RuntimeError(node) ->
       print_endline ("runtime error: " ^ Node.to_string node); 1

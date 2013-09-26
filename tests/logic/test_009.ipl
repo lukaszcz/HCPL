@@ -1,0 +1,24 @@
+
+// quantifier rules test
+
+open Logic
+
+let lem_20 = \Tp {
+   lemma lem
+      '(all f, g : Tp -> Prop . (all x : Tp . f x => g x) => ((all x : Tp . f x) => (all x : Tp . g x)))
+   proof
+      fix f, g : Tp -> Prop;
+      assume $0: '(all x : Tp . f x => g x);
+      assume $1: '(all x : Tp . f x);
+      fix x : Tp;
+      show $f_x: '(f x) with forall-elim $1 (fact '(x in Tp));
+      impl-elim
+         << forall-elim $0 (fact '(x in Tp))
+         << $f_x
+   qed;
+   print "OK";
+   lem
+};
+
+lem_20 Prop;
+lem_20 '(Prop -> Any -> Prop);

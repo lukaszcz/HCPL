@@ -28,20 +28,6 @@ let is_string lst =
         x
   | _ -> assert false
 
-let is_lambda lst =
-  match lst with
-  | x :: _ ->
-      if Node.is_immediate x then
-        begin
-          if Node.is_lambda x then
-            True
-          else
-            False
-        end
-      else
-        x
-  | _ -> assert false
-
 let prn lst =
   match lst with
   | String(str) :: _ -> print_endline str; Nil
@@ -164,6 +150,14 @@ let reduce lst =
   | x :: _ when Node.is_quoted x -> x
   | x :: _ -> Error.runtime_error ("reduce: bad argument: " ^ Node.to_string x)
   | _ -> assert false
+
+let apply lst =
+  match lst with
+  | Quoted(y) :: Quoted(x) :: _ -> Node.mkquoted (Eval.apply x y)
+  | Quoted(y) :: x :: _ when Node.is_quoted x -> Node.mkquoted (Eval.apply x y)
+  | y :: Quoted(x) :: _ when Node.is_quoted y -> Node.mkquoted (Eval.apply x y)
+  | y :: x :: _ when Node.is_quoted x && Node.is_quoted y -> Node.mkquoted (Eval.apply x y)
+  | _ -> Error.runtime_error ("reduce: bad arguments")
 
 let eval_limited lst =
   match lst with
@@ -376,7 +370,6 @@ let declare_builtins scope symtab =
 
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "is-number") (is_number, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "is-string") (is_string, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "is-lambda") (is_lambda, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
@@ -392,6 +385,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_string") (to_string, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval") (eval, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "reduce") (reduce, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "apply") (apply, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval-limited") (eval_limited, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "eval-unlimited") (eval_unlimited, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "occurs-check") (occurs_check, 2, CallByValue) in
