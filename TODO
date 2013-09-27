@@ -13,6 +13,7 @@
 * make lemmas etc work with modules
 * tauto & auto tactics
 * forward bug (checking frames does not work)
+* bug: forward should be disallowed in macro functions (check if this is so)
 * macro invocation stacktrace
 
 * 'mark' is a stupid hack which doesn't fully work and should be removed

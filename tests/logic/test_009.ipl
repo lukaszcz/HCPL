@@ -22,3 +22,50 @@ let lem_20 = \Tp {
 
 lem_20 Prop;
 lem_20 '(Prop -> Any -> Prop);
+
+lemma
+   '(all T : Set . all f, g : T -> Prop . (all x : T . f x => g x) => (ex x : T . f x) => ex x : T . g x)
+proof
+   fix T : Set;
+   fix f, g : T -> Prop;
+   assume $0: '(all x : T . f x => g x);
+   assume $1: '(ex x : T . f x);
+   obtain x from $1;
+   take z = x;
+   show '(g z) with impl-elim (forall-elim $0 (fact '(z in T))) (fact '(f z))
+qed;
+
+print "OK1";
+
+lemma
+   '(all T : Set . all f : T -> Prop . not (all x : T . f x) <=> ex x : T . not (f x))
+proof
+   fix T : Set;
+   fix f : T -> Prop;
+   equiv-intro {
+      assume $0: '(not (all x : T . f x));
+      contradiction {
+         assume $1: '(not (ex x : T . not (f x)));
+         show '(all x : T . f x) with {
+            fix x : T;
+            contradiction {
+               assume $2: '(not (f x));
+               show '(ex x : T . not (f x)) with {
+                  take z = x;
+                  show '(not (f z)) with $2
+               } >>
+               not-elim $1
+            }
+         } >>
+         not-elim $0
+      }
+   }{
+      assume $0: '(ex x : T . not (f x));
+      assume $1: '(all x : T . f x);
+      obtain x from $0;
+      $f_x: forall-elim $1 (fact '(x in T));
+      not-elim $f_x (fact '(not (f x)))
+   }
+qed;
+
+print "OK2";

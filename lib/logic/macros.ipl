@@ -122,9 +122,9 @@ macro obtain = \args {
       if b = () then
          #<
             trace-with #$file #$line #$column "obtain" $..
-            let #$0 = $p
+            let #$0 = (#p)
             in
-            exists-elim #p \#v ..
+            exists-elim #$0 \#v ..
                let #$1 =
                   match goal #$0 with
                   | '(EX %alpha %phi) -> (alpha, phi)
@@ -138,9 +138,9 @@ macro obtain = \args {
       else
          #<{
             trace-with #$file #$line #$column "obtain" $..
-            let #$0 = $p
+            let #$0 = (#p)
             in
-            exists-elim #p \#v {
+            exists-elim #$0 \#v {
                match goal #$0 with
                | '(EX %alpha %phi) ->
                   begin
@@ -175,6 +175,120 @@ macro obtain = \args {
       aux v p ()
    | %_ -> error "obtain: wrong arguments"
 };
+
+macro take = \args {
+   let aux2 = \v \tp \tp-deriv \value \value-tp-deriv \block {
+      /* #$0 - value, #$1 - tp, #$2 - tp-deriv, #$3 - value-tp-deriv */
+      let tp-code =
+         if tp = () and tp-deriv = () then {
+            let vtp-code =
+               if value-tp-deriv = () then
+                  #< let #$3 = infer-type #$0 >#
+               else
+                  #< let #$3 = (#value-tp-deriv) >#
+            in
+            #< #vtp-code; let #$1 = extract-type (goal #$3); let #$2 = (auto-type '(#$1 in Type)); >#
+         } else {
+            let vtp-code = if value-tp-deriv = () then #< let #$3 = auto-type '(#$0 in #$1) ># else value-tp-deriv
+            in
+            if tp = () then
+               #< let #$2 = (#tp-deriv); let #$1 = extract-type (goal #$2); #vtp-code >#
+            else if tp-deriv = () then
+               #< let #$1 = (#tp); let #$2 = (auto-type '(#$1 in Type)); #vtp-code >#
+            else
+               #< let #$1 = (#tp); let #$2 = (#tp-deriv); #vtp-code >#
+         }
+      in
+      if block = () then
+         #<
+            trace-with #$file #$line #$column "take" $..
+            let #$0 = (#value);
+            #tp-code;
+            exists-intro #$2 #$3 $..
+               let #$4 = unique-int ();
+               let #v = mark (#$0) #$4;
+               (\#$5 {
+                  let #$6 = lift-marked (goal #$5) #$4
+                  in
+                  pexpand '(#$6 #$0) #$5
+               }) $..
+         >#
+      else
+         #<{
+            trace-with #$file #$line #$column "take" $..
+            let #$0 = (#value);
+            #tp-code;
+            exists-intro #$2 #$3 {
+               let #$4 = unique-int ();
+               let #v = mark (#$0) #$4;
+               let #$5 = (#block);
+               let #$6 = lift-marked (goal #$1) #$0
+               in
+               pexpand '(#$6 #$0) #$4
+            }
+         }>#
+   };
+   let aux1 = \v \tp \tp-deriv \lst {
+      match List.split-once (= #< with >#) lst with
+      | [%lst1, %lst2] ->
+         begin
+            let value = join-tokens-list lst1;
+            match List.split-once (= #< in >#) lst2 with
+            | [%lst3, %lst4] ->
+               let value-tp-deriv = join-tokens-list lst3
+               let b = join-tokens-list lst4
+               in
+               aux2 v tp tp-deriv value value-tp-deriv b
+            | %_ ->
+               let value-tp-deriv = join-tokens-list lst2
+               in
+               aux2 v tp tp-deriv value value-tp-deriv ()
+         end
+      | %_ ->
+         begin
+            match List.split-once (= #< in >#) lst with
+            | [%lst1, %lst2] ->
+               let value = join-tokens-list lst1
+               let b = join-tokens-list lst2
+               in
+               aux2 v tp tp-deriv value () b
+            | %_ ->
+               let value = join-tokens-list lst
+               in
+               aux2 v tp tp-deriv value () ()
+         end
+   };
+   match args with
+   | %v :: #< : ># :: %t ->
+      begin
+         match List.split-once (= #< with >#) t with
+         | [%lst1, %lst2] ->
+            begin
+               match List.split-once (= #< = >#) lst2 with
+               | [%lst3, %lst4] ->
+                  let tp = join-tokens-list lst1;
+                  let tp-deriv = join-tokens-list lst3
+                  in
+                  aux1 v tp tp-deriv lst4
+               | %_ ->
+                  error "take: wrong arguments: expected: ="
+            end
+         | %_ ->
+            begin
+               match List.split-once (= #< = >#) t with
+               | [%lst1, %lst2] ->
+                  let tp = join-tokens-list lst1
+                  in
+                  aux1 v tp () lst2
+               | %_ ->
+                  error "take: wrong arguments: expected: ="
+            end
+      end
+   | %v :: #< = ># :: %t ->
+      aux1 v () () t
+   | %_ ->
+      error "take: wrong arguments"
+}
 
 macro lemma = \args {
    match args with

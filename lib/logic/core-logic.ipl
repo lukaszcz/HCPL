@@ -1,7 +1,7 @@
 /* core-logic.ipl: Illative logic rules. This is the 'kernel' of the logic
  * implementation. This file implements all basic reasoning rules. All other
  * rules and tactics are supposed to use rules from this file and NOT use
- * 'proof-of', and avoid using definitions from this file which are not a part
+ * 'proof-of', and NOT use definitions from this file which are not a part
  * of the public interface (those prefixed with __ipl_).
  *
  * Copyright (C) 2013 by Lukasz Czajka
@@ -26,8 +26,8 @@ symbol EX
 symbol ASSM
 symbol SUB
 
-let Set = SmallType 0
-let Class = SmallType 1
+macro(0) Set = \_ #< (SmallType 0) >#
+macro(0) Class = \_ #< (SmallType 1) >#
 
 let in = \&#x \&#y . y x
 let of = \&#x \&#y (SUB x y)
@@ -35,6 +35,14 @@ let -> = \&#t1 \&#t2 \&#f (ALL t1 \x . f x in t2)
 let => = \&#x \&#y . if x then y else true
 let <=> = \x \y . (x => y) and (y => x)
 let c= = \&#a \&#b (ALL a b)
+
+let extract-type = \x {
+   match x with
+   | '(%_ in %t) -> t
+   | %_ -> error2 x "expected a formula of the form (a in b)"
+}
+
+/*********************************************************************************/
 
 rule pexpand = \a \p {
    let phi = goal p
@@ -210,7 +218,7 @@ rule exists-intro = \p1 \p2 \p3 {
    let aux = \a {
       match (goal p2, goal p3) with
       | ('(%t in %a1), '(%phi %t1)) when eq a a1 and eq t t1 ->
-         '(EX a phi)
+         proof-of '(EX a phi)
       | %_ -> error2 (p1, p2, p3) "exists-intro: wrong arguments"
    };
    match goal p1 with
@@ -226,7 +234,7 @@ rule exists-elim = \p1 \f {
       match (goal p1, goal p2) with
       | ('(EX %a %phi), '(ASSM (x in %a1) (ASSM %app %psi))) when eq a a1 ->
          if occurs-check x psi then
-            error2 (p1, p2) "exists-elim: the variable quantified over cannot in the conclusion"
+            error2 (p1, p2) "exists-elim: the variable quantified over cannot occur in the conclusion"
          else {
             match lift app x with
             | '(%phi1 x) when eq phi phi1 -> proof-of psi

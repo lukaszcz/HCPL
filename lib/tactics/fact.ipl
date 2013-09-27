@@ -4,16 +4,7 @@
  */
 
 tactic find-fact = \phi {
-   match phi with
-   | '(SmallType %n c= SmallType %m) when m > n ->
-      smalltype-subset-smalltype-intro n m
-   | '(SmallType %n in SmallType %m) when m > n ->
-      smalltype-type-intro n m
-   | '(SmallType %n c= Type) ->
-      smalltype-subset-type-intro n
-   | '(SmallType %n in Type) ->
-      smalltype-in-type n
-   | %_ ->
+   let p =
       List.mapfind
          (\p {
             let x = goal p;
@@ -30,6 +21,21 @@ tactic find-fact = \phi {
          })
          facts
          ()
+   in
+   if p = () then {
+      match phi with
+      | '(SmallType %n c= SmallType %m) when m > n ->
+         smalltype-subset-smalltype-intro n m
+      | '(SmallType %n in SmallType %m) when m > n ->
+         smalltype-type-intro n m
+      | '(SmallType %n c= Type) ->
+         smalltype-subset-type-intro n
+      | '(SmallType %n in Type) ->
+         smalltype-in-type n
+      | %_ ->
+         ()
+   } else
+      p
 }
 
 tactic is-fact = \phi {

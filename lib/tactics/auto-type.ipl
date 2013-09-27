@@ -72,13 +72,13 @@ let t-match = \t \pat {
          else if t = t1 then
             aux lst1 assoc
          else
-            error "match failure"
+            error2 (t, pat) "match failure"
       | ('(%ta1 -> %ta2), '(%tb1 -> %tb2)) :: %lst1 ->
          aux ((ta1, tb1) :: (ta2, tb2) :: lst1) assoc
       | (%t1, %t2) :: %lst1 when t1 = t2 ->
          aux lst1 assoc
       | %_ ->
-         error "match failure"
+         error2 (t, pat) "match failure"
    };
    let assoc = aux [(pat, t)] []
    in
