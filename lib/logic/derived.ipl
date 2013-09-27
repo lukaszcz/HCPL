@@ -1,0 +1,48 @@
+/* derived.ipl: Derived rules and lemmas.
+ *
+ * Copyright (C) 2013 by Lukasz Czajka
+ */
+
+rule subset-intro = forall-intro
+
+rule subset-elim = \p1 \p2 {
+   let aux1 = \x \b \p1 \p2 {
+      pexpand '(x in b) (forall-elim p1 p2)
+   };
+   let aux2 = \a \b \p1 \p2 {
+      match goal p2 with
+      | '(%x in %a1) when eq a a1 ->
+         aux1 x b p1 p2
+      | '(%a1 %x) when eq a a1 ->
+         aux1 x b p1 p2
+      | %_ ->
+         error2 p2 "subset-elim: wrong second argument"
+   };
+   match goal p1 with
+   | '(%a c= %b) ->
+      aux2 a b (preduce-appl p1) p2
+   | '(ALL %a %b) ->
+      aux2 a b p1 p2
+   | %_ ->
+      error2 p1 "subset-elim: wrong first argument"
+}
+
+rule smalltype-to-type = \p {
+   match goal p with
+   | '(%a in SmallType %n) ->
+      subset-elim (smalltype-subset-type-intro n) p
+   | %_ ->
+      error2 p "smalltype-to-type: wrong argument"
+}
+
+rule smalltype-upgrade = \m \p {
+   match goal p with
+   | '(%a in SmallType %n) when n <= m ->
+      subset-elim (smalltype-subset-smalltype-intro n) p
+   | %_ ->
+      error2 (m, p) "smalltype-to-type: wrong arguments"
+}
+
+rule smalltype-in-type = \n {
+   smalltype-to-type (smalltype-type-intro n (n + 1))
+}

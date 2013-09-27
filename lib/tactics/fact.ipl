@@ -1,0 +1,45 @@
+/* fact.ipl: 'fact' proof tactic.
+ *
+ * Copyright (C) 2013 by Lukasz Czajka
+ */
+
+tactic find-fact = \phi {
+   match phi with
+   | '(SmallType %n c= SmallType %m) when m > n ->
+      smalltype-subset-smalltype-intro n m
+   | '(SmallType %n in SmallType %m) when m > n ->
+      smalltype-type-intro n m
+   | '(SmallType %n c= Type) ->
+      smalltype-subset-type-intro n
+   | '(SmallType %n in Type) ->
+      smalltype-in-type n
+   | %_ ->
+      List.mapfind
+         (\p {
+            let x = goal p;
+            if eq phi x then
+               pequal phi p
+            else
+               match phi, x with
+               | '(%a in Type), '(%b in SmallType %n) when eq a b ->
+                  smalltype-to-type (pequal '(a in SmallType n) p)
+               | '(%a in SmallType %m), '(%b in SmallType %n) when eq a b and m >= n ->
+                  smalltype-upgrade m (pequal '(a in SmallType n) p)
+               | %_ ->
+                  ()
+         })
+         facts
+         ()
+}
+
+tactic is-fact = \phi {
+   is-proof (find-fact phi)
+}
+
+tactic fact = \phi {
+   let p = find-fact phi;
+   if is-proof p then
+      p
+   else
+      error ("tactic fact failed on: " ^ to_string phi)
+}
