@@ -5,13 +5,6 @@
 
 import List;
 
-syntax operator -> is right, binary, after appl;
-
-syntax operator in is left, binary, after =;
-syntax operator : is left, binary, after =;
-syntax operator => is right, binary, after or;
-syntax operator <=> is left, binary, after =>;
-
 syntax block proof qed;
 
 syntax macrosep lemma;
@@ -21,20 +14,12 @@ syntax macrosep rule;
 
 let error2 = \p \&#msg { error (msg ^ ": " ^ (to_string p)) }
 
-symbol ALL
-symbol EX
-symbol ASSM
 symbol VAR
 
-let in = \&#x \&#y . y x
-let : = (in)
-let -> = \&#t1 \&#t2 \&#f (ALL t1 \x . f x in t2)
-let => = \&#x \&#y . if x then y else true
-let <=> = \x \y . (x => y) and (y => x)
 let proof-of = \x (`__ipl_proof, x)
-let goal = \p { match p with proof-of %x -> x | %_ -> error2 p "expected a proof" }
-let pgoal = \p { match p with proof-of %x -> x | %_ -> true }
-let is-proof = \p . matches p (proof-of %_)
+let goal = \p { match p with (`__ipl_proof, %x) -> x | %_ -> error2 p "expected a proof" }
+let pgoal = \p { match p with (`__ipl_proof, %x) -> x | %_ -> true }
+let is-proof = \p . matches p (`__ipl_proof, %_)
 
 
 /*********************************************************************************/
@@ -102,7 +87,7 @@ macro call-tactic-with = \args {
 }
 
 let eval-limit = 10000
-let eq-limit = 100
+let eq-limit = 500
 
 let eq = \x \y {
    let aux0 = \x \y \lim0 {
@@ -195,11 +180,17 @@ include "logic/core-logic.ipl"
 include "logic/macros.ipl"
 
 /*********************************************************************************/
+/* derived rules and lemmas */
+
+include "logic/derived.ipl"
+
+/*********************************************************************************/
 /* core proof tactics */
 
+include "tactics/fact.ipl"
 include "tactics/auto-type.ipl"
 include "tactics/auto.ipl"
 
 /*********************************************************************************/
 
-let facts = [true-type-intro, false-type-intro, any-type-intro, prop-type-intro];
+let facts = [true-intro, true-type-intro, false-type-intro, any-type-intro, prop-type-intro];

@@ -220,6 +220,27 @@ let make_smallint v = assert (is_smallint_value v); ((Obj.magic (v * 2)) : t)
 
 let smallint_bits = Config.int_bits - 1
 
+let is_fast_equal_pat node =
+  if is_const node then
+    true
+  else
+    match node with
+    | Sym(_) -> true
+    | _ -> false
+
+let fast_equal node1 node2 =
+  if is_const node1 then
+    node1 == node2
+  else
+    match node1 with
+    | Sym(sym1) ->
+        begin
+          match node2 with
+          | Sym(sym2) when Symbol.eq sym1 sym2 -> true
+          | _ -> false
+        end
+    | _ -> assert false
+
 let rec get_attrs node =
   match node with
   | Appl(_, _, attrs) -> attrs

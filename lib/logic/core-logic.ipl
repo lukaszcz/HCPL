@@ -1,11 +1,40 @@
-/* core-logic.ipl: Core illative logic rules.
+/* core-logic.ipl: Illative logic rules. This is the 'kernel' of the logic
+ * implementation. This file implements all basic reasoning rules. All other
+ * rules and tactics are supposed to use rules from this file and NOT use
+ * 'proof-of', and avoid using definitions from this file which are not a part
+ * of the public interface (those prefixed with __ipl_).
  *
  * Copyright (C) 2013 by Lukasz Czajka
  */
 
+syntax operator of is right, binary, after appl;
+syntax operator -> is right, binary, after of;
+syntax operator c= is left, binary, after ->;
+
+syntax operator in is left, binary, after =;
+syntax operator => is right, binary, after or;
+syntax operator <=> is left, binary, after =>;
+
 symbol Type
+symbol SmallType
 symbol Prop
 symbol Any
+symbol Nat
+
+symbol ALL
+symbol EX
+symbol ASSM
+symbol SUB
+
+let Set = SmallType 0
+let Class = SmallType 1
+
+let in = \&#x \&#y . y x
+let of = \&#x \&#y (SUB x y)
+let -> = \&#t1 \&#t2 \&#f (ALL t1 \x . f x in t2)
+let => = \&#x \&#y . if x then y else true
+let <=> = \x \y . (x => y) and (y => x)
+let c= = \&#a \&#b (ALL a b)
 
 rule pexpand = \a \p {
    let phi = goal p
@@ -13,22 +42,40 @@ rule pexpand = \a \p {
    if eq phi (reduce a) or eq phi (reduce-eta a) then
       proof-of a
    else
-      error2 (phi, a) "cannot expand"
+      error2 (phi, a) "pexpand: cannot expand"
+}
+
+rule pequal = \phi \p {
+   if eq phi (goal p) then
+      proof-of phi
+   else
+      error2 (phi, p) "pequal: wrong arguments"
 }
 
 rule preduce = \p {
    proof-of (reduce (goal p))
 }
 
+rule papply = \p {
+   match goal p with
+   | '(%a %b) when is-lambda a ->
+      proof-of (apply a b)
+   | %_ -> error2 p "papply: wrong argument"
+}
+
 rule preduce-eta = \p {
    proof-of (reduce-eta (goal p))
+}
+
+rule preduce-appl = \p {
+   proof-of (reduce-appl (goal p))
 }
 
 rule peval = \p {
    proof-of (eval (goal p))
 }
 
-rule peval-limited = \p \lim {
+rule peval-limited = \lim \p {
    proof-of (eval-limited (goal p) lim)
 }
 
@@ -93,48 +140,82 @@ rule impl-type-elim = \p {
 }
 
 rule forall-intro = \p1 \f {
+   let aux = \x \a \p2 {
+      match goal p2 with
+      | '(ASSM (x in %a1) %app) when eq a a1 ->
+         begin
+            match lift app x with
+            | '(%phi x) -> proof-of '(ALL a phi)
+            | %_ -> error2 p2 "forall-intro: bad proof"
+         end
+      | %_ -> error2 p2 "forall-intro: bad proof"
+   };
    var-intro \x {
       let p2 = f x
       in
-      match goal p1, goal p2 with
-      | ('(%a1 in Type), '(ASSM (x in %a2) %app)) when eq a1 a2 ->
-         begin
-            match lift app x with
-            | '(%phi x) -> proof-of '(ALL a1 phi)
-            | %_ -> error2 p2 "forall-intro: bad proof"
-         end
+      match goal p1 with
+      | '(%a in Type) -> aux x a p2
+      | '(%a in SmallType %_) -> aux x a p2
       | %_ -> error2 (p1, p2) "forall-intro: wrong arguments"
    }
 };
 
 rule forall-elim = \p1 \p2 {
-   match goal p1, goal p2 with
-   | ('(ALL %a %phi), '(%t in %a1)) when eq a a1 ->
-      proof-of (apply phi t)
-   | ('(ALL %a %phi), '(%a1 %t)) when eq a a1 ->
-      proof-of (apply phi t)
-   | %_ -> error2 (p1, p2) "forall-elim: wrong arguments"
+   let aux = \a \phi \g2 {
+      match g2 with
+      | '(%t in %a1) when eq a a1 ->
+         proof-of (apply phi t)
+      | '(%a1 %t) when eq a a1 ->
+         proof-of (apply phi t)
+      | %_ ->
+         error2 (p1, p2) "forall-elim: wrong arguments"
+   };
+   let g1 = goal p1
+   let g2 = goal p2
+   in
+   match g1 with
+   | '(ALL %a %phi) ->
+      aux a phi g2
+   | %_ -> {
+      match reduce g1 with
+      | '(ALL %a %phi) ->
+         aux a phi g2
+      | %_ ->
+         error2 (p1, p2) "forall-elim: wrong arguments"
+   }
 };
 
 rule forall-type-intro = \p1 \f {
+   let aux = \x \a \p2 {
+      match goal p2 with
+      | '(ASSM (x in %a1) (%app in Prop)) when eq a a1 ->
+         begin
+            match lift app x with
+            | '(%phi x) -> proof-of '((ALL a phi) in Prop)
+            | %_ -> error2 p2 "forall-type-intro: bad proof"
+         end
+      | %_ -> error2 p2 "forall-type-intro: bad proof"
+   };
    var-intro \x {
       let p2 = f x
       in
-      match goal p1, goal p2 with
-      | ('(%a1 in Type), '(ASSM (x in %a2) (%app in Prop))) when eq a1 a2 ->
-         begin
-            match lift app x with
-            | '(%phi x) -> proof-of '((ALL a1 phi) in Prop)
-            | %_ -> error2 p2 "forall-type-intro: bad proof"
-         end
+      match goal p1 with
+      | '(%a in Type) -> aux x a p2
+      | '(%a in SmallType %_) -> aux x a p2
       | %_ -> error2 (p1, p2) "forall-type-intro: wrong arguments"
    }
 };
 
 rule exists-intro = \p1 \p2 \p3 {
-   match (goal p1, goal p2, goal p3) with
-   | ('(%a in Type), '(%t in %a1), '(%phi %t1)) when eq a a1 and eq t t1 ->
-      '(EX a phi)
+   let aux = \a {
+      match (goal p2, goal p3) with
+      | ('(%t in %a1), '(%phi %t1)) when eq a a1 and eq t t1 ->
+         '(EX a phi)
+      | %_ -> error2 (p1, p2, p3) "exists-intro: wrong arguments"
+   };
+   match goal p1 with
+   | '(%a in Type) -> aux a
+   | '(%a in SmallType %_) -> aux a
    | %_ -> error2 (p1, p2, p3) "exists-intro: wrong arguments"
 };
 
@@ -156,16 +237,22 @@ rule exists-elim = \p1 \f {
 };
 
 rule exists-type-intro = \p1 \f {
+   let aux = \x \a \p2 {
+      match goal p2 with
+      | '(ASSM (x in %a1) (%app in Prop)) when eq a a1 ->
+         begin
+            match lift app x with
+            | '(%phi x) -> proof-of '((EX a phi) in Prop)
+            | %_ -> error2 p2 "exists-type-intro: bad proof"
+         end
+      | %_ -> error2 p2 "exists-type-intro: bad proof"
+   };
    var-intro \x {
       let p2 = f x
       in
-      match goal p1, goal p2 with
-      | ('(%a1 in Type), '(ASSM (x in %a2) (%app in Prop))) when eq a1 a2 ->
-         begin
-            match lift app x with
-            | '(%phi x) -> proof-of '((EX a1 phi) in Prop)
-            | %_ -> error2 p2 "exists-type-intro: bad proof"
-         end
+      match goal p1 with
+      | '(%a in Type) -> aux x a p2
+      | '(%a in SmallType %_) -> aux x a p2
       | %_ -> error2 (p1, p2) "exists-type-intro: wrong arguments"
    }
 }
@@ -238,6 +325,13 @@ rule equiv-intro = \p1 \p2 {
    | %_ -> error2 (p1, p2) "equiv-intro: wrong arguments"
 }
 
+rule equiv-elim = \p1 \p2 {
+   match goal p1 with
+   | '(%phi <=> %psi) when eq phi (goal p2) -> proof-of psi
+   | '(%phi <=> %psi) when eq psi (goal p2) -> proof-of phi
+   | %_ -> error2 (p1, p2) "equiv-elim: wrong arguments"
+}
+
 rule equiv-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%phi in Prop), '(%psi in Prop) ->
@@ -250,12 +344,6 @@ rule equiv-type-intro = \p1 \p2 {
       proof-of '((phi <=> psi) in Prop)
    | %_ ->
       error2 (p1, p2) "equiv-type-intro: wrong arguments"
-}
-
-rule equiv-elim = \p1 \p2 {
-   match goal p1 with
-   | '(%phi <=> %psi) when eq phi (goal p2) -> proof-of psi
-   | '(%phi <=> %psi) when eq psi (goal p2) -> proof-of phi
 }
 
 rule false-elim = \phi \p {
@@ -322,16 +410,43 @@ rule prop-intro = \p {
    proof-of '(phi in Prop)
 }
 
-let prop-type-intro = proof-of '(Prop in Type)
+let prop-type-intro = proof-of '(Prop in SmallType 0)
 
 rule any-intro = \phi {
    proof-of '(phi in Any)
 }
 
-let any-type-intro = proof-of '(Any in Type)
+let any-type-intro = proof-of '(Any in SmallType 0)
+
+rule smalltype-subset-smalltype-intro = \n \m {
+   if is-number n and is-number m and n < m then {
+      proof-of '(SmallType n c= SmallType m)
+   } else
+      error2 n "smalltype-subset-smalltype-intro: wrong arguments (expected two numbers: n, m where n < m)"
+}
+
+rule smalltype-subset-type-intro = \n {
+   if is-number n then {
+      proof-of '(SmallType n c= Type)
+   } else
+      error2 n "smalltype-subset-type-intro: wrong argument (expected a number)"
+}
+
+rule smalltype-type-intro = \n \m {
+   if is-number n and is-number m and n < m then {
+      proof-of '(SmallType n in SmallType m)
+   } else
+      error2 n "smalltype-type-intro: wrong arguments (expected two numbers: n, m where n < m)"
+}
 
 rule fun-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
+   | '(%a in SmallType %n1), '(%b in SmallType %n2) ->
+      let n = max n1 n2
+      in
+      proof-of '((a -> b) in SmallType n)
+   | '(%a in SmallType %_), '(%b in Type) -> proof-of '((a -> b) in Type)
+   | '(%a in Type), '(%b in SmallType %_) -> proof-of '((a -> b) in Type)
    | '(%a in Type), '(%b in Type) -> proof-of '((a -> b) in Type)
    | %_ -> error2 (p1, p2) "fun-type-intro: wrong arguments"
 }
@@ -346,6 +461,9 @@ rule equal-intro = \a \b {
 rule equal-elim = \p1 \p2 {
    match goal p1, goal p2 with
    | '(%a = %b), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
+   | '(%b = %a), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
+   | '(%a = %b), %b1 when eq b b1 -> proof-of a
+   | '(%b = %a), %b1 when eq b b1 -> proof-of a
    | %_ -> error2 (p1, p2) "equal-elim: wrong arguments"
 }
 
@@ -386,14 +504,5 @@ let true-intro = proof-of true
 
 let faith = proof-of
 
-macro(1) fact = \phi #<
-   trace-with #$file #$line #$column "fact"
-      (check-in-list facts #phi "not a known fact")
->#
-macro(1) is-fact = \x #< is-in-list facts #x >#
-macro(1) find-fact = \x #< find-in-list facts #x >#
-macro(1) match-facts = \pat #< match-in-list facts #pat >#
-macro(1) match-first-fact = \pat #< match-first-in-list facts #pat >#
-
 /* TODO: after implementing 'def' this should be changed to: def facts = (#p) :: facts; */
-macro(1) remember = \p #< let #$0 = #p in (#$0 :: facts) >> \facts .. #$0 >#
+macro(1) remember = \p #< let #$0 = #p in (#$0 :: facts) >> \facts .. >#

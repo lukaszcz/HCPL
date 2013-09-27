@@ -85,6 +85,20 @@ let t-match = \t \pat {
    \t . t-subst t \x . List.assoc (= x) assoc x
 }
 
+tactic match-type = \phi \pat {
+   List.mapfind
+      (\p {
+         match goal p with
+         | '(%psi in SmallType %n) when eq phi psi and matches Type pat ->
+            smalltype-to-type (pequal '(phi in SmallType n) p)
+         | '(%psi in %t) when eq phi psi and matches t pat ->
+            pequal '(phi in t) p
+         | %_ -> ()
+      })
+      facts
+      ()
+};
+
 forward auto-type-tactic;
 
 /* TODO: Type inference is _very_ inefficient. Substitutions should not be represented as functions. */
@@ -130,7 +144,7 @@ let infer-type-proc = \facts \phi {
                << sa o (get-subst da) o sb o (get-subst db)
          }
       };
-      let p = match-first-fact '(phi in %_);
+      let p = match-type phi %_;
       match pgoal p with
       | '(%_ in %tp) ->
          mk-data tp (\_ \_ \_ p) (\x x)
@@ -171,6 +185,7 @@ let infer-type-proc = \facts \phi {
             | '(EX %a %b) ->
                quant-aux a b exists-type-intro-rule
             | '(%a -> %b) ->
+               /* TODO: this is not completely OK */
                aux2 a b Type fun-type-intro-rule
             | '(%a %b) ->
                t-var-intro \v {
@@ -271,18 +286,20 @@ tactic auto-type = \phi {
             let b1 = apply b x;
             auto-type '(b1 in Prop)
          }
+      | '((%a -> %b) in SmallType %n) ->
+         fun-type-intro (auto-type '(a in SmallType n)) (auto-type '(b in SmallType n))
       | '((%a -> %b) in Type) ->
          fun-type-intro (auto-type '(a in Type)) (auto-type '(b in Type))
       | '(%a %b in %tp) ->
          begin
-            let pa = match-first-fact '(a in (%_ -> %_));
+            let pa = match-type a '(%_ -> %_);
             match pgoal pa with
             | '(%_ in (%tb -> %_)) ->
                forall-elim
                   (preduce pa)
                   (auto-type '(b in tb))
             | %_ -> {
-               let pb = match-first-fact '(b in %_);
+               let pb = match-type b %_;
                match pgoal pb with
                | '(%_ in %tb) ->
                   forall-elim

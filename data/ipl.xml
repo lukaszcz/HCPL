@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE language SYSTEM "language.dtd"
 [
-<!ENTITY OPER0 "-+=~`@#$^*|/?.:&lt;&gt;&percnt;">
-<!ENTITY OPER "[&OPER0;][&OPER0;]*">
-<!ENTITY IDENT0 "[-$.a-zA-Z0-9_][-$.a-zA-Z0-9_]*">
-<!ENTITY IDENT "[a-z$A-Z_][-$.a-zA-Z0-9_]*">
-<!ENTITY SSIDENT "[a-z$A-Z_]\w*[-$.]\w\w*[-$.]&IDENT;">
-<!ENTITY SIDENT "[a-z$A-Z_]\w*[-$.]\w*">
+<!ENTITY OPER0 "[-+=~`@#$^*|/?.:&lt;&gt;&percnt;]">
+<!ENTITY ID0 "[-$.=#~a-zA-Z0-9_]">
+<!ENTITY OPER "&OPER0;&OPER0;*">
+<!ENTITY IDENT0 "&ID0;&ID0;*">
+<!ENTITY IDENT "[a-z$A-Z_]&ID0;*">
+<!ENTITY SSIDENT "[a-z$A-Z_]\w*[-$.=#~]\w\w*[-$.=#~]&IDENT;">
+<!ENTITY SIDENT "[a-z$A-Z_]\w*[-$.=#~]\w*">
 ]>
 <language name="IPL" version="1.00" section="Sources" indenter="normal" extensions="*.ipl"
           priority="10" author="Lukasz Czajka" license="GPL">
@@ -56,8 +57,6 @@
       <item> comp </item>
       <item> all </item>
       <item> ex </item>
-      <item> forall </item>
-      <item> exists </item>
       <item> and </item>
       <item> or </item>
       <item> xor </item>
@@ -66,6 +65,7 @@
       <item> div </item>
       <item> mod </item>
       <item> in </item>
+      <item> of </item>
     </list>
 
     <list name="logic_keywords_a">
@@ -85,14 +85,6 @@
       <item> raise </item>
       <item> error </item>
       <item> random </item>
-    </list>
-
-    <list name="types">
-      <item> Type </item>
-      <item> Prop </item>
-      <item> Any </item>
-      <item> Nat </item>
-      <item> Int </item>
     </list>
 
     <list name="syntax_keywords">
@@ -218,8 +210,8 @@
         <keyword attribute="Operator" context="#stay" String="operators" />
         <keyword attribute="Logic Keyword" context="#stay" String="logic_keywords" />
         <keyword attribute="Danger Keyword" context="#stay" String="danger_keywords" />
-        <keyword attribute="Type" context="#stay" String="types" />
-        <RegExpr attribute="Symbol" context="#stay" String="[A-Z]*\b" />
+        <RegExpr attribute="Type" context="#stay" String="[A-Z][a-z][A-Za-z]*\b" />
+        <RegExpr attribute="Symbol" context="#stay" String="[A-Z][A-Z][A-Z]*\b" />
         <RegExpr attribute="Normal" context="#stay" String="&IDENT;" />
         <RegExpr attribute="Placeholder" context="#stay" String="%&IDENT;" />
         <RegExpr attribute="QSymbol" context="#stay" String="`&IDENT;" />

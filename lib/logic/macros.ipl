@@ -20,8 +20,10 @@ macro assume = \args {
       if name = () and block = () then
          #<
             #trace-tok $..
-            let #$0 = #assm in impl-intro #tp2
-               << __ipl_suppose_aux facts #$0 \facts .. >#
+            let #$0 = #assm;
+            impl-intro #tp2 $..
+            suppose #$0;
+         >#
       else if name = () then
          #< (#trace-tok { let #$0 = #assm in impl-intro #tp2 (suppose #$0 #block) }) >#
       else if block = () then
@@ -29,7 +31,8 @@ macro assume = \args {
             #trace-tok $..
             let #$0 = #assm;
             let #name = proof-of #$0;
-            impl-intro #tp2 << __ipl_suppose_aux facts #$0 \facts ..
+            impl-intro #tp2 $..
+            suppose #$0;
          >#
       else
          #< (#trace-tok { let #$0 = #assm in impl-intro #tp2 (suppose #name : #$0 #block) }) >#
@@ -179,15 +182,14 @@ macro lemma = \args {
       #<
          trace-with #$file #$line #$column "lemma" $..
          let #$0 = #formula;
-         let #name = { let thesis = #$0; (#xproof) };
-         remember (verify #$0 #name)
+         let #name = verify #$0 { let thesis = #$0; (#xproof) };
+         remember (#name)
       >#
    | [%formula, %xproof] ->
       #<
          trace-with #$file #$line #$column "lemma" $..
          let #$0 = #formula;
-         let #$1 = { let thesis = #$0; (#xproof) };
-         remember (verify #$0 #$1)
+         remember (verify #$0 { let thesis = #$0; (#xproof) })
       >#
    | %_ -> error "lemma: wrong arguments"
 }
@@ -196,7 +198,7 @@ macro theorem = \args { mk-macro-call (lemma) args }
 
 macro axiom = \args {
    match args with
-   /* TODO: this should be changed to: def facts = proof-of (#phi) :: facts */
+   /* TODO: this should be changed to: def facts = proof-of (#phi) :: facts; */
    | [%phi] -> #< (proof-of (#phi) :: facts) >> \facts .. >#
    | %_ -> error "axiom: wrong arguments"
 }
@@ -233,28 +235,23 @@ let __ipl_ex_all_aux = \args \quant \msg {
    | %_ -> error msg
 }
 
-macro ex = \args { __ipl_ex_all_aux args #< EX ># "exists: wrong arguments" }
-macro all = \args { __ipl_ex_all_aux args #< ALL ># "forall: wrong arguments" }
-
-macro exists = \args { mk-macro-call ex args }
-macro forall = \args { mk-macro-call all args }
+macro ex = \args { __ipl_ex_all_aux args #< EX ># "ex: wrong arguments" }
+macro all = \args { __ipl_ex_all_aux args #< ALL ># "all: wrong arguments" }
 
 macro show = \args {
    let aux = \name \formula \p {
-      if name = () then
-         #< trace-with #$file #$line #$column "show" (remember (let #$0 = #formula in verify #$0 #p)) >#
-      else
-         #<
-            trace-with #$file #$line #$column "show" $..
-            let #$0 = #formula;
-            let #name = verify #$0 #p;
-            remember #name
-         >#
+      #<
+         trace-with #$file #$line #$column "show" $..
+         let #$0 = #formula;
+         let #name = verify #$0 #p;
+         remember #name;
+         #name
+      >#
    };
    let pr =
       match args with
       | %name :: #< : ># :: %rest -> (name, rest)
-      | %_ -> ((), args)
+      | %_ -> (#< #$1 >#, args)
    in
    let name = fst pr
    let lst0 = snd pr
@@ -266,7 +263,7 @@ macro show = \args {
          | %tac :: #< from ># :: %lst2 ->
             let facts = join-tokens-list lst2
             in
-            aux name formula #< (call-tactic-with #tac (#facts) #$0) >#
+            aux name formula #< (call-tactic-with #tac [#facts] #$0) >#
          | [%tac] ->
             aux name formula #< (#tac #$0) >#
          | %_ ->
@@ -279,7 +276,7 @@ macro show = \args {
    | %formula :: #< from ># :: %lst1 ->
       let facts = join-tokens-list lst1
       in
-      aux name formula #< (call-tactic-with auto (#facts) #$0) >#
+      aux name formula #< (call-tactic-with auto [#facts] #$0) >#
    | [%formula] ->
       aux name formula #< (auto #$0) >#
    | %_ ->

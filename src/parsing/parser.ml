@@ -779,6 +779,8 @@ m4_changequote([`],['])
         match tok with
         | Token.Symbol(sym) when Scope.is_macrosep scope sym ->
             read_expr (Scope.strm_next scope strm) ((tok, Scope.strm_position scope strm) :: acc)
+        | Token.ReadProgn ->
+            read_progn (Scope.strm_next scope strm) ((tok, Scope.strm_position scope strm) :: acc)
         | _ ->
             begin
               try
@@ -786,7 +788,7 @@ m4_changequote([`],['])
                 in
                 read_expr strm2 acc2
               with
-              | Exit -> (acc, strm)
+              | Exit -> ((Token.RightParen, Scope.strm_position scope strm) :: acc, strm)
             end
 
       and read_progn strm acc =
@@ -801,7 +803,7 @@ m4_changequote([`],['])
         in
         match tok with
         | Token.Keyword(sym) when Scope.is_block_end scope sym ->
-            (acc, strm)
+            ((Token.RightParen, pos) :: acc, strm)
         | Token.Keyword(sym) ->
             begin
               try
@@ -824,8 +826,8 @@ m4_changequote([`],['])
             in
             read_progn strm2 acc2
         | Token.RightParen | Token.RightParenSqr | Token.RightParenCurl |
-          Token.TokensEnd | Token.Eof ->
-            (acc, strm)
+          Token.TokensEnd | Token.Eof | Token.Then | Token.Else ->
+            ((Token.RightParen, pos) :: acc, strm)
         | _ ->
             read_progn (Scope.strm_next scope strm) ((tok, pos) :: acc)
 
@@ -917,18 +919,22 @@ m4_changequote([`],['])
                     in
                     match tok3 with
                     | Token.Symbol(sym) when Symbol.eq sym sym_dot ->
-                        read_expr (Scope.strm_next scope strm3) ((tok3, pos3) :: acc2)
+                        read_expr (Scope.strm_next scope strm3) ((Token.LeftParen, pos3) :: acc2)
                     | Token.Symbol(sym) when Symbol.eq sym sym_dot_dot ->
-                        read_progn (Scope.strm_next scope strm3) ((tok3, pos3) :: acc2)
+                        read_progn (Scope.strm_next scope strm3) ((Token.LeftParen, pos3) :: acc2)
                     | _ ->
                         read_arg true strm3 acc2
                   end
               | _ ->
                   error ()
             end
+        | Token.ReadExpr ->
+            read_expr (Scope.strm_next scope strm) ((Token.LeftParen, pos) :: acc)
+        | Token.ReadProgn ->
+            read_progn (Scope.strm_next scope strm) ((Token.LeftParen, pos) :: acc)
         | Token.RightParen | Token.RightParenSqr | Token.RightParenCurl |
           Token.LetEager | Token.LetLazy | Token.LetCBN | Token.Sep |
-          Token.TokensEnd | Token.Eof ->
+          Token.TokensEnd | Token.Eof | Token.Then | Token.Else ->
             if fail_on_sep then
               error ()
             else

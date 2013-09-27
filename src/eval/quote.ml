@@ -47,7 +47,7 @@ let max_lambda_body_frame_ref node frame0 =
   aux node frame0 (-1)
 
 let correct_lambda node =
-  (* shift frame0 to frame0 - shift *)
+  (* shift_frames shifts frame0 to frame0 - shift *)
   let shift_frames node shift frame0 =
     let rec aux node cframe =
       Traversal.transform0

@@ -60,6 +60,8 @@ let when = \&#x \&#y . if x then y else ();
 let >> = \x \f . f x;
 let << = \&#f . f;
 let ## = join-tokens;
+let min = \x \y . if x > y then y else x;
+let max = \x \y . if x < y then y else x;
 
 let matches = \x \y . xmatch x y \_ true \_ false;
 
@@ -147,3 +149,18 @@ let try-else = \&#b1 \&#b2 {
 };
 
 let is-lambda = \x . matches x '(\x %_);
+
+let reduce-appl = \x {
+   match x with
+   | '(%a %b) ->
+      if is-lambda a then
+         apply a b
+      else {
+         let y = reduce-appl a;
+         if is-lambda y then
+            apply y b
+         else
+            '(y b)
+      }
+   | %_ -> x
+};

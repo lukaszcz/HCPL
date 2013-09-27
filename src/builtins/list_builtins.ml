@@ -175,6 +175,24 @@ let rec do_find f lst default =
       end
   | _ -> Eval.eval default
 
+let rec do_mapfind f lst default =
+  match lst with
+  | Cons(h, t) ->
+      begin
+        let c = Eval.eval (Appl(f, h, None))
+        in
+        if Node.is_immediate c then
+          begin
+            if Node.fast_equal default c then
+              do_mapfind f t default
+            else
+              c
+          end
+        else
+          Cond(BEq(default, c), c, do_mapfind f t default, None)
+      end
+  | _ -> default
+
 let rec do_rev2 lst acc =
   match lst with
   | Cons(h, t) -> do_rev2 t (Cons(do_rev h Nil, acc))
@@ -305,6 +323,15 @@ let list_find lst =
   | y :: x :: f :: _ -> do_find f x y
   | _ -> assert false
 
+let list_mapfind lst =
+  match lst with
+  | y :: x :: f :: _ ->
+      if Node.is_fast_equal_pat y then
+        do_mapfind f x y
+      else
+        Error.runtime_error "the third argument of List.mapfind must be a constant"
+  | _ -> assert false
+
 let list_split lst =
   match lst with
   | x :: f :: _ -> do_split f x
@@ -336,6 +363,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_forall") (list_forall, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_exists") (list_exists, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_find") (list_find, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_mapfind") (list_mapfind, 3, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split") (list_split, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split_n") (list_split_n, 3, CallByValue) in
     scope
