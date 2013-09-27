@@ -240,7 +240,7 @@ let occurs_check node1 node2 =
         true
     end
   else
-    Error.runtime_error "arguments of 'occurs-check' should be quoted"
+    Error.runtime_error "arguments of occurs-check should be quoted"
 
 let subst node node1 node2 =
   if Node.is_quoted node && Node.is_quoted node1 && Node.is_quoted node2 then
@@ -257,33 +257,52 @@ let subst node node1 node2 =
       )
       node
   else
-    Error.runtime_error "arguments of 'subst' should be quoted"
+    Error.runtime_error "arguments of subst should be quoted"
+
+let do_lift node f =
+  let rec aux node =
+    Traversal.transform
+      (fun x _ _ frames_num ->
+        if f x then
+          begin
+            Traversal.Skip(Var(frames_num))
+          end
+        else
+          Traversal.Continue(x))
+      (fun x ->
+        match x with
+        | Lambda(body, frame, call_type, times_entered, attrs) ->
+            correct_lambda (Lambda(body, frame + 1, call_type, times_entered, attrs))
+        | Quoted(y) -> y
+        | _ -> x)
+      node
+  in
+  let node2 = aux node
+  in
+  assert (Utils.IntSet.is_empty (get_free_vars (Lambda(node2, 0, CallByValue, ref 0, None))));
+  Lambda(node2, 0, CallByValue, ref 0, None)
 
 let lift node node1 =
   if Node.is_quoted node && Node.is_quoted node1 then
     let unode1 = Node.unquote node1
     in
-    let rec aux node =
-      Traversal.transform
-        (fun x _ _ frames_num ->
-          if Match.equal_quoted x unode1 then
-            begin
-              Traversal.Skip(Var(frames_num))
-            end
-          else
-            Traversal.Continue(x))
-        (fun x ->
-          match x with
-          | Lambda(body, frame, call_type, times_entered, attrs) ->
-              correct_lambda (Lambda(body, frame + 1, call_type, times_entered, attrs))
-          | Quoted(y) -> y
-          | _ -> x)
-        node
-    in
-    let node2 = aux node
-    in
-    assert (Utils.IntSet.is_empty (get_free_vars (Lambda(node2, 0, CallByValue, ref 0, None))));
     assert (Utils.IntSet.is_empty (get_free_vars unode1));
-    Quoted(Appl(Lambda(node2, 0, CallByValue, ref 0, None), unode1, None))
+    let node2 = do_lift node (fun x -> Match.equal_quoted x unode1)
+    in
+    Quoted(Appl(node2, unode1, None))
   else
-    Error.runtime_error "arguments of 'lift' should be quoted"
+    Error.runtime_error "arguments of lift should be quoted"
+
+let lift_marked node node1 =
+  if Node.is_quoted node && Node.is_quoted node1 then
+    let unode1 = Node.unquote node1
+    in
+    assert (Utils.IntSet.is_empty (get_free_vars unode1));
+    Quoted(do_lift
+             node
+             (fun x ->
+               match x with
+               | Marked(_, m) -> Match.equal_quoted m unode1
+               | _ -> false))
+  else
+    Error.runtime_error "arguments of lift-marked should be quoted"

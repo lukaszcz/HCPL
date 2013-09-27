@@ -99,6 +99,8 @@ let traverse0 f node acc =
                       r := Dummy;
                       do_traverse f x acc2
                     end
+              | Marked(x, y) ->
+                  do_traverse f y (do_traverse f x acc2)
               | Var(_) | FrameRef(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
                 True | False | Placeholder | Ignore | Nil | Tokens(_) ->
                   acc2
@@ -199,6 +201,8 @@ let transform0 g f node0 =
                       x := do_transform g f !x;
                       node
                     end
+              | Marked(x, y) ->
+                  f (Marked(do_transform g f x, do_transform g f y))
               | Var(_) | FrameRef(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
                 True | False | Placeholder | Ignore | Nil | Tokens(_) ->
                   f node

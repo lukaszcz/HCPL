@@ -17,6 +17,7 @@ type t =
   | Leave of t
   | Force of t
   | MakeRecord of t Symbol.Map.t
+  | Marked of t * t (* (node, mark) *)
 
   (* inlined core builtins *)
   | BEq of t * t
@@ -172,7 +173,7 @@ let is_immediate node = match node with
     (* note: do not use "| _ -> ..." here so that the compiler warns when we
        forget one of the possibilities *)
   | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
-    MakeRecord(_) | Closure(_) |
+    MakeRecord(_) | Marked(_) | Closure(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     -> false
@@ -186,7 +187,7 @@ let is_immed node = match node with
     (* note: do not use "| _ -> ..." here so that the compiler warns when we
        forget one of the possibilities *)
   | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
-    MakeRecord(_) | Closure(_) | Lambda(_) | Builtin(_) |
+    MakeRecord(_) | Marked(_) | Closure(_) | Lambda(_) | Builtin(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     -> false
@@ -313,6 +314,7 @@ let optimize node =
 let rec normalize node =
   match node with
   | Proxy(r) -> normalize !r
+  | Marked(x, _) -> normalize x
   | _ -> node
 
 let mkquoted node =
@@ -424,6 +426,7 @@ let to_string node =
           | FrameRef(i) -> "frm-ref$" ^ string_of_int i
           | Proxy(rx) -> prn !rx limit
           | MakeRecord(_) -> "<make-record>"
+          | Marked(x, y) -> "(marked: " ^ prn x (limit - 1) ^ ", " ^ prn y limit ^ ")"
           | Lambda(body, frm, call_type, _, attrs) -> lambda_str body frm attrs call_type
           | Builtin(_) -> "<builtin>"
           | Integer(i) -> Big_int.string_of_big_int i

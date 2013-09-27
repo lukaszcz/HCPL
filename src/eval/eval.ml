@@ -31,7 +31,7 @@ let pop_to env env_len frm =
 
 let do_close x env env_len =
   match x with
-  | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) |
+  | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) | Marked(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
     ->
@@ -43,7 +43,7 @@ let do_close x env env_len =
 
 let rec do_delay x env env_len =
    match x with
-   | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | MakeRecord(_) | Proxy(_) |
+   | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | MakeRecord(_) | Marked(_) | Proxy(_) |
      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
      BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
      ->
@@ -97,7 +97,7 @@ m4_define(`EVAL', `
     | Var(n) ->
         ACCESS_VAR($2, $3, n)
     | FrameRef(_) | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
-      MakeRecord(_) | Closure(_) | Lambda(_) | Builtin(_) |
+      MakeRecord(_) | Marked(_) | Closure(_) | Lambda(_) | Builtin(_) |
       BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
       BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
       -> do_eval $1 $2 $3
@@ -234,7 +234,16 @@ and do_eval node env env_len =
                     Appl(x, arg, attrs)
             end
 
-        | _ -> Appl(x, do_eval y env env_len, attrs)
+        | _ ->
+            begin
+              match x with
+              | Marked(a, _) ->
+                  do_eval (Appl(a, y, attrs)) env env_len
+              | Closure(Marked(a, _), env2, env2_len) ->
+                  do_eval (Appl(do_close a env2 env2_len, y, attrs)) env env_len
+              | _ ->
+                  Appl(x, do_eval y env env_len, attrs)
+            end
       end
 
   | Cond(x, y, z, attrs) ->
@@ -270,6 +279,14 @@ and do_eval node env env_len =
 
   | MakeRecord(identtab) ->
       Record(Symbol.Map.map (fun x -> do_close x env env_len) identtab)
+
+  | Marked(x, y) ->
+      let z = do_eval x env env_len
+      in
+      if Node.is_const z then
+        z
+      else
+        Marked(z, y)
 
   | Lambda(_, 0, _, _, _) | LambdaClosure(_) -> node
 
@@ -577,7 +594,7 @@ and do_eval node env env_len =
                         loop node env env_len t
                   end
               | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | FrameRef(_) | Proxy(_) | MakeRecord(_) |
-                BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
+                Marked(_) | BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
                 BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
                 Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | Integer(_) | String(_) |
                 Record(_) | Tokens(_) | Quoted(_) | LambdaClosure(_)

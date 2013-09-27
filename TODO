@@ -7,19 +7,24 @@
 * examples
 * version 0.1
 
-* def (overriding, non-recursive let) & make lemmas etc work with modules
-* auto tactic
-* forward bug (checking frames does not work)
-* macro invocation stacktrace
-* fix comparing & matching recursive data structures
-* names should be preserved for variables in fix etc
+* def (overriding, non-recursive let)
 * update 'thesis' in *-intro
 * intros, forall-intros, impl-intros
+* make lemmas etc work with modules
+* tauto & auto tactics
+* forward bug (checking frames does not work)
+* macro invocation stacktrace
+
+* 'mark' is a stupid hack which doesn't fully work and should be removed
+* implement Node.normalize properly
+* fix comparing & matching recursive data structures
+* Better (O(1)) logic variable handling in fix etc.
+
+* names should be preserved for variables in fix etc
 * Get rid of quadratic time in join-tokens -- improve token list representation.
 * CAppl
 * inherit Module
 * improve efficiency of type inference
-* Better (O(1)) logic variable handling in fix etc.
 * macro priorities instead of syntax macrosep
 * saving parsed files in binary (*.ipb)
 * lazy matching
@@ -27,5 +32,5 @@
 * Improve quoted match / equal efficiency
 * In the parser, translate closed lets directly into Delayed nodes
 * Type inference (fun macro)
-* Improve Node.to_string (use pretty printing from the Format module)
+* Improve Node.to_string (use pretty printing from the ocaml's Format module)
 * 'syntax drop' for blocks and macroseps

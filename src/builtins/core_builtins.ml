@@ -96,6 +96,15 @@ let ipl_quote lst =
       Quote.quote x Env.empty
   | _ -> assert false
 
+let mark lst =
+  match lst with
+  | y :: Quoted(x) :: _ ->
+      Node.mkquoted (Marked(x, y))
+  | y :: x :: _ when Node.is_quoted x ->
+      Node.mkquoted (Marked(x, y))
+  | _ ->
+      Error.runtime_error "mark: wrong arguments"
+
 let subst lst =
   match lst with
   | z :: y :: x :: _ -> Quote.subst x y z
@@ -104,6 +113,11 @@ let subst lst =
 let lift lst =
   match lst with
   | y :: x :: _ -> Quote.lift x y
+  | _ -> assert false
+
+let lift_marked lst =
+  match lst with
+  | y :: x :: _ -> Quote.lift_marked x y
   | _ -> assert false
 
 let close lst =
@@ -376,8 +390,10 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "xmatch") (xmatch, 4, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "quote") (ipl_quote, 1, CallByName) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "'") (ipl_quote, 1, CallByName) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "mark") (mark, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "subst") (subst, 3, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "lift") (lift, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "lift-marked") (lift_marked, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "close") (close, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "reduce-eta") (reduce_eta, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "random") (xrandom, 1, CallByValue) in
