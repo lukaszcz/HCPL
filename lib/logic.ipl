@@ -192,5 +192,10 @@ include "tactics/auto-type.ipl"
 include "tactics/auto.ipl"
 
 /*********************************************************************************/
+/* derived rules and lemmas which require standard proof tactics */
+
+include "logic/derived2.ipl"
+
+/*********************************************************************************/
 
 let facts = [true-intro, true-type-intro, false-type-intro, any-type-intro, prop-type-intro];

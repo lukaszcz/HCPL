@@ -1,0 +1,18 @@
+/* derived2.ipl: Derived rules and lemmas which require standard proof tactics.
+ *
+ * Copyright (C) 2013 by Lukasz Czajka
+ */
+
+rule subtype-type-intro-1 = \p {
+   match goal p with
+   | '(%_ in %t -> Prop) ->
+      subtype-type-intro-2 (infer-type t) p
+   | %_ -> error2 p "subtype-type-intro-1: wrong argument"
+}
+
+macro subtype-type-intro = \args {
+   match args with
+   | [%x] -> #< subtype-type-intro-1 #x >#
+   | [%x, %y] -> #< subtype-type-intro-2 #x #y >#
+   | %_ -> error "subtype-type-intro: wrong arguments"
+}

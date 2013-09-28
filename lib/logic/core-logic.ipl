@@ -15,8 +15,8 @@ syntax operator in is left, binary, after =;
 syntax operator => is right, binary, after or;
 syntax operator <=> is left, binary, after =>;
 
-symbol Type
-symbol SmallType
+symbol SuperType
+symbol BigType
 symbol Prop
 symbol Any
 symbol Nat
@@ -26,15 +26,18 @@ symbol EX
 symbol ASSM
 symbol SUB
 
-macro(0) Set = \_ #< (SmallType 0) >#
-macro(0) Class = \_ #< (SmallType 1) >#
+symbol equal
+
+macro(0) Type = \_ #< (BigType 0) >#
+macro(0) LargeType = \_ #< (BigType 1) >#
 
 let in = \&#x \&#y . y x
-let of = \&#x \&#y (SUB x y)
+let of = \&#x \&#y . x y
 let -> = \&#t1 \&#t2 \&#f (ALL t1 \x . f x in t2)
 let => = \&#x \&#y . if x then y else true
 let <=> = \x \y . (x => y) and (y => x)
 let c= = \&#a \&#b (ALL a b)
+let Set = \&#T (T -> Prop)
 
 let extract-type = \x {
    match x with
@@ -162,8 +165,8 @@ rule forall-intro = \p1 \f {
       let p2 = f x
       in
       match goal p1 with
-      | '(%a in Type) -> aux x a p2
-      | '(%a in SmallType %_) -> aux x a p2
+      | '(%a in SuperType) -> aux x a p2
+      | '(%a in BigType %_) -> aux x a p2
       | %_ -> error2 (p1, p2) "forall-intro: wrong arguments"
    }
 };
@@ -208,8 +211,8 @@ rule forall-type-intro = \p1 \f {
       let p2 = f x
       in
       match goal p1 with
-      | '(%a in Type) -> aux x a p2
-      | '(%a in SmallType %_) -> aux x a p2
+      | '(%a in SuperType) -> aux x a p2
+      | '(%a in BigType %_) -> aux x a p2
       | %_ -> error2 (p1, p2) "forall-type-intro: wrong arguments"
    }
 };
@@ -222,8 +225,8 @@ rule exists-intro = \p1 \p2 \p3 {
       | %_ -> error2 (p1, p2, p3) "exists-intro: wrong arguments"
    };
    match goal p1 with
-   | '(%a in Type) -> aux a
-   | '(%a in SmallType %_) -> aux a
+   | '(%a in SuperType) -> aux a
+   | '(%a in BigType %_) -> aux a
    | %_ -> error2 (p1, p2, p3) "exists-intro: wrong arguments"
 };
 
@@ -259,8 +262,8 @@ rule exists-type-intro = \p1 \f {
       let p2 = f x
       in
       match goal p1 with
-      | '(%a in Type) -> aux x a p2
-      | '(%a in SmallType %_) -> aux x a p2
+      | '(%a in SuperType) -> aux x a p2
+      | '(%a in BigType %_) -> aux x a p2
       | %_ -> error2 (p1, p2) "exists-type-intro: wrong arguments"
    }
 }
@@ -360,6 +363,8 @@ rule false-elim = \phi \p {
    | %_ -> error2 p "false-elim: wrong argument"
 }
 
+/* TODO: not-* should be derived rules */
+
 rule not-intro-2 = \p1 \p2 {
    match (goal p1, goal p2) with
    | ('(%a in Prop), '(ASSM %a1 false)) when eq a a1 ->
@@ -418,91 +423,45 @@ rule prop-intro = \p {
    proof-of '(phi in Prop)
 }
 
-let prop-type-intro = proof-of '(Prop in SmallType 0)
+let prop-type-intro = proof-of '(Prop in Type)
 
 rule any-intro = \phi {
    proof-of '(phi in Any)
 }
 
-let any-type-intro = proof-of '(Any in SmallType 0)
+let any-type-intro = proof-of '(Any in Type)
 
-rule smalltype-subset-smalltype-intro = \n \m {
+rule bigtype-subset-bigtype-intro = \n \m {
    if is-number n and is-number m and n < m then {
-      proof-of '(SmallType n c= SmallType m)
+      proof-of '(BigType n c= BigType m)
    } else
-      error2 n "smalltype-subset-smalltype-intro: wrong arguments (expected two numbers: n, m where n < m)"
+      error2 n "bigtype-subset-bigtype-intro: wrong arguments (expected two numbers: n, m where n < m)"
 }
 
-rule smalltype-subset-type-intro = \n {
+rule bigtype-subset-supertype-intro = \n {
    if is-number n then {
-      proof-of '(SmallType n c= Type)
+      proof-of '(BigType n c= SuperType)
    } else
-      error2 n "smalltype-subset-type-intro: wrong argument (expected a number)"
+      error2 n "bigtype-subset-supertype-intro: wrong argument (expected a number)"
 }
 
-rule smalltype-type-intro = \n \m {
+rule bigtype-type-intro = \n \m {
    if is-number n and is-number m and n < m then {
-      proof-of '(SmallType n in SmallType m)
+      proof-of '(BigType n in BigType m)
    } else
-      error2 n "smalltype-type-intro: wrong arguments (expected two numbers: n, m where n < m)"
+      error2 n "bigtype-type-intro: wrong arguments (expected two numbers: n, m where n < m)"
 }
 
 rule fun-type-intro = \p1 \p2 {
    match goal p1, goal p2 with
-   | '(%a in SmallType %n1), '(%b in SmallType %n2) ->
+   | '(%a in BigType %n1), '(%b in BigType %n2) ->
       let n = max n1 n2
       in
-      proof-of '((a -> b) in SmallType n)
-   | '(%a in SmallType %_), '(%b in Type) -> proof-of '((a -> b) in Type)
-   | '(%a in Type), '(%b in SmallType %_) -> proof-of '((a -> b) in Type)
-   | '(%a in Type), '(%b in Type) -> proof-of '((a -> b) in Type)
+      proof-of '((a -> b) in BigType n)
+   | '(%a in BigType %_), '(%b in SuperType) -> proof-of '((a -> b) in SuperType)
+   | '(%a in SuperType), '(%b in BigType %_) -> proof-of '((a -> b) in SuperType)
+   | '(%a in SuperType), '(%b in SuperType) -> proof-of '((a -> b) in SuperType)
    | %_ -> error2 (p1, p2) "fun-type-intro: wrong arguments"
-}
-
-rule equal-intro = \a \b {
-   if eq a b then
-      proof-of '(a = b)
-   else
-      error2 (a, b) "equal-intro: not equal"
-}
-
-rule equal-elim = \p1 \p2 {
-   match goal p1, goal p2 with
-   | '(%a = %b), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
-   | '(%b = %a), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
-   | '(%a = %b), %b1 when eq b b1 -> proof-of a
-   | '(%b = %a), %b1 when eq b b1 -> proof-of a
-   | %_ -> error2 (p1, p2) "equal-elim: wrong arguments"
-}
-
-rule equal-sym = \p {
-   match goal p with
-   | '(%a = %b) -> proof-of '(b = a)
-   | %_ -> error2 p "equal-sym: wrong argument"
-}
-
-rule equal-trans = \p1 \p2 {
-   match goal p1, goal p2 with
-   | '(%a = %b), '(%b1 = %c) when eq b b1 -> proof-of '(a = c)
-   | %_ -> error2 (p1, p2) "equal-trans: wrong arguments"
-}
-
-rule equal-cong = \p1 \p2 {
-   match goal p1, goal p2 with
-   | '(%a = %b), '(%c = %d) -> proof-of '(a c = b d)
-   | %_ -> error2 (p1, p2) "equal-cong: wrong arguments"
-}
-
-rule bool-ext-true = \p {
-   let g = goal p
-   in
-   proof-of '(g = true)
-}
-
-rule bool-ext-false = \p {
-   match goal p with
-   | '(not %a) -> '(a = false)
-   | %_ -> error2 p "bool-ext-false: wrong argument"
 }
 
 let false-type-intro = proof-of '(false in Prop)
@@ -512,5 +471,108 @@ let true-intro = proof-of true
 
 let faith = proof-of
 
-/* TODO: after implementing 'def' this should be changed to: def facts = (#p) :: facts; */
-macro(1) remember = \p #< let #$0 = #p in (#$0 :: facts) >> \facts .. >#
+
+/*****************************************************************************/
+/* equality rules */
+
+rule equal-sym = \p {
+   match goal p with
+   | '(equal %t %a %b) -> proof-of '(equal t b a)
+   | %_ -> error2 p "equal-sym: wrong argument"
+}
+
+rule equal-trans = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(equal %t %a %b), '(equal %t1 %b1 %c) when eq b b1 and eq t t1 -> proof-of '(equal t a c)
+   | %_ -> error2 (p1, p2) "equal-trans: wrong arguments"
+}
+
+rule equal-downgrade = \p1 \p2 {
+   match goal p1, reduce-appl (goal p2) with
+   | '(equal %t %a %b), '(ALL %s %t1) when eq t t1 ->
+      proof-of '(equal s a b)
+   | %_ -> error2 (p1, p2) "equal-downgrade: wrong arguments"
+}
+
+rule equal-any-intro = \a \b {
+   if eq a b then
+      proof-of '(equal Any a b)
+   else
+      error2 (a, b) "equal-any-intro: not equal"
+}
+
+rule equal-any-elim = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(equal Any %a %b), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
+   | '(equal Any %b %a), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
+   | '(equal Any %a %b), %b1 when eq b b1 -> proof-of a
+   | '(equal Any %b %a), %b1 when eq b b1 -> proof-of a
+   | %_ -> error2 (p1, p2) "equal-any-elim: wrong arguments"
+}
+
+rule equal-any-cong = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(equal Any %a %b), '(equal Any %c %d) -> proof-of '(equal Any (a c) (b d))
+   | %_ -> error2 (p1, p2) "equal-any-cong: wrong arguments"
+}
+
+rule equal-prop-intro = \p {
+   match goal p with
+   | '(%a <=> %b) -> proof-of '(equal Any a b)
+   | %_ -> error2 p "equal-prop-intro: wrong argument"
+}
+
+rule equal-fun-intro = \p1 \p2 \p3 {
+   match goal p1, goal p2, goal p3 with
+   | '(%f in %a -> %b), '(%g in %a1 -> %b1), '(ALL %a2 (\x . equal %b2 (%f1 x) (%g1 x)))
+      when eq a a1 and eq a1 a2 and eq b b1 and eq f f1 and eq g g1 ->
+         proof-of '(equal (a -> b) f g)
+   | %_ -> error2 (p1, p2, p3) "equal-fun-intro: wrong argument"
+}
+
+rule equal-fun-elim = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(equal (%a -> %b) %f %g), '(equal %a1 %x %y) when eq a a1 ->
+      proof-of '(equal b (f x) (f y))
+   | %_ -> error2 (p1, p2) "equal-fun-elim: wrong arguments"
+}
+
+
+/*****************************************************************************/
+/* subtype rules */
+
+rule subtype-intro-3 = \p1 \p2 \p3 {
+   match goal p1, goal p2, goal p3 with
+   | '(%f in %t -> Prop), '(%a in %t1), '(%f1 %a1) when eq a a1 and eq t t1 and eq f f1 ->
+      proof-of '(a in SUB t f)
+   | %_ -> error2 (p1, p2, p3) "subtype-intro: wrong arguments"
+}
+
+rule subtype-elim = \p {
+   match goal p with
+   | '(%a in SUB %t %f) -> proof-of '(f a)
+   | %_ -> error2 p "subtype-elim: wrong argument"
+}
+
+rule subtype-elim-dom = \p {
+   match goal p with
+   | '(%a in SUB %t %f) -> proof-of '(a in t)
+   | %_ -> error2 p "subtype-elim-dom: wrong argument"
+}
+
+rule subtype-type-intro-2 = \p1 \p2 {
+   let aux = \t \tp {
+      match goal p2 with
+      | '(%f in %t1 -> Prop) when eq t t1 ->
+         proof-of '(SUB f t in tp)
+      | %_ ->
+         error2 (p1, p2) "subtype-type-intro: wrong arguments"
+   };
+   match goal p1 with
+   | '(%t in BigType %n) ->
+      aux t '(BigType n)
+   | '(%t in SuperType) ->
+      aux t SuperType
+   | %_ ->
+      error2 (p1, p2) "subtype-type-intro: wrong arguments"
+}

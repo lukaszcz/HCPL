@@ -14,6 +14,7 @@ let filter = __ipl_list_filter
 let foldl = __ipl_list_foldl
 let foldr = __ipl_list_foldr
 let fold = foldl
+let iter = \f \lst . fold (\x \acc { f x; acc }) lst ()
 let forall = __ipl_list_forall
 let exists = __ipl_list_exists
 let find = __ipl_list_find

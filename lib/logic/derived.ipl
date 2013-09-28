@@ -1,4 +1,5 @@
-/* derived.ipl: Derived rules and lemmas.
+/* derived.ipl: Derived rules and lemmas which don't require standard proof
+ * tactics.
  *
  * Copyright (C) 2013 by Lukasz Czajka
  */
@@ -27,22 +28,22 @@ rule subset-elim = \p1 \p2 {
       error2 p1 "subset-elim: wrong first argument"
 }
 
-rule smalltype-to-type = \p {
+rule bigtype-to-supertype = \p {
    match goal p with
-   | '(%a in SmallType %n) ->
-      subset-elim (smalltype-subset-type-intro n) p
+   | '(%a in BigType %n) ->
+      subset-elim (bigtype-subset-supertype-intro n) p
    | %_ ->
-      error2 p "smalltype-to-type: wrong argument"
+      error2 p "bigtype-to-type: wrong argument"
 }
 
-rule smalltype-upgrade = \m \p {
+rule bigtype-upgrade = \m \p {
    match goal p with
-   | '(%a in SmallType %n) when n <= m ->
-      subset-elim (smalltype-subset-smalltype-intro n) p
+   | '(%a in BigType %n) when n <= m ->
+      subset-elim (bigtype-subset-bigtype-intro n) p
    | %_ ->
-      error2 (m, p) "smalltype-to-type: wrong arguments"
+      error2 (m, p) "bigtype-to-type: wrong arguments"
 }
 
-rule smalltype-in-type = \n {
-   smalltype-to-type (smalltype-type-intro n (n + 1))
+rule bigtype-in-supertype = \n {
+   bigtype-to-supertype (bigtype-type-intro n (n + 1))
 }

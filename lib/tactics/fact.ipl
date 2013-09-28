@@ -10,28 +10,34 @@ tactic find-fact = \phi {
             let x = goal p;
             if eq phi x then
                pequal phi p
-            else
-               match phi, x with
-               | '(%a in Type), '(%b in SmallType %n) when eq a b ->
-                  smalltype-to-type (pequal '(a in SmallType n) p)
-               | '(%a in SmallType %m), '(%b in SmallType %n) when eq a b and m >= n ->
-                  smalltype-upgrade m (pequal '(a in SmallType n) p)
-               | %_ ->
-                  ()
+            else {
+               match x with
+               | '(%b in BigType %n) ->
+                  begin
+                     match phi with
+                     | '(%a in SuperType) when eq a b ->
+                        bigtype-to-supertype (pequal '(a in BigType n) p)
+                     | '(%a in BigType %m) when eq a b and m >= n ->
+                        bigtype-upgrade m (pequal '(a in BigType n) p)
+                     | %_ ->
+                        ()
+                  end
+               | %_ -> ()
+            }
          })
          facts
          ()
    in
    if p = () then {
       match phi with
-      | '(SmallType %n c= SmallType %m) when m > n ->
-         smalltype-subset-smalltype-intro n m
-      | '(SmallType %n in SmallType %m) when m > n ->
-         smalltype-type-intro n m
-      | '(SmallType %n c= Type) ->
-         smalltype-subset-type-intro n
-      | '(SmallType %n in Type) ->
-         smalltype-in-type n
+      | '(BigType %n c= BigType %m) when m > n ->
+         bigtype-subset-bigtype-intro n m
+      | '(BigType %n in BigType %m) when m > n ->
+         bigtype-type-intro n m
+      | '(BigType %n c= SuperType) ->
+         bigtype-subset-supertype-intro n
+      | '(BigType %n in SuperType) ->
+         bigtype-in-supertype n
       | %_ ->
          ()
    } else

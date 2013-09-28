@@ -3,6 +3,9 @@
  * Copyright (C) 2013 by Lukasz Czajka
  */
 
+ /* TODO: after implementing 'def' this should be changed to: def facts = (#p) :: facts; */
+macro(1) remember = \p #< let #$0 = #p in (#$0 :: facts) >> \facts .. >#
+
 macro assume = \args {
    let get-block = \lst {
       match List.rev lst with
@@ -82,13 +85,13 @@ macro fix = \args {
                | [%_] ->
                   let tp = join-tokens-list lst2
                   in
-                  aux vars tp #< (auto-type '((#tp) in Type)) ># #< >#
+                  aux vars tp #< (auto-type '((#tp) in SuperType)) ># #< >#
                | [%a, %b] ->
                   let tp = join-tokens-list a
                   in
                   let body = join-tokens-list b
                   in
-                  let r = aux vars tp #< (auto-type '((#tp) in Type)) ># body
+                  let r = aux vars tp #< (auto-type '((#tp) in SuperType)) ># body
                   in
                   #< (#r) >#
                | %_ -> error "fix: wrong arguments"
@@ -187,14 +190,14 @@ macro take = \args {
                else
                   #< let #$3 = (#value-tp-deriv) >#
             in
-            #< #vtp-code; let #$1 = extract-type (goal #$3); let #$2 = (auto-type '(#$1 in Type)); >#
+            #< #vtp-code; let #$1 = extract-type (goal #$3); let #$2 = (auto-type '(#$1 in SuperType)); >#
          } else {
             let vtp-code = if value-tp-deriv = () then #< let #$3 = auto-type '(#$0 in #$1) ># else value-tp-deriv
             in
             if tp = () then
                #< let #$2 = (#tp-deriv); let #$1 = extract-type (goal #$2); #vtp-code >#
             else if tp-deriv = () then
-               #< let #$1 = (#tp); let #$2 = (auto-type '(#$1 in Type)); #vtp-code >#
+               #< let #$1 = (#tp); let #$2 = (auto-type '(#$1 in SuperType)); #vtp-code >#
             else
                #< let #$1 = (#tp); let #$2 = (#tp-deriv); #vtp-code >#
          }

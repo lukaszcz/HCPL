@@ -1,13 +1,11 @@
 
-(3-4 days)
-* More logic (induction, sets etc)
-
 (2 days)
 * Makefile target: install
 * examples
 * version 0.1
 
 * def (overriding, non-recursive let)
+* fix ex & all without dot
 * update 'thesis' in *-intro
 * intros, forall-intros, impl-intros
 * make lemmas etc work with modules
@@ -15,6 +13,9 @@
 * forward bug (checking frames does not work)
 * bug: forward should be disallowed in macro functions (check if this is so)
 * macro invocation stacktrace
+* replace (a = b) with (equal A a b) during parsing, with an inferred
+  type A; report error if the type cannot be inferred; use == (equal
+  Any) for current usage of =
 
 * 'mark' is a stupid hack which doesn't fully work and should be removed
 * implement Node.normalize properly

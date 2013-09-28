@@ -24,9 +24,9 @@ lem_20 Prop;
 lem_20 '(Prop -> Any -> Prop);
 
 lemma
-   '(all T : Set . all f, g : T -> Prop . (all x : T . f x => g x) => (ex x : T . f x) => ex x : T . g x)
+   '(all T : Type . all f, g : T -> Prop . (all x : T . f x => g x) => (ex x : T . f x) => ex x : T . g x)
 proof
-   fix T : Set;
+   fix T : Type;
    fix f, g : T -> Prop;
    assume $0: '(all x : T . f x => g x);
    assume $1: '(ex x : T . f x);
@@ -38,9 +38,9 @@ qed;
 print "OK1";
 
 lemma
-   '(all T : Set . all f : T -> Prop . not (all x : T . f x) <=> ex x : T . not (f x))
+   '(all T : Type . all f : T -> Prop . not (all x : T . f x) <=> ex x : T . not (f x))
 proof
-   fix T : Set;
+   fix T : Type;
    fix f : T -> Prop;
    equiv-intro {
       assume $0: '(not (all x : T . f x));
@@ -69,3 +69,44 @@ proof
 qed;
 
 print "OK2";
+
+lemma
+   '(all T : Type . all f, g : T -> Prop . (ex x : T . f x or g x) <=> (ex x : T . f x) or (ex x : T . g x))
+proof
+   fix T : Type;
+   fix f, g : T -> Prop;
+   equiv-intro {
+      assume $0: '(ex x : T . f x or g x);
+      obtain x from $0;
+      or-elim (fact '(f x or g x)) {
+         assume '(f x);
+         show $1: '(ex x : T . f x) with {
+            take z = x;
+            fact '(f z)
+         };
+         or-intro $1 '(ex x : T . g x)
+      }{
+         assume '(g x);
+         show $1: '(ex x : T . g x) with {
+            take z = x;
+            fact '(g z)
+         };
+         or-intro '(ex x : T . f x) $1
+      }
+   }{
+      assume $0: '((ex x : T . f x) or (ex x : T . g x));
+      or-elim $0 {
+         assume $1: '(ex x : T . f x);
+         obtain x from $1;
+         take z = x;
+         show '(f z or g z) with or-intro (fact '(f z)) '(g z)
+      }{
+         assume $1: '(ex x : T . g x);
+         obtain x from $1;
+         take z = x;
+         show '(f z or g z) with or-intro '(f z) (fact '(g z))
+      }
+   }
+qed;
+
+print "OK3";

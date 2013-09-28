@@ -89,8 +89,8 @@ tactic match-type = \phi \pat {
    List.mapfind
       (\p {
          match goal p with
-         | '(%psi in SmallType %n) when eq phi psi and matches Type pat ->
-            smalltype-to-type (pequal '(phi in SmallType n) p)
+         | '(%psi in BigType %n) when eq phi psi and matches SuperType pat ->
+            bigtype-to-supertype (pequal '(phi in BigType n) p)
          | '(%psi in %t) when eq phi psi and matches t pat ->
             pequal '(phi in t) p
          | %_ -> ()
@@ -130,7 +130,7 @@ let infer-type-proc = \facts \phi {
          var-intro \x {
             let da = aux a context
             let db = aux (apply b x) ('(x in a) :: context);
-            let sa = t-match Type (get-type da)
+            let sa = t-match SuperType (get-type da)
             let sb = t-match Prop (get-type db)
             in
             mk-data
@@ -186,7 +186,7 @@ let infer-type-proc = \facts \phi {
                quant-aux a b exists-type-intro-rule
             | '(%a -> %b) ->
                /* TODO: this is not completely OK */
-               aux2 a b Type fun-type-intro-rule
+               aux2 a b SuperType fun-type-intro-rule
             | '(%a %b) ->
                t-var-intro \v {
                   let da = aux a context
@@ -222,7 +222,7 @@ let infer-type-proc = \facts \phi {
                         << \facts \v-assoc \s {
                               let st = s t;
                               let tp = s tv;
-                              fix y : tp with (auto-type-tactic facts '(tp in Type));
+                              fix y : tp with (auto-type-tactic facts '(tp in SuperType));
                               f facts ((x, y) :: v-assoc) s
                            }
                         << s0
@@ -275,21 +275,21 @@ tactic auto-type = \phi {
       | '((not %a) in Prop) ->
          not-type-intro (auto-type '(a in Prop))
       | '((ALL %a %b) in Prop) ->
-         forall-type-intro (auto-type '(a in Type)) \x {
+         forall-type-intro (auto-type '(a in SuperType)) \x {
             suppose '(x in a);
             let b1 = apply b x;
             auto-type '(b1 in Prop)
          }
       | '((EX %a %b) in Prop) ->
-         exists-type-intro (auto-type '(a in Type)) \x {
+         exists-type-intro (auto-type '(a in SuperType)) \x {
             suppose '(x in a);
             let b1 = apply b x;
             auto-type '(b1 in Prop)
          }
-      | '((%a -> %b) in SmallType %n) ->
-         fun-type-intro (auto-type '(a in SmallType n)) (auto-type '(b in SmallType n))
-      | '((%a -> %b) in Type) ->
-         fun-type-intro (auto-type '(a in Type)) (auto-type '(b in Type))
+      | '((%a -> %b) in BigType %n) ->
+         fun-type-intro (auto-type '(a in BigType n)) (auto-type '(b in BigType n))
+      | '((%a -> %b) in SuperType) ->
+         fun-type-intro (auto-type '(a in SuperType)) (auto-type '(b in SuperType))
       | '(%a %b in %tp) ->
          begin
             let pa = match-type a '(%_ -> %_);
