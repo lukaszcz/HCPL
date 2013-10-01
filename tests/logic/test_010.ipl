@@ -1,0 +1,146 @@
+
+open Logic;
+
+let zero = \_ 0;
+let succ = \x . x + 1;
+let Nat = mk-datatype [('zero, Any), ('succ, Self)];
+
+let pred = \x . if x != 0 then x - 1 else 0;
+
+axiom ax-pred
+   '(all n : Nat . pred (succ n) == n);
+
+axiom ax-succ-type
+   '(succ in Data -> Data);
+
+lemma lem_nat_subset_data
+   '(Nat c= Data)
+proof
+   datatype-induction (reduce thesis) \n \tp \t {
+      suppose '(n in tp);
+      match t with
+      | '(zero n) ->
+         number-type-intro 0
+      | '(succ n) ->
+         suppose '(n in Data);
+         remember ax-succ-type;
+         auto-type '(succ n in Data)
+   }
+qed;
+remember lem_nat_subset_data;
+
+lemma lem_succ_type
+   '(succ in Nat -> Nat)
+proof
+   fix n : Nat;
+   datatype-type-intro-3 Nat 'succ (fact '(n in Nat))
+qed;
+remember lem_succ_type;
+
+lemma lem_peano_1
+   '(all x, y : Nat . succ x == succ y => x == y)
+proof
+   fix x, y : Nat;
+   show $1: '(pred (succ x) == x) with
+      forall-elim ax-pred (fact '(x in Nat));
+   show $2: '(pred (succ y) == y) with
+      forall-elim ax-pred (fact '(y in Nat));
+   assume '(succ x == succ y);
+   eq-trans (eq-trans (eq-sym $1) (eq-cong (eq-intro-1 'pred) last)) $2
+qed;
+
+lemma lem_peano_2
+   '(all n : Nat . succ n != 0)
+proof
+   datatype-induction thesis \n \tp \t {
+      suppose '(n in tp);
+      match t with
+      | '(zero n) ->
+         fact '(succ 0 != 0)
+      | '(succ n) ->
+         suppose $0: '(succ n != 0);
+         assume $1: '(succ (succ n) == 0);
+         show $2: '(pred (succ (succ n)) == succ n) with
+            forall-elim ax-pred (datatype-type-intro-3 Nat 'succ (fact '(n in Nat)));
+         show '(pred (succ (succ n)) == pred 0) with
+            eq-cong (eq-intro-1 'pred) $1;
+         show '(succ n == pred 0) with
+            eq-trans (eq-sym $2) last;
+         show '(succ n == 0) with
+            eq-trans last (fact '(pred 0 == 0));
+         not-elim $0 last
+   }
+qed;
+
+let plus = \x \y . if y == 0 then x else succ (plus x (pred y))
+let mult = \x \y . if y == 0 then 0 else plus (mult x (pred y)) x
+
+lemma lem_peano_3
+   '(all x : Any . plus x 0 == x)
+proof
+   fix x : Any;
+   eq-intro '(plus x 0) x
+qed;
+
+lemma lem_peano_4
+   '(all x : Any . all y : Nat . plus x (succ y) == succ (plus x y))
+proof
+   fix x : Any;
+   fix y : Nat;
+   show $1: '(plus x (succ y) == succ (plus x (pred (succ y)))) with
+      eq-if-intro (reduce-appl '(plus x (succ y))) (forall-elim lem_peano_2 (fact '(y in Nat)));
+   show '(pred (succ y) == y) with forall-elim ax-pred (fact '(y in Nat));
+   show '(succ (plus x (pred (succ y))) == succ (plus x y)) with
+      eq-cong (eq-intro-1 'succ) (eq-cong (eq-intro-1 '(plus x)) last);
+   eq-trans $1 last
+qed;
+
+lemma lem_peano_5
+   '(all x : Any . mult x 0 == 0)
+proof
+   fix x : Any;
+   fact '(mult x 0 == 0)
+qed;
+
+lemma lem_peano_6
+   '(all x : Any . all y : Nat . mult x (succ y) == plus (mult x y) x)
+proof
+   fix x : Any;
+   fix y : Nat;
+   show $1: '(mult x (succ y) == plus (mult x (pred (succ y))) x) with
+      eq-if-intro (reduce-appl '(mult x (succ y))) (forall-elim lem_peano_2 (fact '(y in Nat)));
+   show '(pred (succ y) == y) with forall-elim ax-pred (fact '(y in Nat));
+   show '(plus (mult x (pred (succ y))) x == plus (mult x y) x) with
+      eq-cong (eq-intro-1 '(\y . plus (mult x y) x)) last;
+   eq-trans $1 last
+qed;
+
+let even = \n . if n == 0 then true else not (even (pred n));
+
+lemma lem_even_succ_eq
+   '(all n : Nat . even (succ n) == not (even n))
+proof
+   fix n : Nat;
+   show '(even (succ n) == not (even (pred (succ n)))) with
+      eq-if-intro (reduce-appl '(even (succ n))) (forall-elim lem_peano_2 (fact '(n in Nat)));
+   eq-trans last (eq-cong (eq-intro-1 '(\x . not (even x))) (forall-elim ax-pred (fact '(n in Nat))));
+qed;
+
+lemma lem_even_type
+   '(even in Nat -> Prop)
+proof
+   datatype-induction (reduce thesis) \n \tp \t {
+      suppose '(n in tp);
+      match t with
+      | '(zero n) ->
+         fact '(even 0 in Prop)
+      | '(succ n) ->
+         suppose '(even n in Prop);
+         show '((not (even n)) in Prop) with not-type-intro last;
+         eq-elim
+            << eq-cong (eq-intro-1 '(\x . x in Prop)) (forall-elim lem_even_succ_eq (fact '(n in Nat)))
+            << last
+   }
+qed;
+
+print "OK";

@@ -19,7 +19,7 @@ symbol SuperType
 symbol BigType
 symbol Prop
 symbol Any
-symbol Nat
+symbol Data
 
 symbol ALL
 symbol EX
@@ -42,6 +42,12 @@ let Set = \&#T (T -> Prop)
 let extract-type = \x {
    match x with
    | '(%_ in %t) -> t
+   | %_ -> error2 x "expected a formula of the form (a in b)"
+}
+
+let extract-elem = \x {
+   match x with
+   | '(%e in %_) -> e
    | %_ -> error2 x "expected a formula of the form (a in b)"
 }
 
@@ -464,6 +470,15 @@ rule fun-type-intro = \p1 \p2 {
    | %_ -> error2 (p1, p2) "fun-type-intro: wrong arguments"
 }
 
+let data-type-intro = proof-of '(Data in Type)
+
+rule number-type-intro = \n {
+   if is-number n then
+      proof-of '(n in Data)
+   else
+      error2 n "number-type-intro: not a number"
+}
+
 let false-type-intro = proof-of '(false in Prop)
 let true-type-intro = proof-of '(true in Prop)
 
@@ -474,6 +489,60 @@ let faith = proof-of
 
 /*****************************************************************************/
 /* equality rules */
+
+rule eq-intro = \a \b {
+   if eq a b then
+      proof-of '(a == b)
+   else
+      error2 (a, b) "equal-any-intro: not equal"
+}
+
+rule eq-intro-1 = \phi {
+   proof-of '(phi == phi)
+}
+
+rule eq-elim = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a == %b), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
+   | '(%b == %a), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
+   | '(%a == %b), %b1 when eq b b1 -> proof-of a
+   | '(%b == %a), %b1 when eq b b1 -> proof-of a
+   | %_ -> error2 (p1, p2) "eq-elim: wrong arguments"
+}
+
+rule eq-type-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%x in Data), '(%y in Data) -> proof-of '((x == y) in Prop)
+   | %_ -> error2 (p1, p2) "eq-type-intro: wrong arguments"
+}
+
+rule eq-cong = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a == %b), '(%c == %d) -> proof-of '((a c) == (b d))
+   | %_ -> error2 (p1, p2) "equal-any-cong: wrong arguments"
+}
+
+rule eq-sym = \p {
+   match goal p with
+   | '(%a == %b) -> proof-of '(b == a)
+   | %_ -> error2 p "eq-sym: wrong argument"
+}
+
+rule eq-trans = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a == %b), '(%b1 == %c) when eq b b1 -> proof-of '(a == c)
+   | %_ -> error2 (p1, p2) "eq-trans: wrong arguments"
+}
+
+rule eq-if-intro = \phi \p {
+   match phi with
+   | '(if %c then %x else %y) when eq c (goal p) ->
+      proof-of '(phi == x)
+   | '(if %c then %x else %y) when eq '(not c) (goal p) ->
+      proof-of '(phi == y)
+   | %_ ->
+      error2 (phi, p) "eq-if-intro: wrong arguments"
+}
 
 rule equal-sym = \p {
    match goal p with
@@ -494,31 +563,9 @@ rule equal-downgrade = \p1 \p2 {
    | %_ -> error2 (p1, p2) "equal-downgrade: wrong arguments"
 }
 
-rule equal-any-intro = \a \b {
-   if eq a b then
-      proof-of '(equal Any a b)
-   else
-      error2 (a, b) "equal-any-intro: not equal"
-}
-
-rule equal-any-elim = \p1 \p2 {
-   match goal p1, goal p2 with
-   | '(equal Any %a %b), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
-   | '(equal Any %b %a), '(%phi %b1) when eq b b1 -> proof-of '(phi a)
-   | '(equal Any %a %b), %b1 when eq b b1 -> proof-of a
-   | '(equal Any %b %a), %b1 when eq b b1 -> proof-of a
-   | %_ -> error2 (p1, p2) "equal-any-elim: wrong arguments"
-}
-
-rule equal-any-cong = \p1 \p2 {
-   match goal p1, goal p2 with
-   | '(equal Any %a %b), '(equal Any %c %d) -> proof-of '(equal Any (a c) (b d))
-   | %_ -> error2 (p1, p2) "equal-any-cong: wrong arguments"
-}
-
 rule equal-prop-intro = \p {
    match goal p with
-   | '(%a <=> %b) -> proof-of '(equal Any a b)
+   | '(%a <=> %b) -> proof-of '(equal Prop a b)
    | %_ -> error2 p "equal-prop-intro: wrong argument"
 }
 
@@ -575,4 +622,104 @@ rule subtype-type-intro-2 = \p1 \p2 {
       aux t SuperType
    | %_ ->
       error2 (p1, p2) "subtype-type-intro: wrong arguments"
+}
+
+/*****************************************************************************/
+/* datatype induction */
+// TODO: this should be generalized
+
+symbol Datatype
+symbol Self
+
+let mk-datatype = \lst {
+   List.iter
+      (\x {
+         match x with
+         | (%_, %_) -> ()
+         | %_ -> error2 x "mk-datatype: bad list element"
+      })
+      lst;
+   '(Datatype lst)
+}
+
+let is-datatype = \tp { match tp with '(Datatype %_) -> true | %_ -> false }
+
+rule datatype-induction = \thesis \f {
+   match thesis with
+   | '(ALL %tp %phi) ->
+      begin
+         match tp with
+         | '(Datatype %qlst) ->
+            List.fold-q
+               (\x \acc {
+                  match x with
+                  | '!(%s, %tpa) ->
+                     let tp0 = if tpa == Self then tp else tpa;
+                     var-intro \x {
+                        let p = f x tp0 '(s x);
+                        if tpa == Self then {
+                           match goal p with
+                           | '(ASSM (x in tp0) (ASSM %assm %t))
+                              when eq assm '(phi x) and eq t '(phi (s x)) -> acc
+                           | '(ASSM (x in tp0) (%assm => %t))
+                              when eq assm '(phi x) and eq t '(phi (s x)) -> acc
+                           | %_ -> error2 p "datatype-induction: bad proof"
+                        } else {
+                           let aux = \t {
+                              match lift t (reduce '(s x)) with
+                              | '(%phi %_) ->
+                                 phi :: acc
+                              | %_ ->
+                                 error2 p "datatype-induction: bad proof"
+                           };
+                           let g = goal p;
+                           match goal p with
+                           | '(ASSM (x in tp0) %t) when eq t '(phi (s x)) -> acc
+                           | %t when eq t '(phi (s x)) -> acc
+                           | %_ -> error2 p "datatype-induction: bad proof"
+                        }
+                     }
+                  | %_ -> error2 x "datatype-induction: bad list element"
+               })
+               qlst
+               (proof-of '(ALL tp phi))
+         | %_ ->
+            error2 tp "datatype-induction: bad type"
+      end
+   | %_ ->
+      error2 thesis "datatype-induction: bad thesis"
+}
+
+rule datatype-type-intro-3 = \tp \s \p {
+   match tp with
+   | '(Datatype %qlst) ->
+      begin
+         let t0 = extract-type (goal p)
+         let t = if t0 == 'tp then Self else t0
+         let e = extract-elem (goal p);
+         let r =
+            List.find-q
+               (\x {
+                  match x with
+                  | '!(s, t) -> true
+                  | %_ -> false
+               })
+               qlst
+               ()
+         in
+         if r == () then
+            error2 (tp, s, p) "datatype-type-intro: no match"
+         else
+            proof-of '(s e in tp)
+      end
+   | %_ ->
+      error2 (tp, s, p) "datatype-type-intro: wrong arguments"
+}
+
+// TODO: This is wrong
+rule datatype-in-type-intro = \tp {
+   if is-datatype tp then
+      proof-of '(tp in Type)
+   else
+      error2 tp "datatype-type-intro: wrong argument"
 }

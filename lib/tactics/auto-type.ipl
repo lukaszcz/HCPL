@@ -29,7 +29,7 @@ let t-solve = \lst \assoc {
       if occurs-check x t then
          error "unification failure: occurs-check failed"
       else {
-         let xt = \z . t-subst z \y . if y = x then t else y
+         let xt = \z . t-subst z \y . if y == x then t else y
          let lst1 = List.map (\pr . (xt (fst pr), xt (snd pr))) lst
          let assoc1 = List.map (\pr . (fst pr, xt (snd pr))) assoc
          in
@@ -39,7 +39,7 @@ let t-solve = \lst \assoc {
    match lst with
    | [] ->
       assoc
-   | ('(TVAR %x), '(TVAR %x1)) :: %lst1 when x = x1 ->
+   | ('(TVAR %x), '(TVAR %x1)) :: %lst1 when x == x1 ->
       t-solve lst1 assoc
    | ('(TVAR %x), %t) :: %lst1 ->
       aux '(TVAR x) t lst1 assoc
@@ -47,7 +47,7 @@ let t-solve = \lst \assoc {
       aux '(TVAR x) t lst1 assoc
    | ('(%tpa1 -> %tpa2), '(%tpb1 -> %tpb2)) :: %lst1 ->
       t-solve ((tpa1, tpb1) :: (tpa2, tpb2) :: lst1) assoc
-   | (%ta, %tb) :: %lst1 when ta = tb ->
+   | (%ta, %tb) :: %lst1 when ta == tb ->
       t-solve lst1 assoc
    | %_ ->
       error "unification failure"
@@ -56,7 +56,7 @@ let t-solve = \lst \assoc {
 let t-unify = \t1 \t2 {
    let assoc = t-solve [(t1, t2)] []
    in
-   \t . t-subst t \x . List.assoc (= x) assoc x
+   \t . t-subst t \x . List.assoc (== x) assoc x
 }
 
 let t-match = \t \pat {
@@ -65,38 +65,81 @@ let t-match = \t \pat {
       | [] ->
          assoc
       | ('(TVAR %x), %t) :: %lst1 ->
-         let t1 = List.assoc (= x) assoc `__ipl_dummy
+         let t1 = List.assoc (== x) assoc `__ipl_dummy
          in
-         if t1 = `__ipl_dummy then
+         if t1 == `__ipl_dummy then
             aux lst1 (('(TVAR x), t) :: assoc)
-         else if t = t1 then
+         else if t == t1 then
             aux lst1 assoc
          else
             error2 (t, pat) "match failure"
       | ('(%ta1 -> %ta2), '(%tb1 -> %tb2)) :: %lst1 ->
          aux ((ta1, tb1) :: (ta2, tb2) :: lst1) assoc
-      | (%t1, %t2) :: %lst1 when t1 = t2 ->
+      | (%t1, %t2) :: %lst1 when t1 == t2 ->
          aux lst1 assoc
       | %_ ->
          error2 (t, pat) "match failure"
    };
    let assoc = aux [(pat, t)] []
    in
-   \t . t-subst t \x . List.assoc (= x) assoc x
+   \t . t-subst t \x . List.assoc (== x) assoc x
 }
 
 tactic match-type = \phi \pat {
-   List.mapfind
-      (\p {
-         match goal p with
-         | '(%psi in BigType %n) when eq phi psi and matches SuperType pat ->
-            bigtype-to-supertype (pequal '(phi in BigType n) p)
-         | '(%psi in %t) when eq phi psi and matches t pat ->
-            pequal '(phi in t) p
-         | %_ -> ()
-      })
-      facts
-      ()
+   let p =
+      List.mapfind
+         (\p {
+            match goal p with
+            | '(%psi in BigType %n) when eq phi psi and matches SuperType pat ->
+               bigtype-to-supertype (pequal '(phi in BigType n) p)
+            | '(%psi in %t) when eq phi psi and matches t pat ->
+               pequal '(phi in t) p
+            | %_ -> ()
+         })
+         facts
+         ()
+   in
+   if p == () then {
+      if matches Data pat then {
+         let x = eval-limited phi eval-limit;
+         if is-number x then {
+            pequal '(phi in Data) (number-type-intro x)
+         } else
+            ()
+      } else
+         ()
+   } else
+      p
+};
+
+tactic infer-typecast = \a \b {
+   if eq a b then
+      \x x
+   else if b == Any then {
+      \pa { any-intro (extract-elem (goal pa)) }
+   } else {
+      let p = find-fact '(ALL a b);
+      if p != () then {
+         \pa {
+            match goal pa with
+            | '(%x in %a1) when eq a1 a ->
+               pequal '(x in b) (forall-elim p pa)
+            | '(%a1 %x) when eq a1 a ->
+               pequal '(x in b) (forall-elim p pa)
+            | %_ ->
+               error2 pa "infer-typecast: bad proof"
+         }
+      } else
+         error ("infer-typecast failed on: " ^ (a, b))
+   }
+};
+
+rule typecast = \b \p {
+   match goal p with
+   | '(%x in %a) ->
+      infer-typecast a b p
+   | %_ ->
+      error2 (p, b) "typecast: wrong arguments"
 };
 
 forward auto-type-tactic;
@@ -156,7 +199,7 @@ let infer-type-proc = \facts \phi {
                << v
                << \facts \v-assoc \s {
                      let sv = s v;
-                     let y = List.assoc (= phi) v-assoc ();
+                     let y = List.assoc (== phi) v-assoc ();
                      find-fact '(y in sv)
                   }
                << \x x
@@ -180,6 +223,18 @@ let infer-type-proc = \facts \phi {
                         not-type-intro ((get-fun da) facts v-assoc (s o sa))
                      }
                   << sa o (get-subst da)
+            | '(%a == %b) ->
+               let da = aux a context
+               let db = aux b context;
+               let fa = \facts \v-assoc \s (infer-typecast (get-type da) Data (get-fun da facts v-assoc s))
+               let fb = \facts \v-assoc \s (infer-typecast (get-type db) Data (get-fun db facts v-assoc s))
+               in
+               mk-data
+                  << Prop
+                  << \facts \v-assoc \s {
+                        eq-type-intro (fa facts v-assoc s) (fb facts v-assoc s)
+                     }
+                  << (get-subst da) o (get-subst db)
             | '(ALL %a %b) ->
                quant-aux a b forall-type-intro-rule
             | '(EX %a %b) ->
@@ -187,6 +242,14 @@ let infer-type-proc = \facts \phi {
             | '(%a -> %b) ->
                /* TODO: this is not completely OK */
                aux2 a b SuperType fun-type-intro-rule
+            | '(Datatype %_) ->
+               // TODO: This is not completely OK
+               mk-data
+                  << SuperType
+                  << \facts \v-assoc \s {
+                        bigtype-to-supertype (datatype-in-type-intro phi)
+                     }
+                  << \x x
             | '(%a %b) ->
                t-var-intro \v {
                   let da = aux a context
@@ -274,6 +337,15 @@ tactic auto-type = \phi {
          }
       | '((not %a) in Prop) ->
          not-type-intro (auto-type '(a in Prop))
+      | '((%a == %b) in Prop) ->
+         try-else {
+            eq-type-intro (auto-type '(a in Data)) (auto-type '(b in Data))
+         }{
+            let p = infer-type '(a == b);
+            match goal p with
+            | '(%_ in Prop) -> p
+            | %_ -> error ("auto-type failed on: " ^ to_string phi)
+         }
       | '((ALL %a %b) in Prop) ->
          forall-type-intro (auto-type '(a in SuperType)) \x {
             suppose '(x in a);

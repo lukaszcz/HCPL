@@ -1,5 +1,4 @@
 
-(2 days)
 * Makefile target: install
 * examples
 * version 0.1
@@ -9,16 +8,17 @@
 * update 'thesis' in *-intro
 * intros, forall-intros, impl-intros
 * make lemmas etc work with modules
+
+* more logic: induction, sets, etc
 * tauto & auto tactics
+* bug: nested modules don't quite work
 * forward bug (checking frames does not work)
 * bug: forward should be disallowed in macro functions (check if this is so)
 * macro invocation stacktrace
 * replace (a = b) with (equal A a b) during parsing, with an inferred
-  type A; report error if the type cannot be inferred; use == (equal
-  Any) for current usage of =
+  type A; report error if the type cannot be inferred
 
 * 'mark' is a stupid hack which doesn't fully work and should be removed
-* implement Node.normalize properly
 * fix comparing & matching recursive data structures
 * Better (O(1)) logic variable handling in fix etc.
 
@@ -29,10 +29,10 @@
 * improve efficiency of type inference
 * macro priorities instead of syntax macrosep
 * saving parsed files in binary (*.ipb)
-* lazy matching
 * Improve evaluator efficiency even more
 * Improve quoted match / equal efficiency
-* In the parser, translate closed lets directly into Delayed nodes
+* In the parser, translate closed lets directly into Delayed nodes (?)
 * Type inference (fun macro)
 * Improve Node.to_string (use pretty printing from the ocaml's Format module)
+* lazy matching
 * 'syntax drop' for blocks and macroseps

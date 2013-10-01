@@ -1,12 +1,12 @@
 
 let fib = \&n . {
-   if = n 0 then 0
-   else if = n 1 then 1
+   if == n 0 then 0
+   else if == n 1 then 1
    else { + (fib (- n 1)) (fib (- n 2)) } };
 
 let fibe = \!n .
-   if = n 0 then 0
-   else if = n 1 then 1
+   if == n 0 then 0
+   else if == n 1 then 1
    else + (fibe (- n 1)) (fibe (- n 2));
 
 print (fibe 5);

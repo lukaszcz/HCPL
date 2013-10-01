@@ -4,7 +4,73 @@
  */
 
  /* TODO: after implementing 'def' this should be changed to: def facts = (#p) :: facts; */
-macro(1) remember = \p #< let #$0 = #p in (#$0 :: facts) >> \facts .. >#
+macro(1) remember = \p #< ; (#p :: facts) >> \facts .. >#
+
+
+macro lemma = \args {
+   match args with
+   | [%name, %formula, %xproof] ->
+      #<
+         ;trace-with #$file #$line #$column "lemma" $..
+         let #$0 = #formula;
+         let #name = verify #$0 { let thesis = #$0; (#xproof) };
+      >#
+   | [%formula, %xproof] ->
+      #<
+         ;trace-with #$file #$line #$column "lemma" $..
+         let #$0 = #formula;
+         verify #$0 { let thesis = #$0; (#xproof) }
+      >#
+   | %_ -> error "lemma: wrong arguments"
+}
+
+macro theorem = \args { mk-macro-call (lemma) args }
+
+macro axiom = \args {
+   match args with
+   /* TODO: this should be changed to: def facts = proof-of (#phi) :: facts; */
+   | [%name, %phi] -> #< let #name = proof-of (#phi); >#
+   | [%phi] -> #< remember (proof-of (#phi)) >#
+   | %_ -> error "axiom: wrong arguments"
+}
+
+let __ipl_ex_all_aux = \args \quant \msg {
+   match List.split-once (== #< : >#) args with
+   | [%lst1, %lst2] ->
+      begin
+         let pr =
+            begin
+               match List.split-once (== #< . >#) lst2 with
+               | [%_] ->
+                  let len = List.length lst2
+                  in
+                  (join-tokens-list (List.head lst2 (len - 1)), List.nth lst2 (len - 1))
+               | [%lst3, %lst4] ->
+                  (join-tokens-list lst3, join-tokens-list lst4)
+               | %_ -> error msg
+            end
+         in
+         let tp = fst pr;
+         let rest = snd pr;
+         let aux = \lst {
+            match lst with
+            | [%x] :: %t ->
+               join-tokens #< #quant (#tp) \#x . ># (aux t)
+            | [] -> #< >#
+            | %_ -> error msg
+         };
+         let h = aux (List.split (== #< , >#) lst1)
+         in
+         #< #h #rest >#
+      end
+   | %_ -> error msg
+}
+
+macro ex = \args { __ipl_ex_all_aux args #< EX ># "ex: wrong arguments" }
+macro all = \args { __ipl_ex_all_aux args #< ALL ># "all: wrong arguments" }
+
+
+macro(0) last = \_ #< (hd facts) >#
 
 macro assume = \args {
    let get-block = \lst {
@@ -18,20 +84,20 @@ macro assume = \args {
       | %_ -> join-tokens-list lst
    };
    let aux = \name \assm \tp \block {
-      let tp2 = if tp = () then #< (auto-type '(#$0 in Prop)) ># else #< (#tp) >#;
+      let tp2 = if tp == () then #< (auto-type '(#$0 in Prop)) ># else #< (#tp) >#;
       let trace-tok = #< trace-with #$file #$line #$column "assume">#;
-      if name = () and block = () then
+      if name == () and block == () then
          #<
-            #trace-tok $..
+            ;#trace-tok $..
             let #$0 = #assm;
             impl-intro #tp2 $..
             suppose #$0;
          >#
-      else if name = () then
+      else if name == () then
          #< (#trace-tok { let #$0 = #assm in impl-intro #tp2 (suppose #$0 #block) }) >#
-      else if block = () then
+      else if block == () then
          #<
-            #trace-tok $..
+            ;#trace-tok $..
             let #$0 = #assm;
             let #name = proof-of #$0;
             impl-intro #tp2 $..
@@ -70,18 +136,18 @@ macro fix = \args {
          #< trace-with #$file #$line #$column "fix" $. forall-intro (#tp-deriv) \#h .. suppose '(#h in (#tp)); #r >#
       | [] -> body
    };
-   match List.split-once (= #< : >#) args with
+   match List.split-once (== #< : >#) args with
    | [%lst1, %lst2] ->
       let vars =
          List.map (\x . match x with [%y] -> y | %_ -> error "fix: wrong arguments")
          <<
-         List.split (= #< , >#) lst1
+         List.split (== #< , >#) lst1
       in
       begin
-         match List.split-once (= #< with >#) lst2 with
+         match List.split-once (== #< with >#) lst2 with
          | [%_] ->
             begin
-               match List.split-once (= #< in >#) lst2 with
+               match List.split-once (== #< in >#) lst2 with
                | [%_] ->
                   let tp = join-tokens-list lst2
                   in
@@ -100,7 +166,7 @@ macro fix = \args {
             begin
                let tp = join-tokens-list lst3
                in
-               match List.split-once (= #< in >#) lst4 with
+               match List.split-once (== #< in >#) lst4 with
                | [%_] ->
                   let tp-deriv = join-tokens-list lst4
                   in
@@ -122,9 +188,9 @@ macro fix = \args {
 
 macro obtain = \args {
    let aux = \v \p \b {
-      if b = () then
+      if b == () then
          #<
-            trace-with #$file #$line #$column "obtain" $..
+            ;trace-with #$file #$line #$column "obtain" $..
             let #$0 = (#p)
             in
             exists-elim #$0 \#v ..
@@ -140,7 +206,7 @@ macro obtain = \args {
          >#
       else
          #<{
-            trace-with #$file #$line #$column "obtain" $..
+            ;trace-with #$file #$line #$column "obtain" $..
             let #$0 = (#p)
             in
             exists-elim #$0 \#v {
@@ -159,7 +225,7 @@ macro obtain = \args {
    match args with
    | %v :: #< from ># :: %t ->
       begin
-         match List.split-once (= #< in >#) t with
+         match List.split-once (== #< in >#) t with
          | [%_] ->
             let p = join-tokens-list t
             in
@@ -183,28 +249,28 @@ macro take = \args {
    let aux2 = \v \tp \tp-deriv \value \value-tp-deriv \block {
       /* #$0 - value, #$1 - tp, #$2 - tp-deriv, #$3 - value-tp-deriv */
       let tp-code =
-         if tp = () and tp-deriv = () then {
+         if tp == () and tp-deriv == () then {
             let vtp-code =
-               if value-tp-deriv = () then
+               if value-tp-deriv == () then
                   #< let #$3 = infer-type #$0 >#
                else
                   #< let #$3 = (#value-tp-deriv) >#
             in
             #< #vtp-code; let #$1 = extract-type (goal #$3); let #$2 = (auto-type '(#$1 in SuperType)); >#
          } else {
-            let vtp-code = if value-tp-deriv = () then #< let #$3 = auto-type '(#$0 in #$1) ># else value-tp-deriv
+            let vtp-code = if value-tp-deriv == () then #< let #$3 = auto-type '(#$0 in #$1) ># else value-tp-deriv
             in
-            if tp = () then
+            if tp == () then
                #< let #$2 = (#tp-deriv); let #$1 = extract-type (goal #$2); #vtp-code >#
-            else if tp-deriv = () then
+            else if tp-deriv == () then
                #< let #$1 = (#tp); let #$2 = (auto-type '(#$1 in SuperType)); #vtp-code >#
             else
                #< let #$1 = (#tp); let #$2 = (#tp-deriv); #vtp-code >#
          }
       in
-      if block = () then
+      if block == () then
          #<
-            trace-with #$file #$line #$column "take" $..
+            ;trace-with #$file #$line #$column "take" $..
             let #$0 = (#value);
             #tp-code;
             exists-intro #$2 #$3 $..
@@ -232,11 +298,11 @@ macro take = \args {
          }>#
    };
    let aux1 = \v \tp \tp-deriv \lst {
-      match List.split-once (= #< with >#) lst with
+      match List.split-once (== #< with >#) lst with
       | [%lst1, %lst2] ->
          begin
             let value = join-tokens-list lst1;
-            match List.split-once (= #< in >#) lst2 with
+            match List.split-once (== #< in >#) lst2 with
             | [%lst3, %lst4] ->
                let value-tp-deriv = join-tokens-list lst3
                let b = join-tokens-list lst4
@@ -249,7 +315,7 @@ macro take = \args {
          end
       | %_ ->
          begin
-            match List.split-once (= #< in >#) lst with
+            match List.split-once (== #< in >#) lst with
             | [%lst1, %lst2] ->
                let value = join-tokens-list lst1
                let b = join-tokens-list lst2
@@ -264,10 +330,10 @@ macro take = \args {
    match args with
    | %v :: #< : ># :: %t ->
       begin
-         match List.split-once (= #< with >#) t with
+         match List.split-once (== #< with >#) t with
          | [%lst1, %lst2] ->
             begin
-               match List.split-once (= #< = >#) lst2 with
+               match List.split-once (== #< = >#) lst2 with
                | [%lst3, %lst4] ->
                   let tp = join-tokens-list lst1;
                   let tp-deriv = join-tokens-list lst3
@@ -278,7 +344,7 @@ macro take = \args {
             end
          | %_ ->
             begin
-               match List.split-once (= #< = >#) t with
+               match List.split-once (== #< = >#) t with
                | [%lst1, %lst2] ->
                   let tp = join-tokens-list lst1
                   in
@@ -293,72 +359,10 @@ macro take = \args {
       error "take: wrong arguments"
 }
 
-macro lemma = \args {
-   match args with
-   | [%name, %formula, %xproof] ->
-      #<
-         trace-with #$file #$line #$column "lemma" $..
-         let #$0 = #formula;
-         let #name = verify #$0 { let thesis = #$0; (#xproof) };
-         remember (#name)
-      >#
-   | [%formula, %xproof] ->
-      #<
-         trace-with #$file #$line #$column "lemma" $..
-         let #$0 = #formula;
-         remember (verify #$0 { let thesis = #$0; (#xproof) })
-      >#
-   | %_ -> error "lemma: wrong arguments"
-}
-
-macro theorem = \args { mk-macro-call (lemma) args }
-
-macro axiom = \args {
-   match args with
-   /* TODO: this should be changed to: def facts = proof-of (#phi) :: facts; */
-   | [%phi] -> #< (proof-of (#phi) :: facts) >> \facts .. >#
-   | %_ -> error "axiom: wrong arguments"
-}
-
-let __ipl_ex_all_aux = \args \quant \msg {
-   match List.split-once (= #< : >#) args with
-   | [%lst1, %lst2] ->
-      begin
-         let pr =
-            begin
-               match List.split-once (= #< . >#) lst2 with
-               | [%_] ->
-                  let len = List.length lst2
-                  in
-                  (join-tokens-list (List.head lst2 (len - 1)), List.nth lst2 (len - 1))
-               | [%lst3, %lst4] ->
-                  (join-tokens-list lst3, join-tokens-list lst4)
-               | %_ -> error msg
-            end
-         in
-         let tp = fst pr;
-         let rest = snd pr;
-         let aux = \lst {
-            match lst with
-            | [%x] :: %t ->
-               join-tokens #< #quant (#tp) \#x . ># (aux t)
-            | [] -> #< >#
-            | %_ -> error msg
-         };
-         let h = aux (List.split (= #< , >#) lst1)
-         in
-         #< #h #rest >#
-      end
-   | %_ -> error msg
-}
-
-macro ex = \args { __ipl_ex_all_aux args #< EX ># "ex: wrong arguments" }
-macro all = \args { __ipl_ex_all_aux args #< ALL ># "all: wrong arguments" }
-
 macro show = \args {
    let aux = \name \formula \p {
       #<
-         trace-with #$file #$line #$column "show" $..
+         ;trace-with #$file #$line #$column "show" $..
          let #$0 = #formula;
          let #name = verify #$0 #p;
          remember #name;

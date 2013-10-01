@@ -40,9 +40,9 @@ macro is-fact = \args {
    | [%a] ->
       #<
          let #$0 = \x \lst {
-            if lst = [] then
+            if lst == [] then
                false
-            else if hd lst = x then
+            else if hd lst == x then
                true
             else
                #$0 x (tl lst)

@@ -33,7 +33,7 @@ let do_close x env env_len =
   match x with
   | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) | Marked(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
     ->
       Closure(x, env, env_len)
   | Lambda(body, frame, call_type, times_entered, attrs) ->
@@ -45,7 +45,7 @@ let rec do_delay x env env_len =
    match x with
    | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | MakeRecord(_) | Marked(_) | Proxy(_) |
      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
      ->
        Delayed(ref (Closure(x, env, env_len)))
    | Closure(_) -> Delayed(ref x)
@@ -79,13 +79,14 @@ m4_define(`ACCESS_VAR', `
     assert ($3 < $2);
     let x = Env.nth $1 $3
     in
+    do_eval x $1 $2
     (* keep in mind that the values in environments are closed *)
-    match x with
+  (*  match x with
     | Closure(a, env2, env2_len) ->
         do_eval a env2 env2_len
     | Delayed(r) ->
         do_eval_delayed r
-    | _ -> (*assert (is_immed x || (match x with Lambda(_, 0, _, _, _) -> true | _ -> false));*) x
+    | _ -> (*assert (is_immed x || (match x with Lambda(_, 0, _, _, _) -> true | _ -> false));*) x *)
            (* TODO: this need not be true, e.g.: let x = hd 3; This should be fixed!!! *)
   end
 ')
@@ -99,9 +100,9 @@ m4_define(`EVAL', `
     | FrameRef(_) | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
       MakeRecord(_) | Marked(_) | Closure(_) | Lambda(_) | Builtin(_) |
       BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-      BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+      BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
       -> do_eval $1 $2 $3
-    | Integer(_) | String(_) | Record(_) | Sym(_) |
+    | Integer(_) | String(_) | Record(_) | Sym(_) | Dummy2(_) |
       True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
       LambdaClosure(_) | Dummy | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 | Unboxed7
       -> $1
@@ -253,7 +254,7 @@ and do_eval node env env_len =
         match x1 with
         | True -> do_eval y env env_len
         | False -> do_eval z env env_len
-        | _ -> Cond(x1, do_eval y env env_len, do_eval z env env_len, attrs)
+        | _ -> Cond(x1, do_close y env env_len, do_close z env env_len, attrs)
       end
 
   | Var(n) ->
@@ -276,6 +277,17 @@ and do_eval node env env_len =
 
   | Leave(x) ->
       do_close x env env_len
+
+  | Quote(x) ->
+      begin
+        match x with
+        | Force(y) ->
+            let env2 = [do_eval y env env_len]
+            in
+            Quote.quote (Var(0)) env2 1
+        | _ ->
+            Quote.quote x env env_len
+      end
 
   | MakeRecord(identtab) ->
       Record(Symbol.Map.map (fun x -> do_close x env env_len) identtab)
@@ -304,7 +316,7 @@ and do_eval node env env_len =
       in
       let node2 = EVAL(y, env, env_len)
       in
-      if is_const node1 || is_const node2 then
+      if is_const node1 && is_const node2 then
         begin
           if node1 == node2 then
             True
@@ -316,7 +328,7 @@ and do_eval node env env_len =
           try
             if Match.equal node1 node2 then True else False
           with Match.Unknown ->
-            BEq(node1, node2)
+            BEq(do_close x env env_len, do_close x env env_len)
         end
 
   | BGt(x, y) ->
@@ -593,9 +605,9 @@ and do_eval node env env_len =
                     | _ ->
                         loop node env env_len t
                   end
-              | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | FrameRef(_) | Proxy(_) | MakeRecord(_) |
-                Marked(_) | BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-                BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
+              | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) |  Quote(_) | Var(_) | FrameRef(_) | Proxy(_) |
+                MakeRecord(_) | Marked(_) | BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) |
+                BMod(_) | BCons(_) | BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
                 Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | Integer(_) | String(_) |
                 Record(_) | Tokens(_) | Quoted(_) | LambdaClosure(_)
                 ->

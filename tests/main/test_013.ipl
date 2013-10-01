@@ -9,7 +9,7 @@ let filter = \f \lst {
 }
 
 let gen = \n \m \acc {
-   if m + n = 0 then
+   if m + n == 0 then
       acc
    else {
       let x =

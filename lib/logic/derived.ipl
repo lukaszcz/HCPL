@@ -4,7 +4,12 @@
  * Copyright (C) 2013 by Lukasz Czajka
  */
 
-rule subset-intro = forall-intro
+rule subset-intro = \p {
+   match goal p with
+   | '(ALL %a %b) ->
+      pequal '(a c= b) p
+   | %_ -> error2 p "subset-intro: wrong argument"
+}
 
 rule subset-elim = \p1 \p2 {
    let aux1 = \x \b \p1 \p2 {

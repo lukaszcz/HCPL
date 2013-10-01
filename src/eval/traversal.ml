@@ -37,6 +37,8 @@ let traverse0 f node acc =
                   do_traverse f x acc2
               | Leave(x) ->
                   do_traverse f x acc2
+              | Quote(x) ->
+                  do_traverse f x acc2
               | Lambda(body, _, _, _, _) ->
                   do_traverse f body acc2
               | Quoted(x) ->
@@ -138,6 +140,8 @@ let transform0 g f node0 =
                   f (Force(do_transform g f x))
               | Leave(x) ->
                   f (Leave(do_transform g f x))
+              | Quote(x) ->
+                  f (Quote(do_transform g f x))
               | Lambda(body, frame, call_type, _, attrs) ->
                   f (Lambda(do_transform g f body, frame, call_type, ref 0, attrs))
               | Quoted(x) ->

@@ -3,7 +3,7 @@
 
 let power = \x \y {
    let aux = \x \y \acc {
-      if y = 0 then
+      if y == 0 then
          acc
       else
          aux x (y - 1) (x * acc)
@@ -15,20 +15,21 @@ let sqrt = \x {
    let aux = \x \top \bot {
       if top - bot <= 1 then
          bot
-      else
+      else {
          let y = (top + bot) div 2
          in
          if y * y > x then
             aux x y bot
          else
             aux x top y
+      }
    };
    aux x (x + 1) 0
 };
 
 let log = \x \y {
    let aux = \x \y \acc {
-      if y = 1 then
+      if y == 1 then
          acc
       else
          aux x (y div x) (acc + 1)
@@ -38,9 +39,9 @@ let log = \x \y {
 
 let fast_power = \x \y {
    let aux = \x \y \acc {
-      if y = 0 then
+      if y == 0 then
          acc
-      else if y mod 2 = 1 then
+      else if y mod 2 == 1 then
          aux (x * x) (y div 2) (x * acc)
       else
          aux (x * x) (y div 2) acc
@@ -49,9 +50,9 @@ let fast_power = \x \y {
 };
 
 let loop = \x \n {
-   if n = 0 then
+   if n == 0 then
       x
-   else if n mod 2 = 0 then
+   else if n mod 2 == 0 then
       loop (power x 4) (n - 1)
    else
       loop (sqrt (sqrt x)) (n - 1)
@@ -61,9 +62,9 @@ print (loop 10000 100000);
 print (loop (power 10000 4) 100001);
 
 let loop2 = \x \n {
-   if n = 0 then
+   if n == 0 then
       x
-   else if n mod 2 = 0 then
+   else if n mod 2 == 0 then
       loop2 (fast_power 7 x) (n - 1)
    else
       loop2 (log 7 x) (n - 1)

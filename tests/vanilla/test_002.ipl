@@ -1,9 +1,9 @@
 
 print {
    (\x {
-      if = x 6 then 0
-      else if = x 5 then \x 1
-      else if = x 10 then \y . (\x x) 2
+      if == x 6 then 0
+      else if == x 5 then \x 1
+      else if == x 10 then \y . (\x x) 2
       else ()
    }) 5 6
 }

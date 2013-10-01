@@ -108,26 +108,26 @@ let rec do_close node env env_len is_node_quoted is_env_quoted =
               else if is_env_quoted then
                 Traversal.Continue(x)
               else
-                begin
+                let rec fix_fetched x =
                   match x with
                   | Quoted(y) ->
-                      if is_node_quoted then
-                        Traversal.Continue(y)
-                      else
-                        Traversal.Skip(do_close y env env_len true is_env_quoted)
-                  | Integer(_) | String(_) | Record(_) | Sym(_) | Cons(_) ->
-                      Traversal.Continue(x)
+                        do_close y env env_len true is_env_quoted
+                  | Integer(_) | String(_) | Record(_) | Sym(_) ->
+                      x
+                  | Cons(a, b) ->
+                      Cons(fix_fetched a, fix_fetched b)
                   | _ ->
                       (* NOTE: the following check is necessary to ensure consistency of the logic *)
                       if Config.is_unsafe_mode () then
-                        Traversal.Continue(x)
+                        do_close x env env_len is_node_quoted is_env_quoted
                       else if is_const x then
-                        Traversal.Continue(x)
+                        x
                       else
                         begin
                           Error.runtime_error "cannot quote a non-constant value"
                         end
-                end
+                in
+                Traversal.Skip(fix_fetched x)
             end
           else
             Traversal.Continue(node)
@@ -207,10 +207,10 @@ let eta_reduce node =
   else
     Error.runtime_error "'reduce-eta' expects a quoted argument"
 
-let quote node env =
-  let env_len = Env.length env
-  in
-  if env_len = 0 || Node.is_closed node then
+let quote node env env_len =
+  if Node.is_quoted node then
+    node
+  else if env_len = 0 then
     Node.mkquoted node
   else
     begin

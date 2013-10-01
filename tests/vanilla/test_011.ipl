@@ -9,7 +9,7 @@ let f0 = \&f \&g \&x {
    print 6;
    print x;
    print 7;
-   if (not (= x 0)) then {
+   if (not (== x 0)) then {
       print 9;
       f f g (g x)
    } else
@@ -25,7 +25,7 @@ let f1 = \&f \&g \!x {
    print 6;
    print x;
    print 7;
-   if (not (= x 0)) then {
+   if (not (== x 0)) then {
       print 9;
       f f g (g x)
    } else

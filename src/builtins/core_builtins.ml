@@ -336,7 +336,7 @@ let declare_builtins scope symtab =
 
     (* set inline builtins names *)
 
-    Node.change_name Node.eq (Symtab.find symtab "=");
+    Node.change_name Node.eq (Symtab.find symtab "==");
     Node.change_name Node.gt (Symtab.find symtab ">");
     Node.change_name Node.lt (Symtab.find symtab "<");
     Node.change_name Node.ge (Symtab.find symtab ">=");
@@ -359,7 +359,7 @@ let declare_builtins scope symtab =
 
     (* declare inline builtins *)
 
-    let scope = Scope.add_ident scope (Symtab.find symtab "=") Node.eq in
+    let scope = Scope.add_ident scope (Symtab.find symtab "==") Node.eq in
     let scope = Scope.add_ident scope (Symtab.find symtab ">") Node.gt in
     let scope = Scope.add_ident scope (Symtab.find symtab "<") Node.lt in
     let scope = Scope.add_ident scope (Symtab.find symtab ">=") Node.ge in
@@ -388,8 +388,6 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "xmatch") (xmatch, 4, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "quote") (ipl_quote, 1, CallByName) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "'") (ipl_quote, 1, CallByName) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "mark") (mark, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "subst") (subst, 3, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "lift") (lift, 2, CallByValue) in

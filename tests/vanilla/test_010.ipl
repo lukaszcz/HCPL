@@ -8,7 +8,7 @@ print (f91 95);
 print (f91 16);
 print (f91 5);
 
-let subp = \&i \&j . if = i j then 0 else + (subp i (+ 1 j)) 1;
+let subp = \&i \&j . if == i j then 0 else + (subp i (+ 1 j)) 1;
 
 print (subp 101 1);
 print (subp 11 5);
@@ -23,7 +23,7 @@ print (f91e 95);
 print (f91e 16);
 print (f91e 5);
 
-let subpe = \!i \!j . if = i j then 0 else + (subpe i (+ 1 j)) 1;
+let subpe = \!i \!j . if == i j then 0 else + (subpe i (+ 1 j)) 1;
 
 print (subpe 101 1);
 print (subpe 11 5);
@@ -38,7 +38,7 @@ print (f91x 95);
 print (f91x 16);
 print (f91x 5);
 
-let! subpx = \&i \&j . if = i j then 0 else + (subpx i (+ 1 j)) 1;
+let! subpx = \&i \&j . if == i j then 0 else + (subpx i (+ 1 j)) 1;
 
 print (subpx 101 1);
 print (subpx 11 5);
@@ -53,7 +53,7 @@ print (f91ex 95);
 print (f91ex 16);
 print (f91ex 5);
 
-let! subpex = \!i \!j . if = i j then 0 else + (subpex i (+ 1 j)) 1;
+let! subpex = \!i \!j . if == i j then 0 else + (subpex i (+ 1 j)) 1;
 
 print (subpex 101 1);
 print (subpex 11 5);

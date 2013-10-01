@@ -4,7 +4,7 @@
 let g = \&x { print x; g };
 
 let f0 = \&x \!y {
-   if = x 0 then
+   if == x 0 then
       y
    else {
       print 1;
@@ -13,7 +13,7 @@ let f0 = \&x \!y {
 };
 
 let f1 = \&x \&y {
-   if = x 0 then
+   if == x 0 then
       y
    else {
       print 1;
@@ -53,12 +53,12 @@ aux1 &(&{print 8; 4});
 
 let delay = \n \&x {
    print 7;
-   if = 0 n then x else delay (- n 1) &(&x)
+   if == 0 n then x else delay (- n 1) &(&x)
 };
 
 let force = \n \&x {
    print 1;
-   if = 0 n then x else force (- n 1) !x
+   if == 0 n then x else force (- n 1) !x
 };
 
 print (force 11 (delay 5 {print 3; 2}));

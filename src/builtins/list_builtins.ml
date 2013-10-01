@@ -236,6 +236,38 @@ let do_split_n f n lst =
   | Cons(h, t) -> do_rev2 (do_rev_split_n f n lst Nil Nil) Nil
   | _ -> Cons(Nil, Nil)
 
+(* quoted variants *)
+
+let rec do_foldl_q f lst acc =
+  match lst with
+  | Cons(h, t) ->
+      do_foldl_q f t (Eval.eval (Appl(Appl(f, Node.mkquoted h, None), acc, None)))
+  | _ -> acc
+
+let rec do_find_q f lst default =
+  match lst with
+  | Cons(h, t) ->
+      begin
+        let h1 = Eval.eval h
+        in
+        let c = Eval.eval (Appl(f, Node.mkquoted h1, None))
+        in
+        match c with
+        | True ->
+            h1
+        | False ->
+            do_find_q f t default
+        | _ ->
+            let x = do_find_q f t default
+            in
+            if x == default then
+              h1
+            else
+              Cond(c, h1, x, None)
+      end
+  | _ -> default
+
+
 (***********************************************************************)
 
 let list_length lst =
@@ -342,6 +374,22 @@ let list_split_n lst =
   | y :: f :: x :: _ -> do_split_n f (Bignum.to_int x) y
   | _ -> assert false
 
+
+(* quoted variants *)
+
+let list_foldl_q lst =
+  match lst with
+  | y :: Quoted(x) :: f :: _ -> do_foldl_q f x y
+  | y :: x :: f :: _ when Node.is_quoted x -> do_foldl_q f x y
+  | _ -> Error.runtime_error "List.foldl-q: bad arguments"
+
+let list_find_q lst =
+  match lst with
+  | y :: Quoted(x) :: f :: _ -> Node.mkquoted (do_find_q f x y)
+  | y :: x :: f :: _ when Node.is_quoted x -> Node.mkquoted (do_find_q f x y)
+  | _ -> Error.runtime_error "List.find-q: bad arguments"
+
+
 (* public interface *)
 
 let declare_builtins scope symtab =
@@ -366,5 +414,8 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_mapfind") (list_mapfind, 3, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split") (list_split, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split_n") (list_split_n, 3, CallByValue) in
+
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_foldl_q") (list_foldl_q, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_find_q") (list_find_q, 3, CallByValue) in
     scope
   end

@@ -3,7 +3,7 @@
 
 let power = \x \y {
    let aux = \x \y \acc {
-      if y = 0 then
+      if y == 0 then
          acc
       else
          aux x (y - 1) (x * acc)
@@ -60,7 +60,7 @@ print (sqrt (power num2 2));
 
 let log = \x \y {
    let aux = \x \y \acc {
-      if y = 1 then
+      if y == 1 then
          acc
       else
          aux x (y div x) (acc + 1)
@@ -74,9 +74,9 @@ print (log 9 (power 3 100));
 
 let fast_power = \x \y {
    let aux = \x \y \acc {
-      if y = 0 then
+      if y == 0 then
          acc
-      else if y mod 2 = 1 then
+      else if y mod 2 == 1 then
          aux (x * x) (y div 2) (x * acc)
       else
          aux (x * x) (y div 2) acc

@@ -30,16 +30,16 @@ syntax operator <= is left, binary, prio <;
 syntax operator >  is left, binary, prio <;
 syntax operator >= is left, binary, prio <;
 
-syntax operator =  is left, binary, after <;
+syntax operator ==  is left, binary, after <;
 
-syntax operator and is left, binary, after =;
+syntax operator and is left, binary, after ==;
 syntax operator xor is left, binary, after and;
 syntax operator or  is left, binary, after xor;
 
 {
 
 let neg = \x . 0 - x;
-let not = \x . if x = true then false else true;
+let not = \x . if x == true then false else true;
 let and = \&x \y if x then y else false;
 let or = \&x \y if x then true else y;
 
@@ -54,7 +54,7 @@ print (x * x * y + z - 89 + 2 * 6 * y - 8 - 9 - x + 7 * 2 * 3 - z); // 432176
 print (x + y * 2 - z div 3); // 178
 print (neg x + 5); // -115
 print (x >= 120 and y > 10); // true
-print (x > 115 + 5 and y <= 10 or z = 8); // true
+print (x > 115 + 5 and y <= 10 or z == 8); // true
 print (not (x * 8 div (2 * 4) >= 120 - 2 + 1 * 2 and y div 3 <= 10)); // false
 print (x * 8 div (2 * 4) >= 120 - 2 + 1 * 2 and y <= 10); // false
 print (x >= 120 and y div z * 7 <= 10);  // false

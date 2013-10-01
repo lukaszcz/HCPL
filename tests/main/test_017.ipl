@@ -8,9 +8,9 @@ let q = '(A B (A B B));
 
 let f = \x \y . y x;
 
-print (reduce (lift (lift q A) B) = q);
-print (reduce (lift (lift q B) A) = q);
-print (subst q A B = '(B B (B B B)));
-print (subst q A B = reduce (subst (lift (subst (lift q B) B A) A) A B));
+print (reduce (lift (lift q A) B) == q);
+print (reduce (lift (lift q B) A) == q);
+print (subst q A B == '(B B (B B B)));
+print (subst q A B == reduce (subst (lift (subst (lift q B) B A) A) A B));
 
-print (lift '(\x . f x A) A = '((\x \y . f y x) A));
+print (lift '(\x . f x A) A == '((\x \y . f y x) A));

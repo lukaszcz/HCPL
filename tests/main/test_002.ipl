@@ -3,9 +3,9 @@ print "abc";
 
 let f = \n {
    let aux = \s \x {
-      if x = 0 then
+      if x == 0 then
          s
-      else if x /= n then
+      else if x != n then
          aux ((to_string x) ^ " " ^ s) (x - 1)
       else
          aux ((to_string x) ^ s) (x - 1)

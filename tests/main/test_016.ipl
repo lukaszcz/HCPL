@@ -18,4 +18,4 @@ symbol VAR;
 let v = '(VAR 1);
 let k = '\x (x v);
 
-print (k = '\x (x (VAR 1)));
+print (k == '\x (x (VAR 1)));

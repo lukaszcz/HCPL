@@ -6,17 +6,17 @@ let g = \y . y + 7;
 let q1 = quote (f 10);
 let q2 = quote (g 10);
 
-if q1 = q2 then
+if q1 == q2 then
    print 1
 else
    print 0;
 
-if 'f = '(\z . z + 7) then
+if 'f == '(\z . z + 7) then
    print 1
 else
    print 0;
 
-if 'f = '(\z . z * 7) then
+if 'f == '(\z . z * 7) then
    print 1
 else
    print 0;

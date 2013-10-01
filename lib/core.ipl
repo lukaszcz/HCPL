@@ -33,8 +33,10 @@ syntax operator <= is left, binary, prio <;
 syntax operator >  is left, binary, prio <;
 syntax operator >= is left, binary, prio <;
 
-syntax operator =  is left, binary, after <;
-syntax operator /= is left, binary, prio =;
+syntax operator ==  is left, binary, after <;
+syntax operator != is left, binary, prio ==;
+syntax operator = is left, binary, prio ==;
+syntax operator /= is left, binary, prio ==;
 
 syntax operator and is left, binary, after =;
 syntax operator xor is left, binary, after and;
@@ -55,7 +57,8 @@ let comp = \f \g \x . g (f x);
 let not = \x . if x then false else true;
 let xor = \x \y . (x or y) and not (x and y);
 let neg = \x . 0 - x;
-let /=  = \x \y . not (x = y);
+//let /=  = \x \y . not (x = y);
+let != = \x \y . not (x == y);
 let when = \&#x \&#y . if x then y else ();
 let >> = \x \f . f x;
 let << = \&#f . f;
@@ -111,7 +114,7 @@ macro mk-macro-call = \args { mk-call mk-call args }
 
 let trace-with = \file \line \column \arg \&#block {
    let mkmsg =
-      \_ . file ^ ":" ^ to_string line ^ ":" ^ to_string column ^ if arg = "" then "" else ": " ^ arg
+      \_ . file ^ ":" ^ to_string line ^ ":" ^ to_string column ^ if arg == "" then "" else ": " ^ arg
    in
    try
       block

@@ -7,10 +7,12 @@ import List;
 
 syntax block proof qed;
 
+syntax macrosep axiom;
 syntax macrosep lemma;
 syntax macrosep theorem;
 syntax macrosep tactic;
 syntax macrosep rule;
+syntax macrosep remember;
 
 let error2 = \p \&#msg { error (msg ^ ": " ^ (to_string p)) }
 
@@ -54,7 +56,7 @@ macro(2) mk-rule-call = \x \y {
 }
 
 let mk-tactic-or-rule = \name \mkcall-tok \get-name \id \eq-tok {
-   if eq-tok /= #< = ># then
+   if eq-tok != #< = ># then
       error (name ^ ": expected '=' after " ^ name ^ " name")
    else {
       let tac-id = get-name id
@@ -92,37 +94,46 @@ let eq-limit = 500
 let eq = \x \y {
    let aux0 = \x \y \lim0 {
       let aux = \x \y \lim {
-         if x = y then
+         if x == y then
             true
-         else if lim = 0 then {
+         else if lim == 0 then {
             let xe = eval-limited x eval-limit;
             let ye = eval-limited y eval-limit;
-            if xe = ye then
+            if xe == ye then {
                true
-            else {
+            } else {
+               // TODO: and, or etc should not be different from ordinary application
                match xe, ye with
+               | '(%a1 and %b1), '(%a2 and %b2) ->
+                  aux0 a1 a2 (lim0 - 1) and aux0 b1 b2 (lim0 - 1)
+               | '(%a1 or %b1), '(%a2 or %b2) ->
+                  aux0 a1 a2 (lim0 - 1) and aux0 b1 b2 (lim0 - 1)
+               | '(%a1 == %b1), '(%a2 == %b2) ->
+                  aux0 a1 a2 (lim0 - 1) and aux0 b1 b2 (lim0 - 1)
+               | '(if %c1 then %a1 else %b1), '(if %c2 then %a2 else %b2) ->
+                  aux0 c1 c2 (lim0 - 1) and aux0 a1 a2 (lim0 - 1) and aux0 b1 b2 (lim0 - 1)
                | '(%a1 %b1), '(%a2 %b2) ->
                   aux0 a1 a2 (lim0 - 1) and aux0 b1 b2 (lim0 - 1)
                | '(\x %_), '(\x %_) ->
                   var-intro \x {
-                     aux0 '(xe x) '(ye x) (lim0 - 1)
+                     aux0 (apply xe x) (apply ye x) (lim0 - 1)
                   }
                | %_ ->
                   false
             }
          } else {
-           let rx = reduce x
-           let ry = reduce y
+           let rx = reduce-appl x
+           let ry = reduce-appl y
            let xe = reduce-eta x
            let ye = reduce-eta y
            in
-           if rx = y or x = ry or xe = y or xe = ry or x = ye or rx = ye then
+           if rx == y or x == ry or xe == y or xe == ry or x == ye or rx == ye then
               true
            else
               aux rx ry (lim - 1)
          }
       };
-      if lim0 = 0 then
+      if lim0 == 0 then
          false
       else
          aux x y 2
@@ -198,4 +209,4 @@ include "logic/derived2.ipl"
 
 /*********************************************************************************/
 
-let facts = [true-intro, true-type-intro, false-type-intro, any-type-intro, prop-type-intro];
+let facts = [true-intro, true-type-intro, false-type-intro, data-type-intro, any-type-intro, prop-type-intro];

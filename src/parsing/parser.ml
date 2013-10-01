@@ -1414,7 +1414,7 @@ m4_changequote([`],['])
         begin
           rule
             begin
-              symbol sym_module +! catch_errors name ++ catch_errors (token Token.LeftParenCurl) ++
+              keyword sym_module +! catch_errors name ++ catch_errors (token Token.LeftParenCurl) ++
                 (fun () (lst, attrs, strm, scope) cont ->
                   match lst with
                   | [Ident(sym)] ->
@@ -1681,9 +1681,7 @@ m4_changequote([`],['])
             match lst with
             | [Program(value)] ->
                 begin
-                  let ipl_quote = Scope.find_ident scope sym_quote2
-                  in
-                  Program(Node.Appl(ipl_quote, (Node.optimize value), attrs))
+                  Program(Node.Quote(Node.prune value))
                 end
             | _ -> assert false)
         end
@@ -1841,7 +1839,7 @@ m4_changequote([`],['])
                           (symbol sym_when +! new_keyword sym_arrow (catch_errors expr)
                             ^|| empty +> return (Program Node.True)) ++
                           symbol sym_arrow ++
-                          new_keyword sym_match_sep (catch_errors progn)
+                          new_keyword sym_match_sep (new_ident_scope (catch_errors progn))
                     and placeholders = Scope.placeholders scope
                     in
                     let n = List.length placeholders
@@ -2006,8 +2004,8 @@ m4_changequote([`],['])
     (get_singleton_node lst, scope)
   in
 
-  let keywords = [sym_syntax; sym_symbol; sym_import; sym_open; sym_include; sym_forward;
-                  sym_macro; sym_match; sym_try]
+  let keywords = [sym_syntax; sym_symbol; sym_module; sym_import; sym_open; sym_include;
+                  sym_forward; sym_macro; sym_match; sym_try]
   and builtins = [(fun x -> Core_builtins.declare_builtins x symtab);
                   (fun x -> List_builtins.declare_builtins x symtab)]
   in

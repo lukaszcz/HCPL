@@ -16,6 +16,7 @@ type t =
   | Delay of t
   | Leave of t
   | Force of t
+  | Quote of t
   | MakeRecord of t Symbol.Map.t
   | Marked of t * t (* (node, mark) *)
 
@@ -61,6 +62,8 @@ type t =
   | Sym of Symbol.t
   | Cons of t * t
 
+  | Dummy2 of t
+
   (* UnboxedX are to ensure that the values of constant constructors have
      their second bit set (i.e. they are not divisible by 2 when
      interpreted as OCaml ints) *)
@@ -80,14 +83,22 @@ type t =
   (* without the last UnboxedX value the compiler may generate wrong code *)
 
 and attrs_t = { mutable name : Symbol.t option; pos : Lexing.position option;
-                attr_map : (t Symbol.Map.t) option; node_type : t option }
+                attr_map : (t Symbol.Map.t) option; node_type : t option; special : bool }
 
 module Attrs =
   struct
     type t = attrs_t option
 
     let create aname apos =
-      Some({ name = aname; pos = apos; attr_map = None; node_type = None })
+      Some({ name = aname; pos = apos; attr_map = None; node_type = None; special = false })
+
+    let create_special aname apos =
+      Some({ name = aname; pos = apos; attr_map = None; node_type = None; special = true })
+
+    let is_special ma =
+      match ma with
+      | Some(a) -> a.special
+      | None -> false
 
     let get_name ma =
       match ma with
@@ -98,7 +109,7 @@ module Attrs =
       match ma with
       | Some(a) -> Some({ a with name = Some(aname) })
       | None -> Some({ name = Some(aname); pos = None; attr_map = None;
-                       node_type = None })
+                       node_type = None; special = false })
 
     let get_pos ma =
       match ma with
@@ -109,7 +120,7 @@ module Attrs =
       match ma with
       | Some(a) -> Some({ a with node_type = Some(atype) })
       | None -> Some({ name = None; pos = None; attr_map = None;
-                       node_type = Some(atype) })
+                       node_type = Some(atype); special = false })
 
     let get_attr ma name =
       match ma with
@@ -134,32 +145,35 @@ module Attrs =
           Some({ a with attr_map = map2 })
       | None -> Some({ name = None; pos = None;
                        attr_map = Some(Symbol.Map.add aname value (Symbol.Map.empty));
-                       node_type = None })
+                       node_type = None; special = false })
   end
 
-let id = Lambda(Var(0), 0, CallByName, ref 0, Attrs.create None None)
-let progn = Lambda(id, 0, CallByValue, ref 0, Attrs.create None None)
+let id = Lambda(Var(0), 0, CallByName, ref 0, Attrs.create_special None None)
+let progn = Lambda(id, 0, CallByValue, ref 0, Attrs.create_special None None)
 
-let eq = Lambda(Lambda(BEq(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let gt = Lambda(Lambda(BGt(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let eq = Lambda(Lambda(BEq(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
+let gt = Lambda(Lambda(BGt(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
 let lt = Lambda(Lambda(BGt(Var(0), Var(1)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let ge = Lambda(Lambda(BGe(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let ge = Lambda(Lambda(BGe(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
 let le = Lambda(Lambda(BGe(Var(0), Var(1)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let add = Lambda(Lambda(BAdd(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let sub = Lambda(Lambda(BSub(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let mul = Lambda(Lambda(BMul(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let idiv = Lambda(Lambda(BIDiv(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let xmod = Lambda(Lambda(BMod(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let cons = Lambda(Lambda(BCons(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let cons_comma = Lambda(Lambda(BCons(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let cons_dcolon = Lambda(Lambda(BCons(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let cons_lazy = Lambda(Lambda(BConsNE(Var(1), Var(0)), 1, CallByNeed, ref 0, None), 0, CallByNeed, ref 0, Attrs.create None None)
-let xfst = Lambda(BFst(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
-let xsnd = Lambda(BSnd(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
+let add = Lambda(Lambda(BAdd(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
+let sub = Lambda(Lambda(BSub(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
+let mul = Lambda(Lambda(BMul(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
+let idiv = Lambda(Lambda(BIDiv(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
+let xmod = Lambda(Lambda(BMod(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
+let cons = Lambda(Lambda(BCons(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
+let cons_comma =
+  Lambda(Lambda(BCons(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let cons_dcolon =
+  Lambda(Lambda(BCons(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let cons_lazy =
+  Lambda(Lambda(BConsNE(Var(1), Var(0)), 1, CallByNeed, ref 0, None), 0, CallByNeed, ref 0, Attrs.create_special None None)
+let xfst = Lambda(BFst(Var(0)), 0, CallByValue, ref 0, Attrs.create_special None None)
+let xsnd = Lambda(BSnd(Var(0)), 0, CallByValue, ref 0, Attrs.create_special None None)
 let xhd = Lambda(BFst(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
 let xtl = Lambda(BSnd(Var(0)), 0, CallByValue, ref 0, Attrs.create None None)
-let xand = Lambda(Lambda(BAnd(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
-let xor = Lambda(Lambda(BOr(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create None None)
+let xand = Lambda(Lambda(BAnd(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
+let xor = Lambda(Lambda(BOr(Var(1), Var(0)), 1, CallByValue, ref 0, None), 0, CallByValue, ref 0, Attrs.create_special None None)
 
 (* WARNING: some functions below depend on OCaml implementation details *)
 
@@ -175,10 +189,10 @@ let is_immediate node = match node with
   | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Marked(_) | Closure(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
     -> false
   | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-    True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
+    True | False | Placeholder | Ignore | Cons(_) | Dummy2(_) | Nil | Tokens(_) | Quoted(_) |
     LambdaClosure(_)| Dummy | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 | Unboxed7
     -> true
 
@@ -189,9 +203,9 @@ let is_immed node = match node with
   | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Marked(_) | Closure(_) | Lambda(_) | Builtin(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
     -> false
-  | Integer(_) | String(_) | Record(_) | Sym(_) |
+  | Integer(_) | String(_) | Record(_) | Sym(_) | Dummy2(_) |
     True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
     LambdaClosure(_)| Dummy | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 | Unboxed7
     -> true
@@ -265,6 +279,8 @@ let get_pos node = Attrs.get_pos (get_attrs node)
 
 let get_attr node name = Attrs.get_attr (get_attrs node)
 
+let is_special node = Attrs.is_special (get_attrs node)
+
 let rec is_module_closed node =
   match node with
   | Appl(Appl(f, x, _), y, _) when f == progn -> is_module_closed y
@@ -315,6 +331,19 @@ let rec normalize node =
   match node with
   | Proxy(r) -> normalize !r
   | Marked(x, _) -> normalize x
+(*  | BEq(x, y) -> Appl(Appl(eq, x, None), y, None)
+  | BGt(x, y) -> Appl(Appl(gt, x, None), y, None)
+  | BGe(x, y) -> Appl(Appl(ge, x, None), y, None)
+  | BAdd(x, y) -> Appl(Appl(add, x, None), y, None)
+  | BSub(x, y) -> Appl(Appl(sub, x, None), y, None)
+  | BMul(x, y) -> Appl(Appl(mul, x, None), y, None)
+  | BIDiv(x, y) -> Appl(Appl(idiv, x, None), y, None)
+  | BMod(x, y) -> Appl(Appl(xmod, x, None), y, None)
+  | BCons(x, y) -> Appl(Appl(cons, x, None), y, None)
+  | BAnd(x, y) -> Appl(Appl(xand, x, None), y, None)
+  | BOr(x, y) -> Appl(Appl(xor, x, None), y, None)
+  | BFst(x) -> Appl(xfst, x, None)
+  | BSnd(x) -> Appl(xsnd, x, None) *)
   | _ -> node
 
 let mkquoted node =
@@ -445,13 +474,14 @@ let to_string node =
               else
                 "(" ^ prn x (limit - 1) ^ ", " ^ prn y (limit - 1) ^ ")"
           | Nil -> "()"
+          | Dummy2(_) -> "<dummy2>"
           | Delayed(_) -> "<delayed>"
           | Closure(body, env, _) ->
               "(closure " ^ Utils.list_to_string (fun x -> prn x (limit - 1)) env ^ ": " ^ prn body (limit - 1) ^ ")"
           | LambdaClosure(body, env, frm, call_type, _, attrs) ->
               "(lambda-closure " ^ Utils.list_to_string (fun x -> prn x (limit - 1)) env ^ ": " ^
               lambda_str body frm attrs call_type ^ ")"
-          | BEq(x, y) -> "(" ^ prn x (limit - 1) ^ " = " ^ prn y (limit - 1) ^ ")"
+          | BEq(x, y) -> "(" ^ prn x (limit - 1) ^ " == " ^ prn y (limit - 1) ^ ")"
           | BGt(x, y) -> "(" ^ prn x (limit - 1) ^ " > " ^ prn y (limit - 1) ^ ")"
           | BGe(x, y) -> "(" ^ prn x (limit - 1) ^ " >= " ^ prn y (limit - 1) ^ ")"
           | BAdd(x, y) -> "(" ^ prn x (limit - 1) ^ " + " ^ prn y (limit - 1) ^ ")"
@@ -467,6 +497,7 @@ let to_string node =
           | BOr(x, y) -> "(" ^ prn x (limit - 1) ^ " or " ^ prn y (limit - 1) ^ ")"
           | BMatch(x, branches) -> "(match " ^ prn x (limit - 1) ^ " with" ^ prn_match branches ^ ")"
           | BRecordGet(x, y) -> "(" ^ prn x (limit - 1) ^ "." ^ prn y (limit - 1) ^ ")"
+          | Quote(x) -> "(quote " ^ prn x (limit - 1) ^ ")"
           | Dummy -> "<dummy>"
           | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 | Unboxed7 -> failwith "unknown node"
       end

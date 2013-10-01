@@ -28,8 +28,16 @@ tactic find-fact = \phi {
          facts
          ()
    in
-   if p = () then {
+   if p == () then {
       match phi with
+      | '(%x in Data) ->
+         let n = eval-limited x eval-limit;
+         if is-number n then
+            pequal phi (number-type-intro n)
+         else
+            ()
+      | '(%x in Any) ->
+         any-intro x
       | '(BigType %n c= BigType %m) when m > n ->
          bigtype-subset-bigtype-intro n m
       | '(BigType %n in BigType %m) when m > n ->
