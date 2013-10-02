@@ -2,7 +2,7 @@
 MODE=debug
 # debug or release
 
-VERSION := $(strip $(shell cat src/core/config.ml | sed -n 's/^[ ]*let[ ]*version[ ]*=[ ]*\"\(.*\)\"/\1/p'))
+VERSION := $(strip $(shell scripts/getcfgvar.sh version))
 
 DEBUG_LIBS=nums.cmxa
 RELEASE_LIBS=nums.cmxa
@@ -29,10 +29,21 @@ release:
 package: clean
 	-scripts/rmbackups.sh
 	mkdir ipl-$(VERSION)
-	cp -r scripts src lib data tests examples TODO ipl-$(VERSION)
+	cp -r scripts src lib data tests examples TODO README ipl-$(VERSION)
 	cat Makefile | sed s/MODE=debug/MODE=release/ > ipl-$(VERSION)/Makefile
 	tar czf ipl-$(VERSION).tar.gz ipl-$(VERSION)
 	rm -r ipl-$(VERSION)
+
+configure:
+	scripts/configure.sh
+	touch .configure
+
+.configure:
+	scripts/configure.sh
+	touch .configure
+
+install: .configure all
+	scripts/install.sh
 
 test: all
 	scripts/run-tests.sh
@@ -52,3 +63,5 @@ clean:
 	-rm *.out
 	-rm *.log
 	-rm -r ipl-*
+	-rm uninstall.sh
+	-rm .configure

@@ -1385,17 +1385,28 @@ m4_changequote([`],['])
                   begin
                     let maybe_lexbuf =
                       try
-                        let lexbuf =
-                          try
-                            Lexing.from_channel (open_in str)
-                          with _ ->
-                            Lexing.from_channel (open_in (Config.stdlib_path () ^ Config.dir_sep () ^ str))
+                        let rec loop lst =
+                          match lst with
+                          | h :: t ->
+                              begin
+                                try
+                                  let str2 = if h = "" then str else h ^ Config.dir_sep() ^ str
+                                  in
+                                  let lexbuf = Lexing.from_channel (open_in str2)
+                                  in
+                                  lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p
+                                                              with
+                                                                Lexing.pos_fname = str2
+                                                              };
+                                  Some(lexbuf)
+                                with _ ->
+                                  loop t
+                              end
+                          | [] ->
+                              Error.error (Node.Attrs.get_pos attrs) ("file not found: " ^ str);
+                              None
                         in
-                        lexbuf.Lexing.lex_curr_p <- { lexbuf.Lexing.lex_curr_p
-                                                    with
-                                                      Lexing.pos_fname = str
-                                                    };
-                        Some(lexbuf)
+                        loop ("" :: Config.path ())
                       with Sys_error(msg) ->
                         Error.error (Node.Attrs.get_pos attrs) msg;
                         None

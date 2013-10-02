@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="Generator" content="Kate, the KDE Advanced Text Editor" />
+<title>example_001.ipl</title>
+</head>
+<body>
+<pre style='color:#1f1c1b;background-color:#ffffff;'>
+
+<i><span style='color:#898887;'>/* Example 01</span></i>
+
+<i><span style='color:#898887;'>   Programming in IPL.</span></i>
+
+<i><span style='color:#898887;'>   In this example it is shown how to write programs in IPL. This does not</span></i>
+<i><span style='color:#898887;'>   cover the whole language. In particular, macros are not covered.</span></i>
+
+<i><span style='color:#898887;'>   Proving theorems is covered in succeeding examples.</span></i>
+
+<i><span style='color:#898887;'> */</span></i>
+
+<i><span style='color:#898887;'>/* The above</span></i>
+<i><span style='color:#898887;'>   and the present</span></i>
+<i><span style='color:#898887;'>   texts are multi-line comments.</span></i>
+<i><span style='color:#898887;'>   */</span></i>
+
+<i><span style='color:#898887;'>// This is a single-line comment</span></i>
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'>   A very simplified and not-fully-correct grammar of the language:</span></i>
+
+<i><span style='color:#898887;'>   &lt;program&gt; ::= &lt;statement&gt; [[;] &lt;program&gt;]</span></i>
+<i><span style='color:#898887;'>   &lt;statement&gt; ::= &lt;let&gt; | &lt;directive&gt; | &lt;expr&gt; | &lt;empty&gt;</span></i>
+<i><span style='color:#898887;'>   &lt;let&gt; ::= let &lt;ident&gt; = &lt;expr&gt;</span></i>
+<i><span style='color:#898887;'>   &lt;expr&gt; ::= &lt;term&gt; [&lt;expr&gt;]</span></i>
+<i><span style='color:#898887;'>   &lt;term&gt; ::= &lt;lambda&gt; | &lt;if&gt; | &lt;match&gt; | &lt;number&gt; | &lt;placeholder&gt;</span></i>
+<i><span style='color:#898887;'>      | ( &lt;program&gt; ) | { &lt;program&gt; } | $. &lt;expr&gt; | $.. &lt;program&gt;</span></i>
+<i><span style='color:#898887;'>   &lt;lambda&gt; ::= \&lt;ident&gt; &lt;term&gt; | \&lt;ident&gt; . &lt;expr&gt; | \&lt;ident&gt; .. &lt;program&gt;</span></i>
+<i><span style='color:#898887;'>   &lt;if&gt; ::= if &lt;expr&gt; then &lt;expr&gt; else &lt;expr&gt;</span></i>
+<i><span style='color:#898887;'>   &lt;match&gt; ::= match &lt;expr&gt; with [|] &lt;match-branches&gt;</span></i>
+<i><span style='color:#898887;'>   &lt;match-branches&gt; ::= &lt;expr&gt; -&gt; &lt;program&gt; [| &lt;match-branches&gt;]</span></i>
+<i><span style='color:#898887;'>   &lt;placeholder&gt; ::= %&lt;ident&gt;</span></i>
+
+<i><span style='color:#898887;'>   &lt;directive&gt; is one of the interpreter directives for defining new operators or</span></i>
+<i><span style='color:#898887;'>   importing definitions from modules</span></i>
+
+<i><span style='color:#898887;'>   &lt;empty&gt; signifies lack of tokens. It denotes a `nil' value -- the same as `()'.</span></i>
+<i><span style='color:#898887;'>   So e.g. `p;' is the same as `p;()' and its value is `()', not `p'.</span></i>
+<i><span style='color:#898887;'>*/</span></i>
+
+<i><span style='color:#898887;'>/* The following defines a function `power'. `let' is recursive by default.</span></i>
+<i><span style='color:#898887;'>   The only way of defining functions is by lambda-abstraction (\x (...)). Functions are untyped.</span></i>
+<i><span style='color:#898887;'>   The logic introduced in further examples allows reasoning about function types. */</span></i>
+<b><span style='color:#000000;'>let</span></b> power = \a \b {
+   <b><span style='color:#000000;'>if</span></b> (b != <span style='color:#b08000;'>0</span>) <b><span style='color:#000000;'>then</span></b> {
+      <b><span style='color:#000000;'>let</span></b> pom = \ta \tb \b {
+         <b><span style='color:#000000;'>if</span></b> b &gt; <span style='color:#b08000;'>1</span> <b><span style='color:#000000;'>then</span></b>
+            pom (ta * ta)
+                (<b><span style='color:#000000;'>if</span></b> b <b><span style='color:#802811;'>mod</span></b> <span style='color:#b08000;'>2</span> != <span style='color:#b08000;'>0</span> <b><span style='color:#000000;'>then</span></b> tb * ta <b><span style='color:#000000;'>else</span></b> tb)
+                (b <b><span style='color:#802811;'>div</span></b> <span style='color:#b08000;'>2</span>)
+         <b><span style='color:#000000;'>else</span></b>
+            ta * tb
+      };
+      <i><span style='color:#898887;'>/* Notice the semicolon. A semicolon acts as a separator between statements.</span></i>
+<i><span style='color:#898887;'>         Without it `pom' would be defined recursively as an application:</span></i>
+<i><span style='color:#898887;'>         let pom = (\ta ...) pom a 1 b</span></i>
+<i><span style='color:#898887;'>         */</span></i>
+      pom a <span style='color:#b08000;'>1</span> b
+   } <b><span style='color:#000000;'>else</span></b> {
+      <span style='color:#b08000;'>1</span>
+   }
+};
+
+print (power <span style='color:#b08000;'>3</span> <span style='color:#b08000;'>4</span>); <i><span style='color:#898887;'>// prints 81</span></i>
+print (power <span style='color:#b08000;'>2</span> <span style='color:#b08000;'>16</span>); <i><span style='color:#898887;'>// prints 65536</span></i>
+print (power <span style='color:#b08000;'>5</span> <span style='color:#b08000;'>7</span>); <i><span style='color:#898887;'>// prints 78125</span></i>
+
+<i><span style='color:#898887;'>// Evaluation in IPL is eager by default, but this should not be relied on.</span></i>
+
+<i><span style='color:#898887;'>/* The brackets {} and () are used to embrace expressions so</span></i>
+<i><span style='color:#898887;'>   that they will be treated as single terms.</span></i>
+<i><span style='color:#898887;'>   Brackets introduce a new scope for identifiers.</span></i>
+<i><span style='color:#898887;'>   The body of a lambda-abstraction is a single term (see the grammar).</span></i>
+<i><span style='color:#898887;'>   E.g. `\x x a' is the same as `(\x x) a', not `\x (x a)', so brackets</span></i>
+<i><span style='color:#898887;'>   are often necessary. There is no difference between {} and () except visual.</span></i>
+<i><span style='color:#898887;'>   There is a second form of lambda-expression: \x . (dot after \x) which extends</span></i>
+<i><span style='color:#898887;'>   as far right as possible for an expression (see the grammar). */</span></i>
+
+{
+
+<b><span style='color:#000000;'>let</span></b> <b><span style='color:#802811;'>o</span></b> = \f \g \x <b><span style='color:#000000;'>.</span></b> f (g x);
+<b><span style='color:#000000;'>let</span></b> f = \x <b><span style='color:#000000;'>.</span></b> x + <span style='color:#b08000;'>1</span>;
+<b><span style='color:#000000;'>let</span></b> g = \x <b><span style='color:#000000;'>.</span></b> x * <span style='color:#b08000;'>2</span>;
+
+<b><span style='color:#000000;'>syntax</span></b> <b><span style='color:#000000;'>operator</span></b> o <b><span style='color:#000000;'>is</span></b> <b><span style='color:#000000;'>left</span></b>, <b><span style='color:#000000;'>binary</span></b>, <b><span style='color:#000000;'>after</span></b> <b><span style='color:#000000;'>appl</span></b>;
+<i><span style='color:#898887;'>// This defines `o' to be a binary, left-associative operator,</span></i>
+<i><span style='color:#898887;'>// with priority just after application (so higher than the priority</span></i>
+<i><span style='color:#898887;'>// of any operator defined thus far with priority lower than application)</span></i>
+<i><span style='color:#898887;'>// See lib/core.ipl for more examples of operator definitions.</span></i>
+
+print <b><span style='color:#000000;'>$.</span></b> (f <b><span style='color:#802811;'>o</span></b> g) <span style='color:#b08000;'>3</span>; <i><span style='color:#898887;'>// prints 7</span></i>
+print &lt;&lt; (f <b><span style='color:#802811;'>o</span></b> g) <b><span style='color:#000000;'>$.</span></b> <span style='color:#b08000;'>3</span>; <i><span style='color:#898887;'>// prints 7</span></i>
+<i><span style='color:#898887;'>// &lt;&lt; is the same as $. but is left-associative and has lower priority</span></i>
+
+}
+
+<i><span style='color:#898887;'>// We had to put the above in {} to introduce a new scope, because `o' is actually predefined</span></i>
+<i><span style='color:#898887;'>// and redefining it in the global scope would produce a name clash.</span></i>
+
+<i><span style='color:#898887;'>/*****************************************************************************/</span></i>
+<i><span style='color:#898887;'>/* The following shows the use of lists and matching. */</span></i>
+
+<b><span style='color:#000000;'>let</span></b> filter = \f \lst {
+   <b><span style='color:#000000;'>match</span></b> lst <b><span style='color:#000000;'>with</span></b>
+   | <span style='color:#006e28;'>%h</span> :: <span style='color:#006e28;'>%t</span> <b><span style='color:#000000;'>when</span></b> f h -&gt; h :: filter f t
+   | <span style='color:#006e28;'>%_</span> :: <span style='color:#006e28;'>%t</span> -&gt; filter f t
+   | [] -&gt; []
+} <i><span style='color:#898887;'>// Note we omitted `;' here.</span></i>
+
+<i><span style='color:#898887;'>// The separator `;' is optional in situations where the ensuing token cannot be</span></i>
+<i><span style='color:#898887;'>// interpreted as a start of a term (in the simplified grammar above `let' starts</span></i>
+<i><span style='color:#898887;'>// a statement).</span></i>
+
+<b><span style='color:#000000;'>let</span></b> sum = \lst {
+   <b><span style='color:#000000;'>let</span></b> aux = \lst \acc {
+      <b><span style='color:#000000;'>match</span></b> lst <b><span style='color:#000000;'>with</span></b>
+      | <span style='color:#006e28;'>%h</span> :: <span style='color:#006e28;'>%t</span> -&gt; aux t (acc + h)
+      | [] -&gt; acc
+   };
+   aux lst <span style='color:#b08000;'>0</span>
+}; <i><span style='color:#898887;'>// Note we cannot omit `;' here, because `filter' may be interpreted as a term</span></i>
+
+filter (\x <b><span style='color:#000000;'>.</span></b> x &gt; <span style='color:#b08000;'>0</span>) [-<span style='color:#b08000;'>1</span>, <span style='color:#b08000;'>0</span>, <span style='color:#b08000;'>10</span>, <span style='color:#b08000;'>11</span>, -<span style='color:#b08000;'>5</span>, -<span style='color:#b08000;'>16</span>, <span style='color:#b08000;'>12</span>] &gt;&gt; sum &gt;&gt; print; <i><span style='color:#898887;'>// prints 33</span></i>
+<i><span style='color:#898887;'>// &gt;&gt; is left-associative and defined as: \x \y (y x)</span></i>
+<i><span style='color:#898887;'>// In general, see lib/core.ipl for definitions of many standard operators.</span></i>
+
+<i><span style='color:#898887;'>/* The patterns in `match' are not static like in e.g. ML.</span></i>
+<i><span style='color:#898887;'>   They are first evaluated before the matching takes place.</span></i>
+<i><span style='color:#898887;'>   The identifiers prefixed with `%' name placeholders in patterns --</span></i>
+<i><span style='color:#898887;'>   special objects which are treated as constants by the evaluator.</span></i>
+<i><span style='color:#898887;'>   The effects are undefined if a placeholder gets duplicated by an</span></i>
+<i><span style='color:#898887;'>   evaluation of a pattern.</span></i>
+
+<i><span style='color:#898887;'>   Non-static patterns make e.g. the following valid.</span></i>
+<i><span style='color:#898887;'>   */</span></i>
+
+<b><span style='color:#000000;'>let</span></b> data = \x (<span style='color:#ff00ff;'>`data</span>, x);
+
+<b><span style='color:#000000;'>let</span></b> get-datum = \d {
+   <b><span style='color:#000000;'>match</span></b> d <b><span style='color:#000000;'>with</span></b>
+   | data <span style='color:#006e28;'>%x</span> -&gt; x
+   | <span style='color:#006e28;'>%_</span> -&gt; <b><span style='color:#bf0303;background:#f7e6e6;'>error</span></b> <span style='color:#bf0303;'>&quot;expected a data object&quot;</span>
+};
+
+print &lt;&lt; get-datum <b><span style='color:#000000;'>$.</span></b> data <span style='color:#b08000;'>6</span>; <i><span style='color:#898887;'>// prints 6</span></i>
+
+<i><span style='color:#898887;'>// `sym denotes a `symbol' named `sym -- a constant object which is equal (==) only to itself</span></i>
+<i><span style='color:#898887;'>// Symbols may also be declared with the `symbol' directive.</span></i>
+
+<b><span style='color:#000000;'>symbol</span></b> mysym;
+
+print (mysym == <span style='color:#ff00ff;'>`mysym</span>); <i><span style='color:#898887;'>// prints false</span></i>
+
+<i><span style='color:#898887;'>// Actually, (x, y), (x :: y) and (cons x y) are all equivalent.</span></i>
+<i><span style='color:#898887;'>// [x, y, z] is a shorthand for (x, y, z, ()).</span></i>
+<i><span style='color:#898887;'>// The comma is a right-associative operator creating a pair.</span></i>
+
+<i><span style='color:#898887;'>/*****************************************************************************/</span></i>
+<i><span style='color:#898887;'>/* The following shows how quoting works. */</span></i>
+
+<b><span style='color:#000000;'>let</span></b> factorial = \n <b><span style='color:#000000;'>.</span></b> <b><span style='color:#000000;'>if</span></b> n == <span style='color:#b08000;'>0</span> <b><span style='color:#000000;'>then</span></b> <span style='color:#b08000;'>1</span> <b><span style='color:#000000;'>else</span></b> n * factorial (n - <span style='color:#b08000;'>1</span>);
+
+print &lt;&lt; factorial <span style='color:#b08000;'>5</span>; <i><span style='color:#898887;'>// prints 120</span></i>
+print &lt;&lt; <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>factorial <span style='color:#b08000;'>5</span><span style='color:#bf0303;'>)</span>; <i><span style='color:#898887;'>// prints '(factorial 5)</span></i>
+print &lt;&lt; eval <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>factorial <span style='color:#b08000;'>5</span><span style='color:#bf0303;'>)</span>; <i><span style='color:#898887;'>// prints 120</span></i>
+
+<i><span style='color:#898887;'>// The quote operator ' quotes the term following it.</span></i>
+<i><span style='color:#898887;'>// It indicates that this term is not to be evaluated, but treated as a data</span></i>
+<i><span style='color:#898887;'>// structure. The quote operator actually changes the interpretation of</span></i>
+<i><span style='color:#898887;'>// the following tokens as read by the parser. The identifiers inside</span></i>
+<i><span style='color:#898887;'>// a quoted expression are resolved statically (lexically). At the evaluation</span></i>
+<i><span style='color:#898887;'>// stage, when the data structure representing the expression being quoted is</span></i>
+<i><span style='color:#898887;'>// being created, if an identifier denotes a quoted value then this value is pasted</span></i>
+<i><span style='color:#898887;'>// in the place of the identifier, if it denotes a non-quoted value (i.e. one that</span></i>
+<i><span style='color:#898887;'>// is not a data structure representing a term) then this value is first quoted --</span></i>
+<i><span style='color:#898887;'>// for this to make sense the value denoted by the identifier must be constant in</span></i>
+<i><span style='color:#898887;'>// this second case.</span></i>
+
+<b><span style='color:#000000;'>let</span></b> qf = <b><span style='color:#bf0303;'>'</span></b>factorial;
+<i><span style='color:#898887;'>// `qf' is different from `factorial' -- it is a data structure representing this</span></i>
+<i><span style='color:#898887;'>// function, not the function itself</span></i>
+
+print (<b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>qf <span style='color:#b08000;'>5</span><span style='color:#bf0303;'>)</span> == <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>factorial <span style='color:#b08000;'>5</span><span style='color:#bf0303;'>)</span>); <i><span style='color:#898887;'>// prints: true</span></i>
+print &lt;&lt; reduce <b><span style='color:#000000;'>$.</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>factorial <span style='color:#b08000;'>5</span><span style='color:#bf0303;'>)</span>; <i><span style='color:#898887;'>// prints: '(5 * (factorial 4))</span></i>
+
+<i><span style='color:#898887;'>// Some basic data values (e.g. numbers and symbols) when quoted are represented by</span></i>
+<i><span style='color:#898887;'>// themselves. This is OK because they are in normal form, i.e. they evaluate</span></i>
+<i><span style='color:#898887;'>// to themselves.</span></i>
+
+print <b><span style='color:#bf0303;'>'</span></b>5; <i><span style='color:#898887;'>// prints 5</span></i>
+print <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><span style='color:#ff00ff;'>`abba</span><span style='color:#bf0303;'>)</span>; <i><span style='color:#898887;'>// prints `abba</span></i>
+print <b><span style='color:#bf0303;'>'</span></b>true; <i><span style='color:#898887;'>// prints true</span></i>
+print (<b><span style='color:#bf0303;'>'</span></b>true == <b><span style='color:#000000;'>true</span></b>); <i><span style='color:#898887;'>// prints true</span></i>
+</pre>
+</body>
+</html>

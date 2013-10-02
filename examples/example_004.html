@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="Generator" content="Kate, the KDE Advanced Text Editor" />
+<title>example_004.ipl</title>
+</head>
+<body>
+<pre style='color:#1f1c1b;background-color:#ffffff;'>
+
+<i><span style='color:#898887;'>/* Example 04</span></i>
+
+<i><span style='color:#898887;'>   Induction.</span></i>
+
+<i><span style='color:#898887;'> */</span></i>
+
+<i><span style='color:#898887;'>/* Implementation of induction is currently very rudimentary. The interface is inconvenient and</span></i>
+<i><span style='color:#898887;'>   will probably change. Therefore, we do not give as detailed comments as in the previous examples,</span></i>
+<i><span style='color:#898887;'>   because the comments will have to be changed when changing the interface.</span></i>
+<i><span style='color:#898887;'> */</span></i>
+
+<b><span style='color:#000000;'>open</span></b> <span style='color:#0057ae;'>Logic</span>;
+
+<b><span style='color:#000000;'>let</span></b> zero = \_ <span style='color:#b08000;'>0</span>;
+<b><span style='color:#000000;'>let</span></b> succ = \x <b><span style='color:#000000;'>.</span></b> x + <span style='color:#b08000;'>1</span>;
+<b><span style='color:#000000;'>let</span></b> <span style='color:#0057ae;'>Nat</span> = mk-datatype [(<b><span style='color:#bf0303;'>'</span></b>zero, <span style='color:#0057ae;'>Any</span>), (<b><span style='color:#bf0303;'>'</span></b>succ, <span style='color:#0057ae;'>Self</span>)];
+
+<b><span style='color:#000000;'>let</span></b> pred = \x <b><span style='color:#000000;'>.</span></b> <b><span style='color:#000000;'>if</span></b> x != <span style='color:#b08000;'>0</span> <b><span style='color:#000000;'>then</span></b> x - <span style='color:#b08000;'>1</span> <b><span style='color:#000000;'>else</span></b> <span style='color:#b08000;'>0</span>;
+
+<b><span style='color:#000000;'>axiom</span></b> ax-pred
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> n : <span style='color:#0057ae;'>Nat</span> <b><span style='color:#000000;'>.</span></b> pred (succ n) == n<span style='color:#bf0303;'>)</span>;
+
+<b><span style='color:#000000;'>axiom</span></b> ax-succ-type
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Data</span> -&gt; <span style='color:#0057ae;'>Data</span><span style='color:#bf0303;'>)</span>;
+
+<i><span style='color:#898887;'>// Data is the type of `urelements' (data values) -- values in normal form</span></i>
+<i><span style='color:#898887;'>// like numbers, etc. There is a rule eq-type-intro which given a proof of</span></i>
+<i><span style='color:#898887;'>// '(t1 in Data) and a proof of '(t2 in Data) returns a proof of '((t1 == t2) in Prop)</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b> lem_nat_subset_data
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><span style='color:#0057ae;'>Nat</span> c= <span style='color:#0057ae;'>Data</span><span style='color:#bf0303;'>)</span> <i><span style='color:#898887;'>// `c=' is set inclusion operator defined as: \x \y (ALL x y)</span></i>
+<b><span style='color:#000000;'>proof</span></b>
+   datatype-induction (reduce thesis) \n \tp \t {
+      <b><span style='color:#000080;'>suppose</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>n <b><span style='color:#802811;'>in</span></b> tp<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000000;'>match</span></b> t <b><span style='color:#000000;'>with</span></b>
+      | <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>zero n<span style='color:#bf0303;'>)</span> -&gt;
+         <b><span style='color:#000080;'>number-type-intro</span></b> <span style='color:#b08000;'>0</span>
+      | <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ n<span style='color:#bf0303;'>)</span> -&gt;
+         <b><span style='color:#000080;'>suppose</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>n <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Data</span><span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000000;'>remember</span></b> ax-succ-type;
+         auto-type <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ n <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Data</span><span style='color:#bf0303;'>)</span>
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+<b><span style='color:#000000;'>remember</span></b> lem_nat_subset_data;
+
+<b><span style='color:#000000;'>lemma</span></b> lem_succ_type
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span> -&gt; <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> n : <span style='color:#0057ae;'>Nat</span>;
+   <b><span style='color:#000080;'>datatype-type-intro-3</span></b> <span style='color:#0057ae;'>Nat</span> <b><span style='color:#bf0303;'>'</span></b>succ (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>n <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>)
+<b><span style='color:#000000;'>qed</span></b>;
+<b><span style='color:#000000;'>remember</span></b> lem_succ_type;
+
+<b><span style='color:#000000;'>lemma</span></b> lem_peano_1
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x, y : <span style='color:#0057ae;'>Nat</span> <b><span style='color:#000000;'>.</span></b> succ x == succ y =&gt; x == y<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> x, y : <span style='color:#0057ae;'>Nat</span>;
+   <b><span style='color:#000080;'>show</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>pred (succ x) == x<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+      <b><span style='color:#000080;'>forall-elim</span></b> ax-pred (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>x <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>);
+   <b><span style='color:#000080;'>show</span></b> <span style='color:#644a9b;'>$2:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>pred (succ y) == y<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+      <b><span style='color:#000080;'>forall-elim</span></b> ax-pred (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>y <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>);
+   <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ x == succ y<span style='color:#bf0303;'>)</span>;
+   eq-trans (eq-trans (eq-sym $1) (eq-cong (<b><span style='color:#000080;'>eq-intro-1</span></b> <b><span style='color:#bf0303;'>'</span></b>pred) <b><span style='color:#000080;'>last</span></b>)) $2
+<b><span style='color:#000000;'>qed</span></b>;
+
+<b><span style='color:#000000;'>lemma</span></b> lem_peano_2
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> n : <span style='color:#0057ae;'>Nat</span> <b><span style='color:#000000;'>.</span></b> succ n != <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   datatype-induction thesis \n \tp \t {
+      <b><span style='color:#000080;'>suppose</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>n <b><span style='color:#802811;'>in</span></b> tp<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000000;'>match</span></b> t <b><span style='color:#000000;'>with</span></b>
+      | <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>zero n<span style='color:#bf0303;'>)</span> -&gt;
+         <b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ <span style='color:#b08000;'>0</span> != <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span>
+      | <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ n<span style='color:#bf0303;'>)</span> -&gt;
+         <b><span style='color:#000080;'>suppose</span></b> <span style='color:#644a9b;'>$0:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ n != <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ (succ n) == <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000080;'>show</span></b> <span style='color:#644a9b;'>$2:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>pred (succ (succ n)) == succ n<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+            <b><span style='color:#000080;'>forall-elim</span></b> ax-pred (<b><span style='color:#000080;'>datatype-type-intro-3</span></b> <span style='color:#0057ae;'>Nat</span> <b><span style='color:#bf0303;'>'</span></b>succ (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>n <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>));
+         <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>pred (succ (succ n)) == pred <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+            eq-cong (<b><span style='color:#000080;'>eq-intro-1</span></b> <b><span style='color:#bf0303;'>'</span></b>pred) $1;
+         <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ n == pred <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+            eq-trans (eq-sym $2) <b><span style='color:#000080;'>last</span></b>;
+         <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ n == <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+            eq-trans <b><span style='color:#000080;'>last</span></b> (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>pred <span style='color:#b08000;'>0</span> == <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span>);
+         <b><span style='color:#000080;'>not-elim</span></b> $0 <b><span style='color:#000080;'>last</span></b>
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+
+<b><span style='color:#000000;'>let</span></b> plus = \x \y <b><span style='color:#000000;'>.</span></b> <b><span style='color:#000000;'>if</span></b> y == <span style='color:#b08000;'>0</span> <b><span style='color:#000000;'>then</span></b> x <b><span style='color:#000000;'>else</span></b> succ (plus x (pred y))
+<b><span style='color:#000000;'>let</span></b> mult = \x \y <b><span style='color:#000000;'>.</span></b> <b><span style='color:#000000;'>if</span></b> y == <span style='color:#b08000;'>0</span> <b><span style='color:#000000;'>then</span></b> <span style='color:#b08000;'>0</span> <b><span style='color:#000000;'>else</span></b> plus (mult x (pred y)) x
+
+<b><span style='color:#000000;'>lemma</span></b> lem_peano_3
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x : <span style='color:#0057ae;'>Any</span> <b><span style='color:#000000;'>.</span></b> plus x <span style='color:#b08000;'>0</span> == x<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> x : <span style='color:#0057ae;'>Any</span>;
+   <b><span style='color:#000080;'>eq-intro</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>plus x <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span> x
+<b><span style='color:#000000;'>qed</span></b>;
+
+<b><span style='color:#000000;'>lemma</span></b> lem_peano_4
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x : <span style='color:#0057ae;'>Any</span> <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>all</span></b> y : <span style='color:#0057ae;'>Nat</span> <b><span style='color:#000000;'>.</span></b> plus x (succ y) == succ (plus x y)<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> x : <span style='color:#0057ae;'>Any</span>;
+   <b><span style='color:#000080;'>fix</span></b> y : <span style='color:#0057ae;'>Nat</span>;
+   <b><span style='color:#000080;'>show</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>plus x (succ y) == succ (plus x (pred (succ y)))<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+      <b><span style='color:#000080;'>eq-if-intro</span></b> (reduce-appl <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>plus x (succ y)<span style='color:#bf0303;'>)</span>) (<b><span style='color:#000080;'>forall-elim</span></b> lem_peano_2 (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>y <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>));
+   <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>pred (succ y) == y<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> <b><span style='color:#000080;'>forall-elim</span></b> ax-pred (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>y <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>);
+   <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ (plus x (pred (succ y))) == succ (plus x y)<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+      eq-cong (<b><span style='color:#000080;'>eq-intro-1</span></b> <b><span style='color:#bf0303;'>'</span></b>succ) (eq-cong (<b><span style='color:#000080;'>eq-intro-1</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>plus x<span style='color:#bf0303;'>)</span>) <b><span style='color:#000080;'>last</span></b>);
+   eq-trans $1 <b><span style='color:#000080;'>last</span></b>
+<b><span style='color:#000000;'>qed</span></b>;
+
+<b><span style='color:#000000;'>lemma</span></b> lem_peano_5
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x : <span style='color:#0057ae;'>Any</span> <b><span style='color:#000000;'>.</span></b> mult x <span style='color:#b08000;'>0</span> == <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> x : <span style='color:#0057ae;'>Any</span>;
+   <b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>mult x <span style='color:#b08000;'>0</span> == <span style='color:#b08000;'>0</span><span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>qed</span></b>;
+
+<b><span style='color:#000000;'>lemma</span></b> lem_peano_6
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x : <span style='color:#0057ae;'>Any</span> <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>all</span></b> y : <span style='color:#0057ae;'>Nat</span> <b><span style='color:#000000;'>.</span></b> mult x (succ y) == plus (mult x y) x<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> x : <span style='color:#0057ae;'>Any</span>;
+   <b><span style='color:#000080;'>fix</span></b> y : <span style='color:#0057ae;'>Nat</span>;
+   <b><span style='color:#000080;'>show</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>mult x (succ y) == plus (mult x (pred (succ y))) x<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+      <b><span style='color:#000080;'>eq-if-intro</span></b> (reduce-appl <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>mult x (succ y)<span style='color:#bf0303;'>)</span>) (<b><span style='color:#000080;'>forall-elim</span></b> lem_peano_2 (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>y <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>));
+   <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>pred (succ y) == y<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> <b><span style='color:#000080;'>forall-elim</span></b> ax-pred (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>y <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>);
+   <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>plus (mult x (pred (succ y))) x == plus (mult x y) x<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+      eq-cong (<b><span style='color:#000080;'>eq-intro-1</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>\y <b><span style='color:#000000;'>.</span></b> plus (mult x y) x<span style='color:#bf0303;'>)</span>) <b><span style='color:#000080;'>last</span></b>;
+   eq-trans $1 <b><span style='color:#000080;'>last</span></b>
+<b><span style='color:#000000;'>qed</span></b>;
+
+<b><span style='color:#000000;'>let</span></b> even = \n <b><span style='color:#000000;'>.</span></b> <b><span style='color:#000000;'>if</span></b> n == <span style='color:#b08000;'>0</span> <b><span style='color:#000000;'>then</span></b> <b><span style='color:#000000;'>true</span></b> <b><span style='color:#000000;'>else</span></b> <b><span style='color:#802811;'>not</span></b> (even (pred n));
+
+<b><span style='color:#000000;'>lemma</span></b> lem_even_succ_eq
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> n : <span style='color:#0057ae;'>Nat</span> <b><span style='color:#000000;'>.</span></b> even (succ n) == <b><span style='color:#802811;'>not</span></b> (even n)<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> n : <span style='color:#0057ae;'>Nat</span>;
+   <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>even (succ n) == <b><span style='color:#802811;'>not</span></b> (even (pred (succ n)))<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b>
+      <b><span style='color:#000080;'>eq-if-intro</span></b> (reduce-appl <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>even (succ n)<span style='color:#bf0303;'>)</span>) (<b><span style='color:#000080;'>forall-elim</span></b> lem_peano_2 (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>n <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>));
+   eq-trans <b><span style='color:#000080;'>last</span></b> (eq-cong (<b><span style='color:#000080;'>eq-intro-1</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>\x <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>not</span></b> (even x)<span style='color:#bf0303;'>)</span>) (<b><span style='color:#000080;'>forall-elim</span></b> ax-pred (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>n <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>)));
+<b><span style='color:#000000;'>qed</span></b>;
+
+<b><span style='color:#000000;'>lemma</span></b> lem_even_type
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>even <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span> -&gt; <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   datatype-induction (reduce thesis) \n \tp \t {
+      <b><span style='color:#000080;'>suppose</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>n <b><span style='color:#802811;'>in</span></b> tp<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000000;'>match</span></b> t <b><span style='color:#000000;'>with</span></b>
+      | <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>zero n<span style='color:#bf0303;'>)</span> -&gt;
+         <b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>even <span style='color:#b08000;'>0</span> <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>
+      | <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>succ n<span style='color:#bf0303;'>)</span> -&gt;
+         <b><span style='color:#000080;'>suppose</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>even n <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>(<b><span style='color:#802811;'>not</span></b> (even n)) <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> <b><span style='color:#000080;'>not-type-intro</span></b> <b><span style='color:#000080;'>last</span></b>;
+         <b><span style='color:#000080;'>eq-elim</span></b>
+            &lt;&lt; eq-cong (<b><span style='color:#000080;'>eq-intro-1</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>\x <b><span style='color:#000000;'>.</span></b> x <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>) (<b><span style='color:#000080;'>forall-elim</span></b> lem_even_succ_eq (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>n <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Nat</span><span style='color:#bf0303;'>)</span>))
+            &lt;&lt; <b><span style='color:#000080;'>last</span></b>
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+
+print <span style='color:#bf0303;'>&quot;OK&quot;</span>;
+</pre>
+</body>
+</html>

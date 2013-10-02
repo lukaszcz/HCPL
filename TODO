@@ -1,7 +1,4 @@
 
-* Makefile target: install
-* version 0.1
-
 * def (overriding, non-recursive let)
 * fix ex & all without dot
 * update 'thesis' in *-intro

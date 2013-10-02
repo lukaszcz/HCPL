@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="Generator" content="Kate, the KDE Advanced Text Editor" />
+<title>example_003.ipl</title>
+</head>
+<body>
+<pre style='color:#1f1c1b;background-color:#ffffff;'>
+
+<i><span style='color:#898887;'>/* Example 03</span></i>
+
+<i><span style='color:#898887;'>   Predicate logic.</span></i>
+
+<i><span style='color:#898887;'> */</span></i>
+
+<b><span style='color:#000000;'>open</span></b> <span style='color:#0057ae;'>Logic</span>;
+
+<b><span style='color:#000000;'>let</span></b> lem_20 = \<span style='color:#0057ae;'>Tp</span> {
+   <i><span style='color:#898887;'>/* Since `lemma' is just a macro that expands to ordinary functions, it is perfectly possible</span></i>
+<i><span style='color:#898887;'>      to have lemmas inside functions, so that they may be parameterised.</span></i>
+<i><span style='color:#898887;'>   */</span></i>
+   <b><span style='color:#000000;'>lemma</span></b> lem
+      <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> f, g : <span style='color:#0057ae;'>Tp</span> -&gt; <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> (<b><span style='color:#802811;'>all</span></b> x : <span style='color:#0057ae;'>Tp</span> <b><span style='color:#000000;'>.</span></b> f x =&gt; g x) =&gt; (<b><span style='color:#802811;'>all</span></b> x : <span style='color:#0057ae;'>Tp</span> <b><span style='color:#000000;'>.</span></b> f x) =&gt; (<b><span style='color:#802811;'>all</span></b> x : <span style='color:#0057ae;'>Tp</span> <b><span style='color:#000000;'>.</span></b> g x)<span style='color:#bf0303;'>)</span>
+   <b><span style='color:#000000;'>proof</span></b>
+      <b><span style='color:#000080;'>fix</span></b> f, g : <span style='color:#0057ae;'>Tp</span> -&gt; <span style='color:#0057ae;'>Prop</span>;
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$0:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x : <span style='color:#0057ae;'>Tp</span> <b><span style='color:#000000;'>.</span></b> f x =&gt; g x<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x : <span style='color:#0057ae;'>Tp</span> <b><span style='color:#000000;'>.</span></b> f x<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>fix</span></b> x : <span style='color:#0057ae;'>Tp</span>;
+      <b><span style='color:#000080;'>show</span></b> <span style='color:#644a9b;'>$f_x:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>f x<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> <b><span style='color:#000080;'>forall-elim</span></b> $1 (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>x <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Tp</span><span style='color:#bf0303;'>)</span>);
+      <b><span style='color:#000080;'>impl-elim</span></b>
+         &lt;&lt; <b><span style='color:#000080;'>forall-elim</span></b> $0 (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>x <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Tp</span><span style='color:#bf0303;'>)</span>)
+         &lt;&lt; $f_x
+   <b><span style='color:#000000;'>qed</span></b>;
+   lem
+};
+
+<i><span style='color:#898887;'>// Below the lemma is checked twice -- each time with a different parameter Tp.</span></i>
+lem_20 <span style='color:#0057ae;'>Prop</span>;
+<i><span style='color:#898887;'>// Since Prop is a symbol, it is identical with its quoted representation</span></i>
+<i><span style='color:#898887;'>// and need not be explicitly quoted.</span></i>
+lem_20 <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><span style='color:#0057ae;'>Prop</span> -&gt; <span style='color:#0057ae;'>Any</span> -&gt; <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>;
+<i><span style='color:#898887;'>// Any is a type of any object. `any-intro t' evaluates to a proof of '(t in Any) for any</span></i>
+<i><span style='color:#898887;'>// quoted expression t.</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b>
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> T : <span style='color:#0057ae;'>Type</span> <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>all</span></b> f, g : T -&gt; <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> (<b><span style='color:#802811;'>all</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x =&gt; g x) =&gt; (<b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x) =&gt; <b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> g x<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> T : <span style='color:#0057ae;'>Type</span>;
+   <b><span style='color:#000080;'>fix</span></b> f, g : T -&gt; <span style='color:#0057ae;'>Prop</span>;
+   <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$0:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x =&gt; g x<span style='color:#bf0303;'>)</span>;
+   <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x<span style='color:#bf0303;'>)</span>;
+   <b><span style='color:#000080;'>obtain</span></b> x <b><span style='color:#000080;'>from</span></b> <b><span style='color:#000080;'>last</span></b>;
+   <i><span style='color:#898887;'>// If p is a proof of an existential formula '(ex x : A . phi), then `obtain x from p'</span></i>
+   <i><span style='color:#898887;'>// introduces a fresh variable x and adds '(x in A) and '(phi x) to the assumptions.</span></i>
+   <i><span style='color:#898887;'>// After `obtain' a proof p1 is expected of a formula psi in which x does not occur.</span></i>
+   <i><span style='color:#898887;'>// Then the result of `{ obtain x from p; p1 }' is a proof of psi.</span></i>
+   <b><span style='color:#000080;'>take</span></b> z = x;
+   <i><span style='color:#898887;'>// `take z = t' starts a proof of an existential formula. After `take' a proof p is</span></i>
+   <i><span style='color:#898887;'>// expected of a formula phi in which z possibly occurs. After `take', the variable z</span></i>
+   <i><span style='color:#898887;'>// is definitionally equal to t, so it satisfies exactly the same properties.</span></i>
+   <i><span style='color:#898887;'>// The result of {take z = t; p} is then a proof of '(ex z : A . phi) where</span></i>
+   <i><span style='color:#898887;'>// the type A is automatically inferred using the function `infer-type' from</span></i>
+   <i><span style='color:#898887;'>// lib/tactics/auto-type.ipl. Should automatic type inference fail one may use the</span></i>
+   <i><span style='color:#898887;'>// following forms of `take':</span></i>
+   <i><span style='color:#898887;'>//    * `take z : A = t' explicitly provides the type, but (auto-type '(t in A)) is</span></i>
+   <i><span style='color:#898887;'>//       used to obtain a typing derivation</span></i>
+   <i><span style='color:#898887;'>//    * `take z : A = t with p1' or `take z = t with p1' provides the typing derivation</span></i>
+   <i><span style='color:#898887;'>//       p1 explicitly</span></i>
+   <i><span style='color:#898887;'>//    * `take z : A with p2 = t' provides a derivation of '(A in Type) which is otherwise</span></i>
+   <i><span style='color:#898887;'>//       obtained via `auto-type'</span></i>
+   <i><span style='color:#898887;'>//    * `take z : A with p2 = t with p1' this form of `take' combines the above ones</span></i>
+   <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>g z<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> <b><span style='color:#000080;'>impl-elim</span></b> (<b><span style='color:#000080;'>forall-elim</span></b> $0 (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>z <b><span style='color:#802811;'>in</span></b> T<span style='color:#bf0303;'>)</span>)) (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>f z<span style='color:#bf0303;'>)</span>)
+<b><span style='color:#000000;'>qed</span></b>;
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'>   Again, there is nothing special about `obtain' and `take'. They are just macros which</span></i>
+<i><span style='color:#898887;'>   expand to appropriate invocations of the primitive rules `exists-elim' and `exists-intro',</span></i>
+<i><span style='color:#898887;'>   respectively. See lib/logic/core-logic.ipl for the definitions of the functions implementing</span></i>
+<i><span style='color:#898887;'>   these primitive rules.</span></i>
+<i><span style='color:#898887;'> */</span></i>
+
+<i><span style='color:#898887;'>// Below follow more examples of proofs of tautologies involving quantifiers.</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b>
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> T : <span style='color:#0057ae;'>Type</span> <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>all</span></b> f : T -&gt; <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>not</span></b> (<b><span style='color:#802811;'>all</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x) &lt;=&gt; <b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>not</span></b> (f x)<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> T : <span style='color:#0057ae;'>Type</span>;
+   <b><span style='color:#000080;'>fix</span></b> f : T -&gt; <span style='color:#0057ae;'>Prop</span>;
+   <b><span style='color:#000080;'>equiv-intro</span></b> {
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$0:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> (<b><span style='color:#802811;'>all</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x)<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>contradiction</span></b> {
+         <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> (<b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>not</span></b> (f x))<span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> {
+            <b><span style='color:#000080;'>fix</span></b> x : T;
+            <b><span style='color:#000080;'>contradiction</span></b> {
+               <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$2:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> (f x)<span style='color:#bf0303;'>)</span>;
+               <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>not</span></b> (f x)<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> {
+                  <b><span style='color:#000080;'>take</span></b> z = x;
+                  <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> (f z)<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> $2
+               } &gt;&gt;
+               <b><span style='color:#000080;'>not-elim</span></b> $1
+            }
+         } &gt;&gt;
+         <b><span style='color:#000080;'>not-elim</span></b> $0
+      }
+   }{
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$0:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>not</span></b> (f x)<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>obtain</span></b> x <b><span style='color:#000080;'>from</span></b> $0;
+      <span style='color:#644a9b;'>$f_x:</span> <b><span style='color:#000080;'>forall-elim</span></b> $1 (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>x <b><span style='color:#802811;'>in</span></b> T<span style='color:#bf0303;'>)</span>);
+      <b><span style='color:#000080;'>not-elim</span></b> $f_x (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> (f x)<span style='color:#bf0303;'>)</span>)
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+
+<b><span style='color:#000000;'>lemma</span></b>
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> T : <span style='color:#0057ae;'>Type</span> <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>all</span></b> f, g : T -&gt; <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> (<b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x <b><span style='color:#802811;'>or</span></b> g x) &lt;=&gt; (<b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x) <b><span style='color:#802811;'>or</span></b> (<b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> g x)<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> T : <span style='color:#0057ae;'>Type</span>;
+   <b><span style='color:#000080;'>fix</span></b> f, g : T -&gt; <span style='color:#0057ae;'>Prop</span>;
+   <b><span style='color:#000080;'>equiv-intro</span></b> {
+      <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x <b><span style='color:#802811;'>or</span></b> g x<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>obtain</span></b> x <b><span style='color:#000080;'>from</span></b> <b><span style='color:#000080;'>last</span></b>;
+      <b><span style='color:#000080;'>or-elim</span></b> (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>f x <b><span style='color:#802811;'>or</span></b> g x<span style='color:#bf0303;'>)</span>) {
+         <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>f x<span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> {
+            <b><span style='color:#000080;'>take</span></b> z = x;
+            <b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>f z<span style='color:#bf0303;'>)</span>
+         };
+         <b><span style='color:#000080;'>or-intro</span></b> <b><span style='color:#000080;'>last</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> g x<span style='color:#bf0303;'>)</span>
+      }{
+         <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>g x<span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> g x<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> {
+            <b><span style='color:#000080;'>take</span></b> z = x;
+            <b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>g z<span style='color:#bf0303;'>)</span>
+         };
+         <b><span style='color:#000080;'>or-intro</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>last</span></b>
+      }
+   }{
+      <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>(<b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x) <b><span style='color:#802811;'>or</span></b> (<b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> g x)<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>or-elim</span></b> <b><span style='color:#000080;'>last</span></b> {
+         <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> f x<span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000080;'>obtain</span></b> x <b><span style='color:#000080;'>from</span></b> <b><span style='color:#000080;'>last</span></b>;
+         <b><span style='color:#000080;'>take</span></b> z = x;
+         <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>f z <b><span style='color:#802811;'>or</span></b> g z<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> <b><span style='color:#000080;'>or-intro</span></b> (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>f z<span style='color:#bf0303;'>)</span>) <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>g z<span style='color:#bf0303;'>)</span>
+      }{
+         <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>ex</span></b> x : T <b><span style='color:#000000;'>.</span></b> g x<span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000080;'>obtain</span></b> x <b><span style='color:#000080;'>from</span></b> <b><span style='color:#000080;'>last</span></b>;
+         <b><span style='color:#000080;'>take</span></b> z = x;
+         <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>f z <b><span style='color:#802811;'>or</span></b> g z<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> <b><span style='color:#000080;'>or-intro</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>f z<span style='color:#bf0303;'>)</span> (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>g z<span style='color:#bf0303;'>)</span>)
+      }
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+
+print <span style='color:#bf0303;'>&quot;OK&quot;</span>;
+</pre>
+</body>
+</html>

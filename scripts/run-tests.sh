@@ -23,7 +23,7 @@ echo " DONE"
 echo -n "Running main tests"
 for t in tests/main/test_*.ipl
 do
-    ./ipl -R lib/core.ipl -I tests/main $t > test.out
+    ./ipl -R lib/core.ipl -I tests/main -I lib $t > test.out
     diff -q tests/main/`basename $t .ipl`.out test.out
     rm test.out
     echo -n "."
@@ -33,7 +33,7 @@ echo " DONE"
 echo -n "Running logic tests"
 for t in tests/logic/test_*.ipl
 do
-    ./ipl -R lib/core.ipl $t > test.out
+    ./ipl -R lib/core.ipl -I lib $t > test.out
     diff -q tests/logic/`basename $t .ipl`.out test.out
     rm test.out
     echo -n "."
@@ -43,7 +43,7 @@ echo " DONE"
 echo -n "Running examples"
 for t in examples/example_*.ipl
 do
-    ./ipl -R lib/core.ipl $t > test.out
+    ./ipl -R lib/core.ipl -I lib $t > test.out
     diff -q examples/`basename $t .ipl`.out test.out
     rm test.out
     echo -n "."

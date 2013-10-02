@@ -3,9 +3,15 @@
    Copyright (C) 2013 by Łukasz Czajka
 *)
 
-let version = "0.0.1"
+let version = "git-master"
 
-let rpath = ref []
+let data_dir = "."
+
+let bin_dir = "."
+
+let dir_sep () = "/"
+
+let rpath = ref [data_dir ^ dir_sep () ^ "lib"; "."]
 
 let rtiming = ref false
 
@@ -23,9 +29,7 @@ let prepend_path str = rpath := str :: !rpath
 
 let append_path str = rpath := !rpath @ [str]
 
-let stdlib_path () = "./lib"
-
-let dir_sep () = "/"
+let stdlib_path () = data_dir ^ dir_sep () ^ "lib"
 
 let timing_enabled () = !rtiming
 

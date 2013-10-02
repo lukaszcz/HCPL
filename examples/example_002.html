@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="Generator" content="Kate, the KDE Advanced Text Editor" />
+<title>example_002.ipl</title>
+</head>
+<body>
+<pre style='color:#1f1c1b;background-color:#ffffff;'>
+
+<i><span style='color:#898887;'>/* Example 02</span></i>
+
+<i><span style='color:#898887;'>   Propositional logic.</span></i>
+
+<i><span style='color:#898887;'> */</span></i>
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'> Some terminology. By a formula we mean any quoted expression (see example_001.ipl</span></i>
+<i><span style='color:#898887;'> for an explanation of quoting) which is intuitively interpreted as a proposition</span></i>
+<i><span style='color:#898887;'> (may have a truth value). A rule is a function which implements an</span></i>
+<i><span style='color:#898887;'> inference rule -- it takes proofs of some formulas which are premises</span></i>
+<i><span style='color:#898887;'> of the rule (and possibly additional arguments) and returns a proof of the</span></i>
+<i><span style='color:#898887;'> conclusion, or fails if the arguments are wrong. A tactic is a function which</span></i>
+<i><span style='color:#898887;'> takes a formula (and possibly additional arguments) and returns its proof, or</span></i>
+<i><span style='color:#898887;'> fails such proof cannot be found.</span></i>
+<i><span style='color:#898887;'> */</span></i>
+
+<b><span style='color:#000000;'>open</span></b> <span style='color:#0057ae;'>Logic</span>;
+<i><span style='color:#898887;'>// This directive makes the definitions from the Logic module (lib/logic.ipl)</span></i>
+<i><span style='color:#898887;'>// available in the current scope.</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b>
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> p, q : <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> p =&gt; (<b><span style='color:#802811;'>not</span></b> p =&gt; q)<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> p, q : <span style='color:#0057ae;'>Prop</span>;
+   <i><span style='color:#898887;'>// `fix' begins a proof of a universally quantified formula.</span></i>
+   <i><span style='color:#898887;'>// What follows now should be a proof of '(p =&gt; (not p =&gt; q))</span></i>
+   <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$0:</span> p;
+   <i><span style='color:#898887;'>// `assume' begins a proof of implication. What follows now should be</span></i>
+   <i><span style='color:#898887;'>// a proof '(not p =&gt; q). The assumption may be named like here</span></i>
+   <i><span style='color:#898887;'>// (where it is named $0). Note that afterwards $0 denotes a</span></i>
+   <i><span style='color:#898887;'>// proof of p, not the formula p itself. Note that `$' is just a</span></i>
+   <i><span style='color:#898887;'>// part of the identifier -- it is treated like a letter.</span></i>
+   <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> p<span style='color:#bf0303;'>)</span>;
+   <i><span style='color:#898887;'>// `last' denotes the last assumption made, the last fact shown with `show'</span></i>
+   <i><span style='color:#898887;'>// or the last proof remembered with `remember', whichever was most recent</span></i>
+   <i><span style='color:#898887;'>// (`show' and `remember' will be described later)</span></i>
+   <b><span style='color:#000080;'>not-elim</span></b> $0 <b><span style='color:#000080;'>last</span></b> &gt;&gt;
+   <b><span style='color:#000080;'>false-elim</span></b> q
+   <i><span style='color:#898887;'>// not-elim is the negation elimination rule: a function which given</span></i>
+   <i><span style='color:#898887;'>// a proof of phi and a proof of '(not phi) evaluates to a proof of false</span></i>
+   <i><span style='color:#898887;'>// false-elim is the falsity elimination rule: a function which given a</span></i>
+   <i><span style='color:#898887;'>// formula phi and a proof of false evaluates to a proof of phi</span></i>
+<b><span style='color:#000000;'>qed</span></b>;
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'> Note that formulas must be quoted. Otherwise the evaluator would try to evaluate them and</span></i>
+<i><span style='color:#898887;'> would replace them with the result of this evaluation, not with the data structure representing</span></i>
+<i><span style='color:#898887;'> the formula. Variables evaluate to themselves, so they are identical with their quoted</span></i>
+<i><span style='color:#898887;'> represenation and need not be quoted when occur just by themselves.</span></i>
+<i><span style='color:#898887;'>*/</span></i>
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'> `lemma' is just a function which expects two arguments. When given a formula phi and</span></i>
+<i><span style='color:#898887;'> a proof of phi it succeeds, otherwise it fails with an error message. `proof P qed'</span></i>
+<i><span style='color:#898887;'> is in fact no different from `(P)' or `{P}' -- the difference is purely visual.</span></i>
+<i><span style='color:#898887;'> The only (safe) way of creating proofs is by using the functions from</span></i>
+<i><span style='color:#898887;'> lib/logic/core-logic.ipl which implement basic inference rules. Inference rules</span></i>
+<i><span style='color:#898887;'> are implemented as functions which given proofs of premises (and possibly some</span></i>
+<i><span style='color:#898887;'> additional arguments) evaluate to a proof of the conclusion. Derived rules and</span></i>
+<i><span style='color:#898887;'> proof tactics may be simply implemented as functions in IPL which manipulate proofs</span></i>
+<i><span style='color:#898887;'> using the primitive or previously defined rules.</span></i>
+<i><span style='color:#898887;'>*/</span></i>
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'> `fix' and `assume' are not special either. In fact, they are macros which expand to</span></i>
+<i><span style='color:#898887;'> appropriate invocations of the rules `forall-intro' and `impl-intro', respectively.</span></i>
+<i><span style='color:#898887;'> So the above lemma, after expanding the macros, is equivalent to the following.</span></i>
+<i><span style='color:#898887;'>*/</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b>
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> p, q : <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> p =&gt; (<b><span style='color:#802811;'>not</span></b> p =&gt; q)<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>forall-intro</span></b> (auto-type <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><span style='color:#0057ae;'>Prop</span> <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Type</span><span style='color:#bf0303;'>)</span>) \p {
+      <b><span style='color:#000080;'>suppose</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>;
+      <i><span style='color:#898887;'>// {suppose phi; p} introduces an assumption phi,</span></i>
+      <i><span style='color:#898887;'>// evaluates p under this assumption, and if p</span></i>
+      <i><span style='color:#898887;'>// evaluates to a proof of psi, then returns a proof</span></i>
+      <i><span style='color:#898887;'>// object representing a proof of psi under assumption</span></i>
+      <i><span style='color:#898887;'>// phi. See the discussion below for more explanations.</span></i>
+      <b><span style='color:#000080;'>forall-intro</span></b> (auto-type <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><span style='color:#0057ae;'>Prop</span> <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Type</span><span style='color:#bf0303;'>)</span>) \q {
+         <b><span style='color:#000080;'>suppose</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>q <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>;
+         <b><span style='color:#000080;'>impl-intro</span></b> (auto-type <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>) {
+            <b><span style='color:#000080;'>suppose</span></b> <span style='color:#644a9b;'>$0:</span> p;
+            <b><span style='color:#000080;'>impl-intro</span></b> (auto-type <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>(<b><span style='color:#802811;'>not</span></b> p) <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>) {
+               <b><span style='color:#000080;'>suppose</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> p<span style='color:#bf0303;'>)</span>;
+               <b><span style='color:#000080;'>not-elim</span></b> $0 <b><span style='color:#000080;'>last</span></b> &gt;&gt;
+               <b><span style='color:#000080;'>false-elim</span></b> q
+            }
+         }
+      }
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'> The logic of IPL could be described as &quot;dynamically typed&quot;. No typing discipline is statically</span></i>
+<i><span style='color:#898887;'> enforced (unless such enforcement is explicitly asked for), but some inference rules need</span></i>
+<i><span style='color:#898887;'> to be supplied with typing derivations to ensure consistency of the logic. Such derivations are</span></i>
+<i><span style='color:#898887;'> usually obtained automatically with the auto-type tactic, which given a formula of the form</span></i>
+<i><span style='color:#898887;'> '(phi in T) tries to find its proof, and returns the proof when successful, or fails with</span></i>
+<i><span style='color:#898887;'> an error message otherwise.</span></i>
+
+<i><span style='color:#898887;'> Types in IPL are thus similar to sets in set theory as they may freely occur in formulas, and</span></i>
+<i><span style='color:#898887;'> the relation `in' of belonging to a type is an ordinary function. In fact, `in' is simply</span></i>
+<i><span style='color:#898887;'> defined as \x \y (y x). Hence, a type is just a function which returns true for some of its</span></i>
+<i><span style='color:#898887;'> arguments (but not every function returning true for some arguments is a type!). The functions</span></i>
+<i><span style='color:#898887;'> which are types are often non-computable.</span></i>
+
+<i><span style='color:#898887;'> Despite being similar to sets, the types of IPL are also close to types in programming languages</span></i>
+<i><span style='color:#898887;'> or type theory. Typing rules in the logic (to be found in lib/logic/core-logic.ipl) closely</span></i>
+<i><span style='color:#898887;'> resemble rules in type theory. In fact, the tactic `auto-type' (currently) just implements</span></i>
+<i><span style='color:#898887;'> a variation of the type-checking algorithm for simple types.</span></i>
+
+<i><span style='color:#898887;'> `suppose' is similar to `assume' but it does not require a typing derivation. If p (which may</span></i>
+<i><span style='color:#898887;'> use an assumption phi) evaluates to a proof of psi then { suppose phi; p } does not evaluate</span></i>
+<i><span style='color:#898887;'> to a proof of '(phi =&gt; psi) like { assume phi; p} would, but instead to a proof object representing</span></i>
+<i><span style='color:#898887;'> a proof of psi under the assumption phi. On the logic level, this object corresponds to a derivation</span></i>
+<i><span style='color:#898887;'> of the sequent &quot;phi |- psi&quot; (under current assumptions), and it cannot be used with implication</span></i>
+<i><span style='color:#898887;'> elimination (modus ponens). `suppose' is a primitive which cannot be reduced to other rules</span></i>
+<i><span style='color:#898887;'> (in reality, it is also implemented as a macro, but one which expands to some internal functions</span></i>
+<i><span style='color:#898887;'> which should not be used directly).</span></i>
+<i><span style='color:#898887;'> */</span></i>
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'> The typing derivations may also be supplied explicitly as the proof of the following lemma shows.</span></i>
+<i><span style='color:#898887;'> Manual typing may sometimes be necessary when auto-type fails, e.g. with complex recursive definitions.</span></i>
+<i><span style='color:#898887;'> */</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b>
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> p, q, r : <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> (p =&gt; q) =&gt; (q =&gt; r) =&gt; (p =&gt; r)<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> p, q, r : <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000080;'>with</span></b> <b><span style='color:#000080;'>prop-type-intro</span></b>;
+   <i><span style='color:#898887;'>// Recall that fix automatically introduces the assumptions:</span></i>
+   <i><span style='color:#898887;'>// '(p in Prop), '(q in Prop) and '(r in Prop)</span></i>
+   <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p =&gt; q<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> (<b><span style='color:#000080;'>impl-type-intro</span></b> (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>) (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>q <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>));
+   <i><span style='color:#898887;'>// `fact phi' evaluates to a proof of phi if phi has previously been assumed, shown</span></i>
+   <i><span style='color:#898887;'>// with `show' or its proof has been remembered with `remember'</span></i>
+   <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$2:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>q =&gt; r<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> (<b><span style='color:#000080;'>impl-type-intro</span></b> (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>q <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>) (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>r <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>));
+   <b><span style='color:#000080;'>assume</span></b> p <b><span style='color:#000080;'>with</span></b> (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>in</span></b> <span style='color:#0057ae;'>Prop</span><span style='color:#bf0303;'>)</span>);
+   <b><span style='color:#000080;'>impl-elim</span></b> $1 <b><span style='color:#000080;'>last</span></b> &gt;&gt;
+   <b><span style='color:#000080;'>impl-elim</span></b> $2
+<b><span style='color:#000000;'>qed</span></b>;
+
+<i><span style='color:#898887;'>/*******************************************************************************/</span></i>
+<i><span style='color:#898887;'>/* Below some more examples of proofs of propositional tautologies are given. */</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b> lem_excl_middle
+<i><span style='color:#898887;'>// Lemmas may be named like here. Strictly speaking, `lemma' is also a macro</span></i>
+<i><span style='color:#898887;'>// despite our describing it as a function earlier. The two-argument primitive</span></i>
+<i><span style='color:#898887;'>// function which verifies correctness of a proof is called `verify'.</span></i>
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> p : <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> p <b><span style='color:#802811;'>or</span></b> <b><span style='color:#802811;'>not</span></b> p<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> p : <span style='color:#0057ae;'>Prop</span>;
+   <b><span style='color:#000080;'>contradiction</span></b> {
+   <i><span style='color:#898887;'>// contradiction is a function which given a proof of '(not (not phi))</span></i>
+   <i><span style='color:#898887;'>// evaluates to a proof of phi</span></i>
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$0:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> (p <b><span style='color:#802811;'>or</span></b> <b><span style='color:#802811;'>not</span></b> p)<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>show</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> p<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> {
+      <i><span style='color:#898887;'>// see below for the description of `show'</span></i>
+         <b><span style='color:#000080;'>assume</span></b> p;
+         <b><span style='color:#000080;'>or-intro</span></b> <b><span style='color:#000080;'>last</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> p<span style='color:#bf0303;'>)</span> &gt;&gt;
+         <i><span style='color:#898887;'>// `or-intro' may be invoked in two ways:</span></i>
+         <i><span style='color:#898887;'>// 1. `or-intro phi p' evaluates to a proof of '(phi or psi)</span></i>
+         <i><span style='color:#898887;'>//    if phi is a formula and p is a proof of psi</span></i>
+         <i><span style='color:#898887;'>// 2. `or-intro p phi' evaluates to a proof of '(psi or phi)</span></i>
+         <i><span style='color:#898887;'>//    if phi is a formula and p is a proof of psi</span></i>
+         <b><span style='color:#000080;'>not-elim</span></b> $0
+      };
+      <b><span style='color:#000080;'>or-intro</span></b> p <b><span style='color:#000080;'>last</span></b> &gt;&gt;
+      <b><span style='color:#000080;'>not-elim</span></b> $0
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+<i><span style='color:#898887;'>// After executing the above lemma, lem_excl_middle denotes a proof</span></i>
+<i><span style='color:#898887;'>// of the thesis of the lemma.</span></i>
+<b><span style='color:#000000;'>remember</span></b> lem_excl_middle;
+<i><span style='color:#898887;'>// `remember' stores its argument (which must be a proof) in `facts' so</span></i>
+<i><span style='color:#898887;'>// that it may be accessed later with the `fact' function</span></i>
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'> `show phi with p' simply evaluates p, checks if it evaluated to a proof of phi,</span></i>
+<i><span style='color:#898887;'> stores this proof in `facts' so that it may be further accessed via the function</span></i>
+<i><span style='color:#898887;'> `fact', and finally returns the proof of phi just stored.</span></i>
+<i><span style='color:#898887;'> `show' also has a second form: `show phi by tac' which evaluates `tac phi'.</span></i>
+<i><span style='color:#898887;'> An example is given below.</span></i>
+<i><span style='color:#898887;'> */</span></i>
+
+<b><span style='color:#000000;'>theorem</span></b> <i><span style='color:#898887;'>// `theorem' is the same as `lemma' -- the difference is purely visual</span></i>
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> p : <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> p<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>show</span></b> thesis <b><span style='color:#000080;'>by</span></b> <b><span style='color:#bf0303;background:#f7e6e6;'>faith</span></b>
+<b><span style='color:#000000;'>qed</span></b>;
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'> `thesis' stores the formula whose proof is expected. It is not always available</span></i>
+<i><span style='color:#898887;'> (in fact, rarely with the current implementation, but this will be fixed).</span></i>
+<i><span style='color:#898887;'> `faith' is a special proof tactic which given a formula (any formula) returns</span></i>
+<i><span style='color:#898887;'> its proof. This obviously should be used only temporarily when working on a</span></i>
+<i><span style='color:#898887;'> larger proof. The word `faith' in the above proof should be highlighted in red</span></i>
+<i><span style='color:#898887;'> if your Kate syntax highlighting works.</span></i>
+<i><span style='color:#898887;'> */</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b> lem_contraposition
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> p, q : <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> (p =&gt; q) =&gt; (<b><span style='color:#802811;'>not</span></b> q =&gt; <b><span style='color:#802811;'>not</span></b> p)<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> p, q : <span style='color:#0057ae;'>Prop</span>;
+   <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p =&gt; q<span style='color:#bf0303;'>)</span>;
+   <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$2:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> q<span style='color:#bf0303;'>)</span>;
+   <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$3:</span> p;
+   <b><span style='color:#000080;'>not-elim</span></b> $2 (<b><span style='color:#000080;'>impl-elim</span></b> $1 $3)
+<b><span style='color:#000000;'>qed</span></b>;
+<i><span style='color:#898887;'>/* The above proof works because `not' is actually defined (via `let') as</span></i>
+<i><span style='color:#898887;'>   `\x (if x then false else true)' and `=&gt;' is defined as</span></i>
+<i><span style='color:#898887;'>   `\x \y (if x then y else true)'. So `not x' and `x =&gt; false' are the same,</span></i>
+<i><span style='color:#898887;'>   modulo definitional equality which the primitive rules try to account for.</span></i>
+<i><span style='color:#898887;'> */</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b> lem_de_morgan_1
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> p, q : <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> <b><span style='color:#802811;'>not</span></b> (p <b><span style='color:#802811;'>or</span></b> q) &lt;=&gt; <b><span style='color:#802811;'>not</span></b> p <b><span style='color:#802811;'>and</span></b> <b><span style='color:#802811;'>not</span></b> q<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> p, q : <span style='color:#0057ae;'>Prop</span>;
+   <b><span style='color:#000080;'>equiv-intro</span></b> {
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> (p <b><span style='color:#802811;'>or</span></b> q)<span style='color:#bf0303;'>)</span>;
+      <span style='color:#644a9b;'>$not_p:</span> <b><span style='color:#000080;'>assume</span></b> p <b><span style='color:#000080;'>in</span></b> {
+         <b><span style='color:#000080;'>not-elim</span></b> $1 (<b><span style='color:#000080;'>or-intro</span></b> (<b><span style='color:#000080;'>fact</span></b> p) q)
+      };
+      <i><span style='color:#898887;'>// The above is an alternative syntax for `assume'.</span></i>
+      <i><span style='color:#898887;'>// With `assume phi in expr' the assumption holds only</span></i>
+      <i><span style='color:#898887;'>// in expr which is an expression, i.e. it ends upon</span></i>
+      <i><span style='color:#898887;'>// a semicolon. If expr evaluates to a proof of phi</span></i>
+      <i><span style='color:#898887;'>// (and `auto-type' succeeds), then the result of this</span></i>
+      <i><span style='color:#898887;'>// form is a proof of '(phi =&gt; psi).</span></i>
+      <i><span style='color:#898887;'>// The above also shows an alternative form of let:</span></i>
+      <i><span style='color:#898887;'>// `ident: expr' at the very beginning of a statement</span></i>
+      <i><span style='color:#898887;'>// is the same as `let ident = expr', except that `ident'</span></i>
+      <i><span style='color:#898887;'>// is not defined recursively.</span></i>
+      <span style='color:#644a9b;'>$not_q:</span> <b><span style='color:#000080;'>assume</span></b> q <b><span style='color:#000080;'>in</span></b> {
+         <b><span style='color:#000080;'>not-elim</span></b> $1 (<b><span style='color:#000080;'>or-intro</span></b> p (<b><span style='color:#000080;'>fact</span></b> q))
+      };
+      <b><span style='color:#000080;'>and-intro</span></b> $not_p $not_q
+   }{
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> p <b><span style='color:#802811;'>and</span></b> <b><span style='color:#802811;'>not</span></b> q<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$2:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>or</span></b> q<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>or-elim</span></b> $2 {
+         <i><span style='color:#898887;'>// `suppose' could also be used here instead of `assume'</span></i>
+         <b><span style='color:#000080;'>assume</span></b> p;
+         <b><span style='color:#000080;'>not-elim</span></b> (<b><span style='color:#000080;'>fact</span></b> p) (<b><span style='color:#000080;'>and-elim-left</span></b> $1)
+      }{
+         <b><span style='color:#000080;'>assume</span></b> q;
+         <b><span style='color:#000080;'>not-elim</span></b> (<b><span style='color:#000080;'>fact</span></b> q) (<b><span style='color:#000080;'>and-elim-right</span></b> $1)
+      }
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+
+<i><span style='color:#898887;'>/*</span></i>
+<i><span style='color:#898887;'>   In fact, `all' is also a macro. It is shown in the thesis of the</span></i>
+<i><span style='color:#898887;'>   following lemma how it expands. With the current implementation,</span></i>
+<i><span style='color:#898887;'>   when printing formulas you will see all macros fully expanded.</span></i>
+<i><span style='color:#898887;'> */</span></i>
+
+<b><span style='color:#000000;'>lemma</span></b> lem_peirce_law
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#0057ae;'>ALL</span></b> <span style='color:#0057ae;'>Prop</span> \p <b><span style='color:#000000;'>.</span></b> <b><span style='color:#0057ae;'>ALL</span></b> <span style='color:#0057ae;'>Prop</span> \q <b><span style='color:#000000;'>.</span></b> ((p =&gt; q) =&gt; p) =&gt; p<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> p, q : <span style='color:#0057ae;'>Prop</span>;
+   <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>(p =&gt; q) =&gt; p<span style='color:#bf0303;'>)</span>;
+   <b><span style='color:#000080;'>contradiction</span></b> {
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$0:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>not</span></b> p<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>show</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p =&gt; q<span style='color:#bf0303;'>)</span> <b><span style='color:#000080;'>with</span></b> {
+      <i><span style='color:#898887;'>// the result of `show' may also be named like here</span></i>
+         <b><span style='color:#000080;'>assume</span></b> p;
+         <b><span style='color:#000080;'>not-elim</span></b> <b><span style='color:#000080;'>last</span></b> $0 &gt;&gt;
+         <b><span style='color:#000080;'>false-elim</span></b> q
+      };
+      <b><span style='color:#000080;'>impl-elim</span></b> (<b><span style='color:#000080;'>fact</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>(p =&gt; q) =&gt; p<span style='color:#bf0303;'>)</span>) $1 &gt;&gt;
+      <b><span style='color:#000080;'>not-elim</span></b> $0
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+
+<b><span style='color:#000000;'>lemma</span></b> lem_distrib_and_or
+   <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span><b><span style='color:#802811;'>all</span></b> p, q, r : <span style='color:#0057ae;'>Prop</span> <b><span style='color:#000000;'>.</span></b> p <b><span style='color:#802811;'>and</span></b> (q <b><span style='color:#802811;'>or</span></b> r) &lt;=&gt; (p <b><span style='color:#802811;'>and</span></b> q) <b><span style='color:#802811;'>or</span></b> (p <b><span style='color:#802811;'>and</span></b> r)<span style='color:#bf0303;'>)</span>
+<b><span style='color:#000000;'>proof</span></b>
+   <b><span style='color:#000080;'>fix</span></b> p, q, r : <span style='color:#0057ae;'>Prop</span>;
+   <b><span style='color:#000080;'>equiv-intro</span></b> {
+      <b><span style='color:#000080;'>assume</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>and</span></b> (q <b><span style='color:#802811;'>or</span></b> r)<span style='color:#bf0303;'>)</span>;
+      <span style='color:#644a9b;'>$p:</span> <b><span style='color:#000080;'>and-elim-left</span></b> $1;
+      <span style='color:#644a9b;'>$q_or_r:</span> <b><span style='color:#000080;'>and-elim-right</span></b> $1;
+      <b><span style='color:#000080;'>or-elim</span></b> $q_or_r {
+         <b><span style='color:#000080;'>suppose</span></b> <span style='color:#644a9b;'>$q:</span> q;
+         <b><span style='color:#000080;'>or-intro</span></b> (<b><span style='color:#000080;'>and-intro</span></b> $p $q) <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>and</span></b> r<span style='color:#bf0303;'>)</span>
+      }{
+         <b><span style='color:#000080;'>suppose</span></b> <span style='color:#644a9b;'>$r:</span> r;
+         <b><span style='color:#000080;'>or-intro</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>and</span></b> q<span style='color:#bf0303;'>)</span> (<b><span style='color:#000080;'>and-intro</span></b> $p $r)
+      }
+   }{
+      <b><span style='color:#000080;'>assume</span></b> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>(p <b><span style='color:#802811;'>and</span></b> q) <b><span style='color:#802811;'>or</span></b> (p <b><span style='color:#802811;'>and</span></b> r)<span style='color:#bf0303;'>)</span>;
+      <b><span style='color:#000080;'>or-elim</span></b> <b><span style='color:#000080;'>last</span></b> {
+         <b><span style='color:#000080;'>suppose</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>and</span></b> q<span style='color:#bf0303;'>)</span>;
+         <span style='color:#644a9b;'>$p:</span> <b><span style='color:#000080;'>and-elim-left</span></b> $1;
+         <span style='color:#644a9b;'>$q:</span> <b><span style='color:#000080;'>and-elim-right</span></b> $1;
+         <b><span style='color:#000080;'>and-intro</span></b> $p (<b><span style='color:#000080;'>or-intro</span></b> $q r)
+      }{
+         <b><span style='color:#000080;'>suppose</span></b> <span style='color:#644a9b;'>$1:</span> <b><span style='color:#bf0303;'>'</span></b><span style='color:#bf0303;'>(</span>p <b><span style='color:#802811;'>and</span></b> r<span style='color:#bf0303;'>)</span>;
+         <span style='color:#644a9b;'>$p:</span> <b><span style='color:#000080;'>and-elim-left</span></b> $1;
+         <span style='color:#644a9b;'>$r:</span> <b><span style='color:#000080;'>and-elim-right</span></b> $1;
+         <b><span style='color:#000080;'>and-intro</span></b> $p (<b><span style='color:#000080;'>or-intro</span></b> q $r)
+      }
+   }
+<b><span style='color:#000000;'>qed</span></b>;
+
+print <span style='color:#bf0303;'>&quot;OK&quot;</span>;
+<i><span style='color:#898887;'>/* If everything goes right (i.e. the proofs are checked to be correct), the only output</span></i>
+<i><span style='color:#898887;'>   on running this file should be OK on a single line.</span></i>
+<i><span style='color:#898887;'> */</span></i>
+</pre>
+</body>
+</html>
