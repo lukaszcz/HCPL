@@ -101,7 +101,7 @@ let mk-list = \toks {
 let mk-apply = \f \args {
    let z = join-tokens-list args
    in
-   #< (#f #z) >#
+   #< #f #z >#
 };
 
 macro(2) mk-call = \x \y {

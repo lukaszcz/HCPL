@@ -1,0 +1,194 @@
+
+/* Example 01
+
+   Programming in IPL.
+
+   In this example it is shown how to write programs in IPL. This does not
+   cover the whole language. In particular, macros are not covered.
+
+   Proving theorems is covered in succeeding examples.
+
+ */
+
+/* The above
+   and the present
+   texts are multi-line comments.
+   */
+
+// This is a single-line comment
+
+/*
+   A very simplified and not-fully-correct grammar of the language:
+
+   <program> ::= <statement> [[;] <program>]
+   <statement> ::= <let> | <directive> | <expr> | <empty>
+   <let> ::= let <ident> = <expr>
+   <expr> ::= <term> [<expr>]
+   <term> ::= <lambda> | <if> | <match> | <number> | <placeholder>
+      | ( <program> ) | { <program> } | $. <expr> | $.. <program>
+   <lambda> ::= \<ident> <term> | \<ident> . <expr> | \<ident> .. <program>
+   <if> ::= if <expr> then <expr> else <expr>
+   <match> ::= match <expr> with [|] <match-branches>
+   <match-branches> ::= <expr> -> <program> [| <match-branches>]
+   <placeholder> ::= %<ident>
+
+   <directive> is one of the interpreter directives for defining new operators or
+   importing definitions from modules
+
+   <empty> signifies lack of tokens. It denotes a `nil' value -- the same as `()'.
+   So e.g. `p;' is the same as `p;()' and its value is `()', not `p'.
+*/
+
+/* The following defines a function `power'. `let' is recursive by default.
+   The only way of defining functions is by lambda-abstraction (\x (...)). Functions are untyped.
+   The logic introduced in further examples allows reasoning about function types. */
+let power = \a \b {
+   if (b != 0) then {
+      let pom = \ta \tb \b {
+         if b > 1 then
+            pom (ta * ta)
+                (if b mod 2 != 0 then tb * ta else tb)
+                (b div 2)
+         else
+            ta * tb
+      };
+      /* Notice the semicolon. A semicolon acts as a separator between statements.
+         Without it `pom' would be defined recursively as an application:
+         let pom = (\ta ...) pom a 1 b
+         */
+      pom a 1 b
+   } else {
+      1
+   }
+};
+
+print (power 3 4); // prints 81
+print (power 2 16); // prints 65536
+print (power 5 7); // prints 78125
+
+// Evaluation in IPL is eager by default, but this should not be relied on.
+
+/* The brackets {} and () are used to embrace expressions so
+   that they will be treated as single terms.
+   Brackets introduce a new scope for identifiers.
+   The body of a lambda-abstraction is a single term (see the grammar).
+   E.g. `\x x a' is the same as `(\x x) a', not `\x (x a)', so brackets
+   are often necessary. There is no difference between {} and () except visual.
+   There is a second form of lambda-expression: \x . (dot after \x) which extends
+   as far right as possible for an expression (see the grammar). */
+
+{
+
+let o = \f \g \x . f (g x);
+let f = \x . x + 1;
+let g = \x . x * 2;
+
+syntax operator o is left, binary, after appl;
+// This defines `o' to be a binary, left-associative operator,
+// with priority just after application (so higher than the priority
+// of any operator defined thus far with priority lower than application)
+// See lib/core.ipl for more examples of operator definitions.
+
+print $. (f o g) 3; // prints 7
+print << (f o g) $. 3; // prints 7
+// << is the same as $. but is left-associative and has lower priority
+
+}
+
+// We had to put the above in {} to introduce a new scope, because `o' is actually predefined
+// and redefining it in the global scope would produce a name clash.
+
+/*****************************************************************************/
+/* The following shows the use of lists and matching. */
+
+let filter = \f \lst {
+   match lst with
+   | %h :: %t when f h -> h :: filter f t
+   | %_ :: %t -> filter f t
+   | [] -> []
+} // Note we omitted `;' here.
+
+// The separator `;' is optional in situations where the ensuing token cannot be
+// interpreted as a start of a term (in the simplified grammar above `let' starts
+// a statement).
+
+let sum = \lst {
+   let aux = \lst \acc {
+      match lst with
+      | %h :: %t -> aux t (acc + h)
+      | [] -> acc
+   };
+   aux lst 0
+}; // Note we cannot omit `;' here, because `filter' may be interpreted as a term
+
+filter (\x . x > 0) [-1, 0, 10, 11, -5, -16, 12] >> sum >> print; // prints 33
+// >> is left-associative and defined as: \x \y (y x)
+// In general, see lib/core.ipl for definitions of many standard operators.
+
+/* The patterns in `match' are not static like in e.g. ML.
+   They are first evaluated before the matching takes place.
+   The identifiers prefixed with `%' name placeholders in patterns --
+   special objects which are treated as constants by the evaluator.
+   The effects are undefined if a placeholder gets duplicated by an
+   evaluation of a pattern.
+
+   Non-static patterns make e.g. the following valid.
+   */
+
+let data = \x (`data, x);
+
+let get-datum = \d {
+   match d with
+   | data %x -> x
+   | %_ -> error "expected a data object"
+};
+
+print << get-datum $. data 6; // prints 6
+
+// `sym denotes a `symbol' named `sym -- a constant object which is equal (==) only to itself
+// Symbols may also be declared with the `symbol' directive.
+
+symbol mysym;
+
+print (mysym == `mysym); // prints false
+
+// Actually, (x, y), (x :: y) and (cons x y) are all equivalent.
+// [x, y, z] is a shorthand for (x, y, z, ()).
+// The comma is a right-associative operator creating a pair.
+
+/*****************************************************************************/
+/* The following shows how quoting works. */
+
+let factorial = \n . if n == 0 then 1 else n * factorial (n - 1);
+
+print << factorial 5; // prints 120
+print << '(factorial 5); // prints '(factorial 5)
+print << eval '(factorial 5); // prints 120
+
+// The quote operator ' quotes the term following it.
+// It indicates that this term is not to be evaluated, but treated as a data
+// structure. The quote operator actually changes the interpretation of
+// the following tokens as read by the parser. The identifiers inside
+// a quoted expression are resolved statically (lexically). At the evaluation
+// stage, when the data structure representing the expression being quoted is
+// being created, if an identifier denotes a quoted value then this value is pasted
+// in the place of the identifier, if it denotes a non-quoted value (i.e. one that
+// is not a data structure representing a term) then this value is first quoted --
+// for this to make sense the value denoted by the identifier must be constant in
+// this second case.
+
+let qf = 'factorial;
+// `qf' is different from `factorial' -- it is a data structure representing this
+// function, not the function itself
+
+print ('(qf 5) == '(factorial 5)); // prints: true
+print << reduce $. '(factorial 5); // prints: '(5 * (factorial 4))
+
+// Some basic data values (e.g. numbers and symbols) when quoted are represented by
+// themselves. This is OK because they are in normal form, i.e. they evaluate
+// to themselves.
+
+print '5; // prints 5
+print '(`abba); // prints `abba
+print 'true; // prints true
+print ('true == true); // prints true

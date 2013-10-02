@@ -134,14 +134,14 @@ let show_help spec =
 
 let rec argspec () =
   [ ("-i", Arg.Set(f_interactive), "\t\t\tInteractive (repl) mode");
-    ("--interactive", Arg.Set(f_interactive), "\t\tInteractive (repl) mode");
+    ("--interactive", Arg.Set(f_interactive), "\tInteractive (repl) mode");
     ("-I", Arg.String(fun s -> Config.prepend_path s), "\t\t\tAdd to include path");
     ("--vanilla", Arg.Set(f_vanilla), "\t\tDon't preload the standard runtime");
     ("-R", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\t\tSet runtime path");
     ("--runtime", Arg.String(fun s -> f_vanilla := false; runtime_path := s), "\t\tSet runtime path");
-    ("-t", Arg.Unit(Config.enable_timing), "\t\tDisplay time usage");
+    ("-t", Arg.Unit(Config.enable_timing), "\t\t\tDisplay time usage");
     ("--time", Arg.Unit(Config.enable_timing), "\t\tDisplay time usage");
-    ("--help", Arg.Unit(fun () -> show_help (argspec ())), "\t\t\tDisplay this list of options")
+    ("--help", Arg.Unit(fun () -> show_help (argspec ())), "\t\tDisplay this list of options")
   ]
 in
 Config.set_path ["."; Config.stdlib_path ()];

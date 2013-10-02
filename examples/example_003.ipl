@@ -1,0 +1,146 @@
+
+/* Example 03
+
+   Predicate logic.
+
+ */
+
+open Logic;
+
+let lem_20 = \Tp {
+   /* Since `lemma' is just a macro that expands to ordinary functions, it is perfectly possible
+      to have lemmas inside functions, so that they may be parameterised.
+   */
+   lemma lem
+      '(all f, g : Tp -> Prop . (all x : Tp . f x => g x) => (all x : Tp . f x) => (all x : Tp . g x))
+   proof
+      fix f, g : Tp -> Prop;
+      assume $0: '(all x : Tp . f x => g x);
+      assume $1: '(all x : Tp . f x);
+      fix x : Tp;
+      show $f_x: '(f x) with forall-elim $1 (fact '(x in Tp));
+      impl-elim
+         << forall-elim $0 (fact '(x in Tp))
+         << $f_x
+   qed;
+   lem
+};
+
+// Below the lemma is checked twice -- each time with a different parameter Tp.
+lem_20 Prop;
+// Since Prop is a symbol, it is identical with its quoted representation
+// and need not be explicitly quoted.
+lem_20 '(Prop -> Any -> Prop);
+// Any is a type of any object. `any-intro t' evaluates to a proof of '(t in Any) for any
+// quoted expression t.
+
+lemma
+   '(all T : Type . all f, g : T -> Prop . (all x : T . f x => g x) => (ex x : T . f x) => ex x : T . g x)
+proof
+   fix T : Type;
+   fix f, g : T -> Prop;
+   assume $0: '(all x : T . f x => g x);
+   assume '(ex x : T . f x);
+   obtain x from last;
+   // If p is a proof of an existential formula '(ex x : A . phi), then `obtain x from p'
+   // introduces a fresh variable x and adds '(x in A) and '(phi x) to the assumptions.
+   // After `obtain' a proof p1 is expected of a formula psi in which x does not occur.
+   // Then the result of `{ obtain x from p; p1 }' is a proof of psi.
+   take z = x;
+   // `take z = t' starts a proof of an existential formula. After `take' a proof p is
+   // expected of a formula phi in which z possibly occurs. After `take', the variable z
+   // is definitionally equal to t, so it satisfies exactly the same properties.
+   // The result of {take z = t; p} is then a proof of '(ex z : A . phi) where
+   // the type A is automatically inferred using the function `infer-type' from
+   // lib/tactics/auto-type.ipl. Should automatic type inference fail one may use the
+   // following forms of `take':
+   //    * `take z : A = t' explicitly provides the type, but (auto-type '(t in A)) is
+   //       used to obtain a typing derivation
+   //    * `take z : A = t with p1' or `take z = t with p1' provides the typing derivation
+   //       p1 explicitly
+   //    * `take z : A with p2 = t' provides a derivation of '(A in Type) which is otherwise
+   //       obtained via `auto-type'
+   //    * `take z : A with p2 = t with p1' this form of `take' combines the above ones
+   show '(g z) with impl-elim (forall-elim $0 (fact '(z in T))) (fact '(f z))
+qed;
+
+/*
+   Again, there is nothing special about `obtain' and `take'. They are just macros which
+   expand to appropriate invocations of the primitive rules `exists-elim' and `exists-intro',
+   respectively. See lib/logic/core-logic.ipl for the definitions of the functions implementing
+   these primitive rules.
+ */
+
+// Below follow more examples of proofs of tautologies involving quantifiers.
+
+lemma
+   '(all T : Type . all f : T -> Prop . not (all x : T . f x) <=> ex x : T . not (f x))
+proof
+   fix T : Type;
+   fix f : T -> Prop;
+   equiv-intro {
+      assume $0: '(not (all x : T . f x));
+      contradiction {
+         assume $1: '(not (ex x : T . not (f x)));
+         show '(all x : T . f x) with {
+            fix x : T;
+            contradiction {
+               assume $2: '(not (f x));
+               show '(ex x : T . not (f x)) with {
+                  take z = x;
+                  show '(not (f z)) with $2
+               } >>
+               not-elim $1
+            }
+         } >>
+         not-elim $0
+      }
+   }{
+      assume $0: '(ex x : T . not (f x));
+      assume $1: '(all x : T . f x);
+      obtain x from $0;
+      $f_x: forall-elim $1 (fact '(x in T));
+      not-elim $f_x (fact '(not (f x)))
+   }
+qed;
+
+lemma
+   '(all T : Type . all f, g : T -> Prop . (ex x : T . f x or g x) <=> (ex x : T . f x) or (ex x : T . g x))
+proof
+   fix T : Type;
+   fix f, g : T -> Prop;
+   equiv-intro {
+      assume '(ex x : T . f x or g x);
+      obtain x from last;
+      or-elim (fact '(f x or g x)) {
+         assume '(f x);
+         show '(ex x : T . f x) with {
+            take z = x;
+            fact '(f z)
+         };
+         or-intro last '(ex x : T . g x)
+      }{
+         assume '(g x);
+         show '(ex x : T . g x) with {
+            take z = x;
+            fact '(g z)
+         };
+         or-intro '(ex x : T . f x) last
+      }
+   }{
+      assume '((ex x : T . f x) or (ex x : T . g x));
+      or-elim last {
+         assume '(ex x : T . f x);
+         obtain x from last;
+         take z = x;
+         show '(f z or g z) with or-intro (fact '(f z)) '(g z)
+      }{
+         assume '(ex x : T . g x);
+         obtain x from last;
+         take z = x;
+         show '(f z or g z) with or-intro '(f z) (fact '(g z))
+      }
+   }
+qed;
+
+print "OK";

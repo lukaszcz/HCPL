@@ -1,6 +1,5 @@
 
 * Makefile target: install
-* examples
 * version 0.1
 
 * def (overriding, non-recursive let)
@@ -15,6 +14,8 @@
 * forward bug (checking frames does not work)
 * bug: forward should be disallowed in macro functions (check if this is so)
 * macro invocation stacktrace
+* fix the `tactic' and `rule' macros as they are very inefficient
+  and do not work with partial application
 * replace (a = b) with (equal A a b) during parsing, with an inferred
   type A; report error if the type cannot be inferred
 

@@ -24,7 +24,7 @@ macro lemma = \args {
    | %_ -> error "lemma: wrong arguments"
 }
 
-macro theorem = \args { mk-macro-call (lemma) args }
+macro theorem = \args { mk-apply #< lemma ># args }
 
 macro axiom = \args {
    match args with

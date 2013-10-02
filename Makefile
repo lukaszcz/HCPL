@@ -29,7 +29,7 @@ release:
 package: clean
 	-scripts/rmbackups.sh
 	mkdir ipl-$(VERSION)
-	cp -r scripts src lib data tests TODO ipl-$(VERSION)
+	cp -r scripts src lib data tests examples TODO ipl-$(VERSION)
 	cat Makefile | sed s/MODE=debug/MODE=release/ > ipl-$(VERSION)/Makefile
 	tar czf ipl-$(VERSION).tar.gz ipl-$(VERSION)
 	rm -r ipl-$(VERSION)

@@ -1,0 +1,312 @@
+
+/* Example 02
+
+   Propositional logic.
+
+ */
+
+/*
+ Some terminology. By a formula we mean any quoted expression (see example_001.ipl
+ for an explanation of quoting) which is intuitively interpreted as a proposition
+ (may have a truth value). A rule is a function which implements an
+ inference rule -- it takes proofs of some formulas which are premises
+ of the rule (and possibly additional arguments) and returns a proof of the
+ conclusion, or fails if the arguments are wrong. A tactic is a function which
+ takes a formula (and possibly additional arguments) and returns its proof, or
+ fails such proof cannot be found.
+ */
+
+open Logic;
+// This directive makes the definitions from the Logic module (lib/logic.ipl)
+// available in the current scope.
+
+lemma
+   '(all p, q : Prop . p => (not p => q))
+proof
+   fix p, q : Prop;
+   // `fix' begins a proof of a universally quantified formula.
+   // What follows now should be a proof of '(p => (not p => q))
+   assume $0: p;
+   // `assume' begins a proof of implication. What follows now should be
+   // a proof '(not p => q). The assumption may be named like here
+   // (where it is named $0). Note that afterwards $0 denotes a
+   // proof of p, not the formula p itself. Note that `$' is just a
+   // part of the identifier -- it is treated like a letter.
+   assume '(not p);
+   // `last' denotes the last assumption made, the last fact shown with `show'
+   // or the last proof remembered with `remember', whichever was most recent
+   // (`show' and `remember' will be described later)
+   not-elim $0 last >>
+   false-elim q
+   // not-elim is the negation elimination rule: a function which given
+   // a proof of phi and a proof of '(not phi) evaluates to a proof of false
+   // false-elim is the falsity elimination rule: a function which given a
+   // formula phi and a proof of false evaluates to a proof of phi
+qed;
+
+/*
+ Note that formulas must be quoted. Otherwise the evaluator would try to evaluate them and
+ would replace them with the result of this evaluation, not with the data structure representing
+ the formula. Variables evaluate to themselves, so they are identical with their quoted
+ represenation and need not be quoted when occur just by themselves.
+*/
+
+/*
+ `lemma' is just a function which expects two arguments. When given a formula phi and
+ a proof of phi it succeeds, otherwise it fails with an error message. `proof P qed'
+ is in fact no different from `(P)' or `{P}' -- the difference is purely visual.
+ The only (safe) way of creating proofs is by using the functions from
+ lib/logic/core-logic.ipl which implement basic inference rules. Inference rules
+ are implemented as functions which given proofs of premises (and possibly some
+ additional arguments) evaluate to a proof of the conclusion. Derived rules and
+ proof tactics may be simply implemented as functions in IPL which manipulate proofs
+ using the primitive or previously defined rules.
+*/
+
+/*
+ `fix' and `assume' are not special either. In fact, they are macros which expand to
+ appropriate invocations of the rules `forall-intro' and `impl-intro', respectively.
+ So the above lemma, after expanding the macros, is equivalent to the following.
+*/
+
+lemma
+   '(all p, q : Prop . p => (not p => q))
+proof
+   forall-intro (auto-type '(Prop in Type)) \p {
+      suppose '(p in Prop);
+      // {suppose phi; p} introduces an assumption phi,
+      // evaluates p under this assumption, and if p
+      // evaluates to a proof of psi, then returns a proof
+      // object representing a proof of psi under assumption
+      // phi. See the discussion below for more explanations.
+      forall-intro (auto-type '(Prop in Type)) \q {
+         suppose '(q in Prop);
+         impl-intro (auto-type '(p in Prop)) {
+            suppose $0: p;
+            impl-intro (auto-type '((not p) in Prop)) {
+               suppose '(not p);
+               not-elim $0 last >>
+               false-elim q
+            }
+         }
+      }
+   }
+qed;
+
+/*
+ The logic of IPL could be described as "dynamically typed". No typing discipline is statically
+ enforced (unless such enforcement is explicitly asked for), but some inference rules need
+ to be supplied with typing derivations to ensure consistency of the logic. Such derivations are
+ usually obtained automatically with the auto-type tactic, which given a formula of the form
+ '(phi in T) tries to find its proof, and returns the proof when successful, or fails with
+ an error message otherwise.
+
+ Types in IPL are thus similar to sets in set theory as they may freely occur in formulas, and
+ the relation `in' of belonging to a type is an ordinary function. In fact, `in' is simply
+ defined as \x \y (y x). Hence, a type is just a function which returns true for some of its
+ arguments (but not every function returning true for some arguments is a type!). The functions
+ which are types are often non-computable.
+
+ Despite being similar to sets, the types of IPL are also close to types in programming languages
+ or type theory. Typing rules in the logic (to be found in lib/logic/core-logic.ipl) closely
+ resemble rules in type theory. In fact, the tactic `auto-type' (currently) just implements
+ a variation of the type-checking algorithm for simple types.
+
+ `suppose' is similar to `assume' but it does not require a typing derivation. If p (which may
+ use an assumption phi) evaluates to a proof of psi then { suppose phi; p } does not evaluate
+ to a proof of '(phi => psi) like { assume phi; p} would, but instead to a proof object representing
+ a proof of psi under the assumption phi. On the logic level, this object corresponds to a derivation
+ of the sequent "phi |- psi" (under current assumptions), and it cannot be used with implication
+ elimination (modus ponens). `suppose' is a primitive which cannot be reduced to other rules
+ (in reality, it is also implemented as a macro, but one which expands to some internal functions
+ which should not be used directly).
+ */
+
+/*
+ The typing derivations may also be supplied explicitly as the proof of the following lemma shows.
+ Manual typing may sometimes be necessary when auto-type fails, e.g. with complex recursive definitions.
+ */
+
+lemma
+   '(all p, q, r : Prop . (p => q) => (q => r) => (p => r))
+proof
+   fix p, q, r : Prop with prop-type-intro;
+   // Recall that fix automatically introduces the assumptions:
+   // '(p in Prop), '(q in Prop) and '(r in Prop)
+   assume $1: '(p => q) with (impl-type-intro (fact '(p in Prop)) (fact '(q in Prop)));
+   // `fact phi' evaluates to a proof of phi if phi has previously been assumed, shown
+   // with `show' or its proof has been remembered with `remember'
+   assume $2: '(q => r) with (impl-type-intro (fact '(q in Prop)) (fact '(r in Prop)));
+   assume p with (fact '(p in Prop));
+   impl-elim $1 last >>
+   impl-elim $2
+qed;
+
+/*******************************************************************************/
+/* Below some more examples of proofs of propositional tautologies are given. */
+
+lemma lem_excl_middle
+// Lemmas may be named like here. Strictly speaking, `lemma' is also a macro
+// despite our describing it as a function earlier. The two-argument primitive
+// function which verifies correctness of a proof is called `verify'.
+   '(all p : Prop . p or not p)
+proof
+   fix p : Prop;
+   contradiction {
+   // contradiction is a function which given a proof of '(not (not phi))
+   // evaluates to a proof of phi
+      assume $0: '(not (p or not p));
+      show '(not p) with {
+      // see below for the description of `show'
+         assume p;
+         or-intro last '(not p) >>
+         // `or-intro' may be invoked in two ways:
+         // 1. `or-intro phi p' evaluates to a proof of '(phi or psi)
+         //    if phi is a formula and p is a proof of psi
+         // 2. `or-intro p phi' evaluates to a proof of '(psi or phi)
+         //    if phi is a formula and p is a proof of psi
+         not-elim $0
+      };
+      or-intro p last >>
+      not-elim $0
+   }
+qed;
+// After executing the above lemma, lem_excl_middle denotes a proof
+// of the thesis of the lemma.
+remember lem_excl_middle;
+// `remember' stores its argument (which must be a proof) in `facts' so
+// that it may be accessed later with the `fact' function
+
+/*
+ `show phi with p' simply evaluates p, checks if it evaluated to a proof of phi,
+ stores this proof in `facts' so that it may be further accessed via the function
+ `fact', and finally returns the proof of phi just stored.
+ `show' also has a second form: `show phi by tac' which evaluates `tac phi'.
+ An example is given below.
+ */
+
+theorem // `theorem' is the same as `lemma' -- the difference is purely visual
+   '(all p : Prop . p)
+proof
+   show thesis by faith
+qed;
+/*
+ `thesis' stores the formula whose proof is expected. It is not always available
+ (in fact, rarely with the current implementation, but this will be fixed).
+ `faith' is a special proof tactic which given a formula (any formula) returns
+ its proof. This obviously should be used only temporarily when working on a
+ larger proof. The word `faith' in the above proof should be highlighted in red
+ if your Kate syntax highlighting works.
+ */
+
+lemma lem_contraposition
+   '(all p, q : Prop . (p => q) => (not q => not p))
+proof
+   fix p, q : Prop;
+   assume $1: '(p => q);
+   assume $2: '(not q);
+   assume $3: p;
+   not-elim $2 (impl-elim $1 $3)
+qed;
+/* The above proof works because `not' is actually defined (via `let') as
+   `\x (if x then false else true)' and `=>' is defined as
+   `\x \y (if x then y else true)'. So `not x' and `x => false' are the same,
+   modulo definitional equality which the primitive rules try to account for.
+ */
+
+lemma lem_de_morgan_1
+   '(all p, q : Prop . not (p or q) <=> not p and not q)
+proof
+   fix p, q : Prop;
+   equiv-intro {
+      assume $1: '(not (p or q));
+      $not_p: assume p in {
+         not-elim $1 (or-intro (fact p) q)
+      };
+      // The above is an alternative syntax for `assume'.
+      // With `assume phi in expr' the assumption holds only
+      // in expr which is an expression, i.e. it ends upon
+      // a semicolon. If expr evaluates to a proof of phi
+      // (and `auto-type' succeeds), then the result of this
+      // form is a proof of '(phi => psi).
+      // The above also shows an alternative form of let:
+      // `ident: expr' at the very beginning of a statement
+      // is the same as `let ident = expr', except that `ident'
+      // is not defined recursively.
+      $not_q: assume q in {
+         not-elim $1 (or-intro p (fact q))
+      };
+      and-intro $not_p $not_q
+   }{
+      assume $1: '(not p and not q);
+      assume $2: '(p or q);
+      or-elim $2 {
+         // `suppose' could also be used here instead of `assume'
+         assume p;
+         not-elim (fact p) (and-elim-left $1)
+      }{
+         assume q;
+         not-elim (fact q) (and-elim-right $1)
+      }
+   }
+qed;
+
+/*
+   In fact, `all' is also a macro. It is shown in the thesis of the
+   following lemma how it expands. With the current implementation,
+   when printing formulas you will see all macros fully expanded.
+ */
+
+lemma lem_peirce_law
+   '(ALL Prop \p . ALL Prop \q . ((p => q) => p) => p)
+proof
+   fix p, q : Prop;
+   assume '((p => q) => p);
+   contradiction {
+      assume $0: '(not p);
+      show $1: '(p => q) with {
+      // the result of `show' may also be named like here
+         assume p;
+         not-elim last $0 >>
+         false-elim q
+      };
+      impl-elim (fact '((p => q) => p)) $1 >>
+      not-elim $0
+   }
+qed;
+
+lemma lem_distrib_and_or
+   '(all p, q, r : Prop . p and (q or r) <=> (p and q) or (p and r))
+proof
+   fix p, q, r : Prop;
+   equiv-intro {
+      assume $1: '(p and (q or r));
+      $p: and-elim-left $1;
+      $q_or_r: and-elim-right $1;
+      or-elim $q_or_r {
+         suppose $q: q;
+         or-intro (and-intro $p $q) '(p and r)
+      }{
+         suppose $r: r;
+         or-intro '(p and q) (and-intro $p $r)
+      }
+   }{
+      assume '((p and q) or (p and r));
+      or-elim last {
+         suppose $1: '(p and q);
+         $p: and-elim-left $1;
+         $q: and-elim-right $1;
+         and-intro $p (or-intro $q r)
+      }{
+         suppose $1: '(p and r);
+         $p: and-elim-left $1;
+         $r: and-elim-right $1;
+         and-intro $p (or-intro q $r)
+      }
+   }
+qed;
+
+print "OK";
+/* If everything goes right (i.e. the proofs are checked to be correct), the only output
+   on running this file should be OK on a single line.
+ */
