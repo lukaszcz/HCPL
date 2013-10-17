@@ -12,14 +12,14 @@ do
     echo | tee -a benchmarks.log
 
     echo "-------------------------------------------------" | tee -a benchmarks.log
-    echo "Running IPL benchmarks... " | tee -a benchmarks.log
+    echo "Running HCPL benchmarks... " | tee -a benchmarks.log
     echo | tee -a benchmarks.log
 
-    for t in tests/slow/test_*.ipl
+    for t in tests/slow/test_*.hcpl
     do
         echo "Running $t..." | tee -a benchmarks.log
         echo | tee -a benchmarks.log
-        /usr/bin/time -v ./ipl -t $t 2>&1 | tee -a benchmarks.log
+        /usr/bin/time -v ./hcpl -t $t 2>&1 | tee -a benchmarks.log
         echo | tee -a benchmarks.log
     done
 

@@ -2,10 +2,10 @@
 _build
 attic
 benchmarks
-scratch.ipl
-ipl
-ipl.byte
-ipl.native
+scratch.hcpl
+hcpl
+hcpl.byte
+hcpl.native
 test.out
 a.out
 *.log

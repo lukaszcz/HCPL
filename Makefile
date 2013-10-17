@@ -19,20 +19,20 @@ IDIRS=$(subst $(SPACE),$(COMMA),$(DIRS))
 all: $(MODE)
 
 debug:
-	ocamlbuild -pp 'm4 -P' -ocamlopt "ocamlopt.opt -pp 'm4 -P' -S $(DEBUG_FLAGS) $(DEBUG_LIBS)" -Is $(IDIRS) ipl.native
-	cp ipl.native ipl
+	ocamlbuild -pp 'm4 -P' -ocamlopt "ocamlopt.opt -pp 'm4 -P' -S $(DEBUG_FLAGS) $(DEBUG_LIBS)" -Is $(IDIRS) hcpl.native
+	cp hcpl.native hcpl
 
 release:
-	ocamlbuild -pp 'm4 -P' -ocamlopt "ocamlopt.opt -pp 'm4 -P' -S $(RELEASE_FLAGS) $(RELEASE_LIBS)" -Is $(IDIRS) ipl.native
-	cp ipl.native ipl
+	ocamlbuild -pp 'm4 -P' -ocamlopt "ocamlopt.opt -pp 'm4 -P' -S $(RELEASE_FLAGS) $(RELEASE_LIBS)" -Is $(IDIRS) hcpl.native
+	cp hcpl.native hcpl
 
 package: clean
 	-scripts/rmbackups.sh
-	mkdir ipl-$(VERSION)
-	cp -r scripts src lib data tests examples TODO README ipl-$(VERSION)
-	cat Makefile | sed s/MODE=debug/MODE=release/ > ipl-$(VERSION)/Makefile
-	tar czf ipl-$(VERSION).tar.gz ipl-$(VERSION)
-	rm -r ipl-$(VERSION)
+	mkdir hcpl-$(VERSION)
+	cp -r scripts src lib data tests examples TODO README hcpl-$(VERSION)
+	cat Makefile | sed s/MODE=debug/MODE=release/ > hcpl-$(VERSION)/Makefile
+	tar czf hcpl-$(VERSION).tar.gz hcpl-$(VERSION)
+	rm -r hcpl-$(VERSION)
 
 configure:
 	scripts/configure.sh
@@ -59,9 +59,9 @@ benchmark: release
 
 clean:
 	ocamlbuild -clean
-	-rm ipl
+	-rm hcpl
 	-rm *.out
 	-rm *.log
-	-rm -r ipl-*
+	-rm -r hcpl-*
 	-rm uninstall.sh
 	-rm .configure

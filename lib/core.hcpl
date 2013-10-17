@@ -1,5 +1,5 @@
 /*
- * Core IPL runtime.
+ * Core HCPL runtime.
  */
 
 // The core runtime should not contain any definitions that require
@@ -119,10 +119,10 @@ let trace-with = \file \line \column \arg \&#block {
    try
       block
    with
-   | (`__ipl_stacktrace, %f) ->
-      raise (`__ipl_stacktrace, \_ { f (); print (mkmsg ()); })
+   | (`__hcpl_stacktrace, %f) ->
+      raise (`__hcpl_stacktrace, \_ { f (); print (mkmsg ()); })
    | %e ->
-      raise (`__ipl_stacktrace, \_ { print ("error: " ^ e); print ""; print "stacktrace:"; print ""; print (mkmsg ()); })
+      raise (`__hcpl_stacktrace, \_ { print ("error: " ^ e); print ""; print "stacktrace:"; print ""; print (mkmsg ()); })
 };
 
 macro(1) trace = \block {

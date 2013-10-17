@@ -1,4 +1,4 @@
-(* ipl.ml: IPL main program.
+(* hcpl.ml: HCPL main program.
 
    Copyright (C) 2013 by Łukasz Czajka
 *)
@@ -8,7 +8,7 @@ Config.init ();;
 let f_interactive = ref false;;
 let f_vanilla = ref false;;
 let file_count = ref 0;;
-let runtime_path = ref (Config.stdlib_path () ^ Config.dir_sep () ^ "core.ipl");;
+let runtime_path = ref (Config.stdlib_path () ^ Config.dir_sep () ^ "core.hcpl");;
 
 let parse_time = ref 0;;
 let gc_time = ref 0;;
@@ -69,7 +69,7 @@ let run_repl name chan =
       print_endline (Node.to_string value));
     prompt lineno
   in
-  print_endline ("\tIPL version " ^ Config.version);
+  print_endline ("\tHCPL version " ^ Config.version);
   print_endline "\tCopyright (C) 2013 by Lukasz Czajka";
   print_newline ();
   print_string "> ";
@@ -115,7 +115,7 @@ let run name chan =
     end;
   ()
 
-let usage_msg = "usage: ipl [options] [file.ipl]"
+let usage_msg = "usage: hcpl [options] [file.hcpl]"
 
 let show_help spec =
   begin

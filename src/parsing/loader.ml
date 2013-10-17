@@ -14,7 +14,7 @@ let load_module name parse =
       match lst with
       | h :: t ->
           begin
-            let path = h ^ Config.dir_sep () ^ name2 ^ ".ipl"
+            let path = h ^ Config.dir_sep () ^ name2 ^ ".hcpl"
             in
             try
               let lexbuf = Lexing.from_channel (open_in path)

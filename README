@@ -1,5 +1,5 @@
 
-What do you need to compile and use IPL?
+What do you need to compile and use HCPL?
 
 * OCaml 3.12.
      Other versions should work, but have not been tested.
@@ -12,27 +12,28 @@ What do you need to compile and use IPL?
      syntax highlighting is available and automatically installed
      for this editor.
 
-To compile IPL type:
+To compile HCPL type:
    * make
 To run tests type:
    * make test
-To install IPL type:
+To install HCPL type:
    * make configure
+   * make
    * sudo make install
 
 During installation you will be asked for the data directory. In this
 directory the examples, the standard library and other data files of
-IPL will be stored.
+HCPL will be stored.
 
-After installation you should be able to run IPL with: `ipl file.ipl'.
-Type `ipl --help' for a list of options. To remove IPL from your
-system type: `uninstall-ipl' (note: this will remove the data
-directory completely).
+After installation you should be able to run HCPL with: `hcpl
+file.hcpl'.  Type `hcpl --help' for a list of options. To remove HCPL
+from your system type: `uninstall-hcpl' (note: this will remove the
+data directory completely).
 
 The `examples/' subdirectory of the data directory contains commented
-examples which form a tutorial introduction to IPL. Some knowledge of
+examples which form a tutorial introduction to HCPL. Some knowledge of
 logic and functional programming is necessary to understand them. You
-should read the examples in their numerical order. Preferably, *.ipl
+should read the examples in their numerical order. Preferably, *.hcpl
 files should be edited in Kate as syntax highlighting is installed for
-this editor. In case the highlighting does not work, there are also html
-versions of the examples.
+this editor. In case the highlighting does not work, there are also
+html versions of the examples.

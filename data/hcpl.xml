@@ -9,7 +9,7 @@
 <!ENTITY SSIDENT "[a-z$A-Z_]\w*[-$.=#~]\w\w*[-$.=#~]&ID0;">
 <!ENTITY SIDENT "[a-z$A-Z_]\w*[-$.=#~]\w*">
 ]>
-<language name="IPL" version="1.00" section="Sources" indenter="normal" extensions="*.ipl"
+<language name="HCPL" version="1.00" section="Sources" indenter="normal" extensions="*.hcpl"
           priority="10" author="Lukasz Czajka" license="GPL">
 
   <highlighting>

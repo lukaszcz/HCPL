@@ -18,10 +18,10 @@ let error2 = \p \&#msg { error (msg ^ ": " ^ (to_string p)) }
 
 symbol VAR
 
-let proof-of = \x (`__ipl_proof, x)
-let goal = \p { match p with (`__ipl_proof, %x) -> x | %_ -> error2 p "expected a proof" }
-let pgoal = \p { match p with (`__ipl_proof, %x) -> x | %_ -> true }
-let is-proof = \p . matches p (`__ipl_proof, %_)
+let proof-of = \x (`__hcpl_proof, x)
+let goal = \p { match p with (`__hcpl_proof, %x) -> x | %_ -> error2 p "expected a proof" }
+let pgoal = \p { match p with (`__hcpl_proof, %x) -> x | %_ -> true }
+let is-proof = \p . matches p (`__hcpl_proof, %_)
 
 
 /*********************************************************************************/
@@ -183,29 +183,29 @@ let verify = \phi \p {
 /*********************************************************************************/
 /* logic rules */
 
-include "logic/core-logic.ipl"
+include "logic/core-logic.hcpl"
 
 /*********************************************************************************/
 /* convenience macros */
 
-include "logic/macros.ipl"
+include "logic/macros.hcpl"
 
 /*********************************************************************************/
 /* derived rules and lemmas */
 
-include "logic/derived.ipl"
+include "logic/derived.hcpl"
 
 /*********************************************************************************/
 /* core proof tactics */
 
-include "tactics/fact.ipl"
-include "tactics/auto-type.ipl"
-include "tactics/auto.ipl"
+include "tactics/fact.hcpl"
+include "tactics/auto-type.hcpl"
+include "tactics/auto.hcpl"
 
 /*********************************************************************************/
 /* derived rules and lemmas which require standard proof tactics */
 
-include "logic/derived2.ipl"
+include "logic/derived2.hcpl"
 
 /*********************************************************************************/
 

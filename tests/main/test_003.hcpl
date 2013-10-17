@@ -16,12 +16,12 @@ print (f 10);
 print (Module01.f 10);
 print (Module02.f 10);
 
-include "tests/main/file01.ipl";
+include "tests/main/file01.hcpl";
 
 print (3 ^^ 4);
 
 let g = \n {
-   include "tests/main/file02.ipl";
+   include "tests/main/file02.hcpl";
 };
 
 g 10
