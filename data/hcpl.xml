@@ -16,6 +16,7 @@
 
     <list name="separator_keywords">
       <item> let </item>
+      <item> def </item>
       <item> syntax </item>
       <item> symbol </item>
       <item> module </item>
@@ -181,6 +182,7 @@
         <RegExpr attribute="Keyword" context="#pop#pop" String="end\b" endRegion="block1" />
         <RegExpr attribute="Keyword" context="#pop#pop" String="qed\b" endRegion="block2" />
         <RegExpr attribute="Keyword" context="#pop!Letin" String="let\b" />
+        <RegExpr attribute="Keyword" context="#pop!Letin" String="def\b" />
         <RegExpr attribute="Keyword" context="#pop!Syntax" String="syntax\b" />
         <RegExpr attribute="Logic Keyword" context="#pop!LogicKeywordsB" String="var-intro\b" />
         <keyword attribute="Logic Keyword" context="#pop!LogicKeywordsA" String="logic_keywords_a"/>
@@ -206,6 +208,7 @@
         <RegExpr attribute="Keyword" context="#pop" String="end\b" endRegion="block1" />
         <RegExpr attribute="Keyword" context="#pop" String="qed\b" endRegion="block2" />
         <RegExpr attribute="Keyword" context="Letin" String="let\b" />
+        <RegExpr attribute="Keyword" context="Letin" String="def\b" />
         <RegExpr attribute="Keyword" context="Syntax" String="syntax\b" />
         <RegExpr attribute="Logic Keyword" context="Show" String="show\b" />
         <keyword attribute="Logic Keyword" context="LogicKeywordsA" String="logic_keywords_a" />

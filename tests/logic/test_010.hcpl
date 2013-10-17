@@ -46,7 +46,7 @@ proof
    show $2: '(pred (succ y) == y) with
       forall-elim ax-pred (fact '(y in Nat));
    assume '(succ x == succ y);
-   eq-trans (eq-trans (eq-sym $1) (eq-cong (eq-intro-1 'pred) last)) $2
+   eq-trans (eq-trans (eq-sym $1) (eq-cong (eq-refl-intro 'pred) last)) $2
 qed;
 
 lemma lem_peano_2
@@ -63,7 +63,7 @@ proof
          show $2: '(pred (succ (succ n)) == succ n) with
             forall-elim ax-pred (datatype-type-intro-3 Nat 'succ (fact '(n in Nat)));
          show '(pred (succ (succ n)) == pred 0) with
-            eq-cong (eq-intro-1 'pred) $1;
+            eq-cong (eq-refl-intro 'pred) $1;
          show '(succ n == pred 0) with
             eq-trans (eq-sym $2) last;
          show '(succ n == 0) with
@@ -91,7 +91,7 @@ proof
       eq-if-intro (reduce-appl '(plus x (succ y))) (forall-elim lem_peano_2 (fact '(y in Nat)));
    show '(pred (succ y) == y) with forall-elim ax-pred (fact '(y in Nat));
    show '(succ (plus x (pred (succ y))) == succ (plus x y)) with
-      eq-cong (eq-intro-1 'succ) (eq-cong (eq-intro-1 '(plus x)) last);
+      eq-cong (eq-refl-intro 'succ) (eq-cong (eq-refl-intro '(plus x)) last);
    eq-trans $1 last
 qed;
 
@@ -111,7 +111,7 @@ proof
       eq-if-intro (reduce-appl '(mult x (succ y))) (forall-elim lem_peano_2 (fact '(y in Nat)));
    show '(pred (succ y) == y) with forall-elim ax-pred (fact '(y in Nat));
    show '(plus (mult x (pred (succ y))) x == plus (mult x y) x) with
-      eq-cong (eq-intro-1 '(\y . plus (mult x y) x)) last;
+      eq-cong (eq-refl-intro '(\y . plus (mult x y) x)) last;
    eq-trans $1 last
 qed;
 
@@ -123,7 +123,7 @@ proof
    fix n : Nat;
    show '(even (succ n) == not (even (pred (succ n)))) with
       eq-if-intro (reduce-appl '(even (succ n))) (forall-elim lem_peano_2 (fact '(n in Nat)));
-   eq-trans last (eq-cong (eq-intro-1 '(\x . not (even x))) (forall-elim ax-pred (fact '(n in Nat))));
+   eq-trans last (eq-cong (eq-refl-intro '(\x . not (even x))) (forall-elim ax-pred (fact '(n in Nat))));
 qed;
 
 lemma lem_even_type
@@ -138,7 +138,7 @@ proof
          suppose '(even n in Prop);
          show '((not (even n)) in Prop) with not-type-intro last;
          eq-elim
-            << eq-cong (eq-intro-1 '(\x . x in Prop)) (forall-elim lem_even_succ_eq (fact '(n in Nat)))
+            << eq-cong (eq-refl-intro '(\x . x in Prop)) (forall-elim lem_even_succ_eq (fact '(n in Nat)))
             << last
    }
 qed;

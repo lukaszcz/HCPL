@@ -2,7 +2,7 @@
  * implementation. This file implements all basic reasoning rules. All other
  * rules and tactics are supposed to use rules from this file and NOT use
  * 'proof-of', and NOT use definitions from this file which are not a part
- * of the public interface (those prefixed with __ipl_).
+ * of the public interface (those prefixed with __hcpl_).
  *
  * Copyright (C) 2013 by Lukasz Czajka
  */
@@ -96,7 +96,7 @@ rule peval-limited = \lim \p {
    proof-of (eval-limited (goal p) lim)
 }
 
-let __ipl_suppose_aux = \facts \phi \f {
+let __hcpl_suppose_aux = \facts \phi \f {
    let p = f ((proof-of phi) :: facts)
    in
    match p with
@@ -107,17 +107,17 @@ let __ipl_suppose_aux = \facts \phi \f {
 macro suppose = \args {
    match args with
    | [%a] ->
-      #< __ipl_suppose_aux facts #a \facts .. >#
+      #< __hcpl_suppose_aux facts #a \facts .. >#
    | [%name, #< : >#, %a] ->
-      #< let #$0 = #a; let #name = proof-of #$0; __ipl_suppose_aux facts #$0 \facts .. >#
+      #< let #$0 = #a; let #name = proof-of #$0; __hcpl_suppose_aux facts #$0 \facts .. >#
    | [%a, %b] ->
-      #< __ipl_suppose_aux facts #a \facts { #b } >#
+      #< __hcpl_suppose_aux facts #a \facts { #b } >#
    | [%a, #< in >#, %b] ->
-      #< __ipl_suppose_aux facts #a \facts { #b } >#
+      #< __hcpl_suppose_aux facts #a \facts { #b } >#
    | [%name, #< : >#, %a, %b] ->
-      #< { let #$0 = #a; let #name = proof-of #$0; __ipl_suppose_aux facts #$0 \facts { #b } } >#
+      #< { let #$0 = #a; let #name = proof-of #$0; __hcpl_suppose_aux facts #$0 \facts { #b } } >#
    | [%name, #< : >#, %a, #< in >#, %b] ->
-      #< { let #$0 = #a; let #name = proof-of #$0; __ipl_suppose_aux facts #$0 \facts { #b } } >#
+      #< { let #$0 = #a; let #name = proof-of #$0; __hcpl_suppose_aux facts #$0 \facts { #b } } >#
    | %_ -> error "suppose: wrong arguments"
 };
 
@@ -497,7 +497,7 @@ rule eq-intro = \a \b {
       error2 (a, b) "equal-any-intro: not equal"
 }
 
-rule eq-intro-1 = \phi {
+rule eq-refl-intro = \phi {
    proof-of '(phi == phi)
 }
 

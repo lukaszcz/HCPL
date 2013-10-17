@@ -22,6 +22,7 @@ type t =
   | RightParenSqr
   | LeftParenCurl
   | RightParenCurl
+  | Def
   | LetEager
   | LetLazy
   | LetCBN
@@ -65,6 +66,7 @@ let to_string x =
   | RightParenSqr -> "]"
   | LeftParenCurl -> "{"
   | RightParenCurl -> "}"
+  | Def -> "def"
   | LetEager -> "let"
   | LetLazy -> "let&"
   | LetCBN -> "let&#"

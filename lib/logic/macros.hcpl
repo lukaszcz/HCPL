@@ -3,23 +3,20 @@
  * Copyright (C) 2013 by Lukasz Czajka
  */
 
- /* TODO: after implementing 'def' this should be changed to: def facts = (#p) :: facts; */
-macro(1) remember = \p #< ; (#p :: facts) >> \facts .. >#
+macro(1) remember = \p #< def facts = (#p) :: facts; >#
 
 
 macro lemma = \args {
    match args with
    | [%name, %formula, %xproof] ->
       #<
-         ;trace-with #$file #$line #$column "lemma" $..
          let #$0 = #formula;
-         let #name = verify #$0 { let thesis = #$0; (#xproof) };
+         let #name = verify #$0 { let thesis = #$0; trace-with #$file #$line #$column "lemma" (#xproof) };
       >#
    | [%formula, %xproof] ->
       #<
-         ;trace-with #$file #$line #$column "lemma" $..
          let #$0 = #formula;
-         verify #$0 { let thesis = #$0; (#xproof) }
+         verify #$0 { let thesis = #$0; trace-with #$file #$line #$column "lemma" (#xproof) }
       >#
    | %_ -> error "lemma: wrong arguments"
 }
@@ -28,7 +25,6 @@ macro theorem = \args { mk-apply #< lemma ># args }
 
 macro axiom = \args {
    match args with
-   /* TODO: this should be changed to: def facts = proof-of (#phi) :: facts; */
    | [%name, %phi] -> #< let #name = proof-of (#phi); >#
    | [%phi] -> #< remember (proof-of (#phi)) >#
    | %_ -> error "axiom: wrong arguments"
