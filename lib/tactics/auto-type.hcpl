@@ -65,9 +65,9 @@ let t-match = \t \pat {
       | [] ->
          assoc
       | ('(TVAR %x), %t) :: %lst1 ->
-         let t1 = List.assoc (== x) assoc `__ipl_dummy
+         let t1 = List.assoc (== x) assoc `dummy
          in
-         if t1 == `__ipl_dummy then
+         if t1 == `dummy then
             aux lst1 (('(TVAR x), t) :: assoc)
          else if t == t1 then
             aux lst1 assoc
@@ -400,3 +400,4 @@ tactic auto-type = \phi {
          error ("auto-type failed on: " ^ to_string phi)
    }
 };
+

@@ -54,12 +54,14 @@ let load_module lst =
               try
                 Symbol.Hash.find module_hash sym
               with Not_found ->
-                let frm = Bignum.to_int bfrm
+                (*let frm = Bignum.to_int bfrm
                 in
-                assert (frm <= Env.length env);
+                assert (frm < Env.length env);
                 let env2 = Env.pop_n env (Env.length env - frm - 1)
-                in
-                let node = Eval.eval_in init_node env2
+                in*) (* TODO: this does not fully work *)
+                (*Debug.print "load_module";
+                Debug.print (Node.to_string init_node);*)
+                let node = Eval.eval init_node
                 in
                 Symbol.Hash.add module_hash sym node;
                 node
@@ -386,7 +388,7 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "is-string") (is_string, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "print") (prn, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "exit") (myexit, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_load_module") (load_module, 3, CallByName) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_load_module") (load_module, 3, CallByName) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "xmatch") (xmatch, 4, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "mark") (mark, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "subst") (subst, 3, CallByValue) in
@@ -408,10 +410,10 @@ let declare_builtins scope symtab =
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "tokens-to-string") (tokens_to_string, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "to_tokens") (to_tokens, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "error") (runtime_error, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_macro_tmp") (macro_tmp, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_file") (macro_file, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_line") (macro_line, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_column") (macro_column, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_macro_tmp") (macro_tmp, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_file") (macro_file, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_line") (macro_line, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_column") (macro_column, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "unique-int") (unique_int, 1, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "join-symbols") (join_symbols, 2, CallByValue) in
     let (scope, _) = Builtin.declare scope (Symtab.find symtab "try") (xtry, 2, CallByName) in

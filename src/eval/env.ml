@@ -6,14 +6,14 @@ Copyright (C) 2013 by Łukasz Czajka
 
 type t = Node.t list
 
-let empty = []
+let empty = [Node.Dynenv(Utils.IntMap.empty)]
 
 let rec do_nth env n =
   assert (n >= 0);
   match env with
   | h :: t ->
       begin
-        assert (env != empty);
+        assert (env != []);
         if n > 0 then
           do_nth t (n - 1)
         else
@@ -41,7 +41,7 @@ let rec pop_n env n =
   assert (n >= 0);
   if n > 0 then
     begin
-      assert (env != empty);
+      assert (env != []);
       match env with
       | h :: t -> pop_n t (n - 1)
       | [] -> assert (env <> []); []

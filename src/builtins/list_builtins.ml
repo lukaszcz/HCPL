@@ -394,28 +394,28 @@ let list_find_q lst =
 
 let declare_builtins scope symtab =
   begin
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_length") (list_length, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_nth") (list_nth, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_head") (list_head, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_tail") (list_tail, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_put") (list_put, 3, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_rev") (list_rev, 1, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_append") (list_append, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_rev_append") (list_rev_append, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_map") (list_map, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_rev_map") (list_rev_map, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_filter") (list_filter, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_rev_filter") (list_rev_filter, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_foldl") (list_foldl, 3, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_foldr") (list_foldr, 3, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_forall") (list_forall, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_exists") (list_exists, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_find") (list_find, 3, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_mapfind") (list_mapfind, 3, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split") (list_split, 2, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_split_n") (list_split_n, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_length") (list_length, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_nth") (list_nth, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_head") (list_head, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_tail") (list_tail, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_put") (list_put, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_rev") (list_rev, 1, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_append") (list_append, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_rev_append") (list_rev_append, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_map") (list_map, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_rev_map") (list_rev_map, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_filter") (list_filter, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_rev_filter") (list_rev_filter, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_foldl") (list_foldl, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_foldr") (list_foldr, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_forall") (list_forall, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_exists") (list_exists, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_find") (list_find, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_mapfind") (list_mapfind, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_split") (list_split, 2, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_split_n") (list_split_n, 3, CallByValue) in
 
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_foldl_q") (list_foldl_q, 3, CallByValue) in
-    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__ipl_list_find_q") (list_find_q, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_foldl_q") (list_foldl_q, 3, CallByValue) in
+    let (scope, _) = Builtin.declare scope (Symtab.find symtab "__hcpl_list_find_q") (list_find_q, 3, CallByValue) in
     scope
   end

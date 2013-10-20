@@ -32,6 +32,8 @@ val drop_ident : t -> Symbol.t -> t
 (* returns the indentifier table for the current scope only *)
 val identtab : t -> Node.t Symbol.Map.t
 
+val find_dynvar : t -> Symbol.t -> t * int
+
 val add_fwd_decl : t -> Symbol.t -> int (* id *) -> t
 val is_fwd_decl : t -> Symbol.t -> bool
 val get_fwd_decl : t -> Symbol.t -> int (* id *) * int (* frame *) * Node.t ref

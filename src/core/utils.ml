@@ -11,6 +11,7 @@ module OrderedIntType =
   end
 
 module IntSet = Set.Make(OrderedIntType)
+module IntMap = Map.Make(OrderedIntType)
 
 let list_to_string f lst =
   let rec prn lst =

@@ -31,9 +31,9 @@ let pop_to env env_len frm =
 
 let do_close x env env_len =
   match x with
-  | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) | Marked(_) |
+  | Appl(_) | Cond(_) | DynDef(_) | Delay(_) | Leave(_) | Force(_) | Proxy(_) | MakeRecord(_) | Marked(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | BDynenvGet(_) | Quote(_)
     ->
       Closure(x, env, env_len)
   | Lambda(body, frame, call_type, times_entered, attrs) ->
@@ -43,9 +43,9 @@ let do_close x env env_len =
 
 let rec do_delay x env env_len =
    match x with
-   | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | MakeRecord(_) | Marked(_) | Proxy(_) |
+   | Appl(_) | Cond(_) | DynDef(_) | Delay(_) | Leave(_) | Force(_) | MakeRecord(_) | Marked(_) | Proxy(_) |
      BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
+     BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | BDynenvGet(_) | Quote(_)
      ->
        Delayed(ref (Closure(x, env, env_len)))
    | Closure(_) -> Delayed(ref x)
@@ -97,13 +97,13 @@ m4_define(`EVAL', `
     match $1 with
     | Var(n) ->
         ACCESS_VAR($2, $3, n)
-    | FrameRef(_) | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
+    | FrameRef(_) | Appl(_) | Cond(_) | DynDef(_) | Delay(_) | Force(_) | Leave(_) | Delayed(_) | Proxy(_) |
       MakeRecord(_) | Marked(_) | Closure(_) | Lambda(_) | Builtin(_) |
       BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-      BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
+      BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | BDynenvGet(_) | Quote(_)
       -> do_eval $1 $2 $3
     | Integer(_) | String(_) | Record(_) | Sym(_) | Dummy2(_) |
-      True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
+      True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Dynenv(_) | Quoted(_) |
       LambdaClosure(_) | Dummy | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 | Unboxed7
       -> $1
   end
@@ -255,6 +255,17 @@ and do_eval node env env_len =
         | True -> do_eval y env env_len
         | False -> do_eval z env env_len
         | _ -> Cond(x1, do_close y env env_len, do_close z env env_len, attrs)
+      end
+
+  | DynDef(x, i, y, z) ->
+      begin
+        match do_eval x env env_len with
+        | Dynenv(m) ->
+            assert (env_len >= 1);
+            let env2 = List.rev (Dynenv(Utils.IntMap.add i (do_eval y env env_len) m) :: (List.tl (List.rev env)))
+            in
+            do_eval z env2 env_len
+        | _ -> failwith "dyndef"
       end
 
   | Var(n) ->
@@ -605,10 +616,10 @@ and do_eval node env env_len =
                     | _ ->
                         loop node env env_len t
                   end
-              | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) |  Quote(_) | Var(_) | FrameRef(_) | Proxy(_) |
+              | Appl(_) | Cond(_) | DynDef(_) | Delay(_) | Leave(_) | Force(_) |  Quote(_) | Var(_) | FrameRef(_) | Proxy(_) |
                 MakeRecord(_) | Marked(_) | BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) |
                 BMod(_) | BCons(_) | BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
-                Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | Integer(_) | String(_) |
+                BDynenvGet(_) | Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | Integer(_) | String(_) |
                 Record(_) | Tokens(_) | Quoted(_) | LambdaClosure(_)
                 ->
                   begin
@@ -670,9 +681,16 @@ and do_eval node env env_len =
         | _ -> Error.runtime_error "record error"
       end
 
+  | BDynenvGet(x, i) ->
+      begin
+        match do_eval x env env_len with
+        | Dynenv(m) -> Utils.IntMap.find i m
+        | _ -> failwith "dynenv_get"
+      end
+
   | _ -> node
 
-let eval node = do_eval node Env.empty 0
+let eval node = do_eval node Env.empty (Env.length Env.empty)
 
 let eval_limited node limit =
   let prev_limit = !eval_limit
@@ -683,7 +701,7 @@ let eval_limited node limit =
     eval_limit := prev_limit;
   in
   eval_limit := limit;
-  Utils.try_finally (fun () -> do_eval node Env.empty 0) cleanup
+  Utils.try_finally (fun () -> do_eval node Env.empty (Env.length Env.empty)) cleanup
 
 let eval_unlimited node =
   let prev_limit = !eval_limit
@@ -692,7 +710,7 @@ let eval_unlimited node =
     eval_limit := prev_limit;
   in
   eval_limit := -1;
-  Utils.try_finally (fun () -> do_eval node Env.empty 0) cleanup
+  Utils.try_finally (fun () -> do_eval node Env.empty (Env.length Env.empty)) cleanup
 
 let reduce node = eval_limited node 1
 
@@ -726,7 +744,7 @@ let eval_macro pos symtab node args args_num =
     if m = 0 then
       acc
     else
-      let sym = Symtab.find symtab ("__ipl_macro_tmp_" ^ string_of_int !macro_tmp_id)
+      let sym = Symtab.find symtab ("__hcpl_macro_tmp_" ^ string_of_int !macro_tmp_id)
       in
       incr macro_tmp_id;
       mkextra (m - 1) (Node.Tokens([(Token.Symbol(sym), Lexing.dummy_pos)]) :: acc)

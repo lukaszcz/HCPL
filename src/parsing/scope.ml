@@ -17,6 +17,8 @@ type t = { identtab : identtab_t; frame : int; scopenum : int;
            macroseps : Symbol.Set.t;
            syntaxlst : syntaxlst_t;
            fwds : (int (* id *) * int (* frame *) * Node.t ref) Symbol.Map.t;
+           dynvars : int Symbol.Map.t;
+           dynvars_num : int;
            mutable line_num : int }
 
 exception Duplicate_ident
@@ -36,6 +38,8 @@ let empty = { identtab = Symbol.Map.empty;
               macroseps = Symbol.Set.empty;
               syntaxlst = [];
               fwds = Symbol.Map.empty;
+              dynvars = Symbol.Map.empty;
+              dynvars_num = 0;
               line_num = 0 }
 
 let empty_repl = { empty with is_repl_mode = true }
@@ -71,6 +75,7 @@ let find_ident scope sym =
   in
   match node with
   | Node.Var(i) -> Node.Var(scope.frame - i)
+  | Node.BDynenvGet(_, i) -> Node.BDynenvGet(Node.Var(scope.frame), i)
   | _ -> node
 
 let replace_ident scope sym node =
@@ -92,6 +97,7 @@ let identtab scope =
         let node2 =
           match node with
           | Node.Var(i) -> Node.Var(scope.frame - i)
+          | Node.BDynenvGet(_, i) -> Node.BDynenvGet(Node.Var(scope.frame), i)
           | _ -> node
         in
         Symbol.Map.add sym node2 acc
@@ -99,10 +105,23 @@ let identtab scope =
     scope.identtab
     Symbol.Map.empty
 
+let find_dynvar scope sym =
+  if Symbol.Map.mem sym scope.dynvars then
+    let i = Symbol.Map.find sym scope.dynvars
+    in
+    (replace_ident scope sym (Node.BDynenvGet(Node.Nil, i)), i)
+  else
+    let map = Symbol.Map.add sym scope.dynvars_num scope.dynvars
+    and n = scope.dynvars_num + 1
+    in
+    let scope2 = { scope with dynvars = map; dynvars_num = n }
+    in
+    (replace_ident scope2 sym (Node.BDynenvGet(Node.Nil, scope.dynvars_num)), scope.dynvars_num)
+
 let add_fwd_decl scope sym id =
-  let rnode = ref (Node.FrameRef(scope.scopenum))
+  let rnode = ref (Node.FrameRef(scope.frame))
   in
-  let fwds2 = Symbol.Map.add sym (id, scope.scopenum, rnode) scope.fwds
+  let fwds2 = Symbol.Map.add sym (id, scope.frame, rnode) scope.fwds
   in
   replace_ident { scope with fwds = fwds2 } sym (Node.Proxy(rnode))
 

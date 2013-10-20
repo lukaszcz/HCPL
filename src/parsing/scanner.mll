@@ -48,6 +48,7 @@ rule read_token symtab = parse
   | "true"                         { Token.True }
   | "false"                        { Token.False }
   | "def"                          { Token.Def }
+  | "dyndef"                       { Token.DynDef }
   | "let"                          { Token.LetEager }
   | "let!"                         { Token.LetEager }
   | "let&"                         { Token.LetLazy }

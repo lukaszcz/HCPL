@@ -13,6 +13,7 @@ type t =
   | Proxy of t ref
   | Appl of t * t * attrs_t option (* a b -> Appl(a, b, attrs) *)
   | Cond of t * t * t * attrs_t option
+  | DynDef of t * int * t * t
   | Delay of t
   | Leave of t
   | Force of t
@@ -38,6 +39,7 @@ type t =
   | BMatch of t * ((t * t * t * int) list)
         (* (value, [(pattern, when_condition, body, args_num)]) *)
   | BRecordGet of t * t
+  | BDynenvGet of t * int
 
   (* used only by the evaluator *)
   | Closure of t * t list * int
@@ -53,6 +55,7 @@ type t =
   | Record of t Symbol.Map.t
   | Tokens of (Token.t * Lexing.position) list
   | Quoted of t
+  | Dynenv of t Utils.IntMap.t
 
   (* used only by the evaluator *)
   | LambdaClosure of t * t list * int * call_t * int ref * attrs_t option
@@ -186,13 +189,13 @@ let is_const (node : t) = Obj.is_int (Obj.repr node)
 let is_immediate node = match node with
     (* note: do not use "| _ -> ..." here so that the compiler warns when we
        forget one of the possibilities *)
-  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
+  | Appl(_) | Cond(_) | DynDef(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Marked(_) | Closure(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | BDynenvGet(_) | Quote(_)
     -> false
   | Lambda(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-    True | False | Placeholder | Ignore | Cons(_) | Dummy2(_) | Nil | Tokens(_) | Quoted(_) |
+    True | False | Placeholder | Ignore | Cons(_) | Dummy2(_) | Nil | Tokens(_) | Quoted(_) | Dynenv(_) |
     LambdaClosure(_)| Dummy | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 | Unboxed7
     -> true
 
@@ -200,13 +203,13 @@ let is_immediate node = match node with
 let is_immed node = match node with
     (* note: do not use "| _ -> ..." here so that the compiler warns when we
        forget one of the possibilities *)
-  | Appl(_) | Cond(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
+  | Appl(_) | Cond(_) | DynDef(_) | Delay(_) | Force(_) | Leave(_) | Var(_) | FrameRef(_) | Delayed(_) | Proxy(_) |
     MakeRecord(_) | Marked(_) | Closure(_) | Lambda(_) | Builtin(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | Quote(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | BDynenvGet(_) | Quote(_)
     -> false
   | Integer(_) | String(_) | Record(_) | Sym(_) | Dummy2(_) |
-    True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) |
+    True | False | Placeholder | Ignore | Cons(_) | Nil | Tokens(_) | Quoted(_) | Dynenv(_) |
     LambdaClosure(_)| Dummy | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 | Unboxed7
     -> true
 
@@ -448,6 +451,8 @@ let to_string node =
           | Cond(x, y, z, _) ->
               "(if " ^ (prn x (limit - 1)) ^ " then " ^ (prn y (limit - 1)) ^
               " else " ^ (prn z (limit - 1)) ^ ")"
+          | DynDef(_, i, x, y) ->
+              "(dyndef " ^ string_of_int i ^ " = " ^ prn x limit ^ " in " ^ prn y limit ^ ")"
           | Delay(x) -> "&" ^ prn x (limit - 1)
           | Force(x) -> "!" ^ prn x (limit - 1)
           | Leave(x) -> "#" ^ prn x (limit - 1)
@@ -466,6 +471,7 @@ let to_string node =
           | False -> "false"
           | Tokens(lst) -> "#< " ^ prn_tokens lst ^ ">#"
           | Quoted(x) -> "'" ^ prn x (limit - 1)
+          | Dynenv(_) -> "<dynenv>"
           | Placeholder -> "%%"
           | Ignore -> "%_"
           | Cons(x, y) ->
@@ -497,6 +503,7 @@ let to_string node =
           | BOr(x, y) -> "(" ^ prn x (limit - 1) ^ " or " ^ prn y (limit - 1) ^ ")"
           | BMatch(x, branches) -> "(match " ^ prn x (limit - 1) ^ " with" ^ prn_match branches ^ ")"
           | BRecordGet(x, y) -> "(" ^ prn x (limit - 1) ^ "." ^ prn y (limit - 1) ^ ")"
+          | BDynenvGet(x, i) -> "dynref(" ^ prn x limit ^ ", " ^ string_of_int i ^ ")"
           | Quote(x) -> "(quote " ^ prn x (limit - 1) ^ ")"
           | Dummy -> "<dummy>"
           | Unboxed1 | Unboxed2 | Unboxed3 | Unboxed4 | Unboxed5 | Unboxed6 | Unboxed7 -> failwith "unknown node"

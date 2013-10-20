@@ -23,6 +23,7 @@ type t =
   | LeftParenCurl
   | RightParenCurl
   | Def
+  | DynDef
   | LetEager
   | LetLazy
   | LetCBN
@@ -67,6 +68,7 @@ let to_string x =
   | LeftParenCurl -> "{"
   | RightParenCurl -> "}"
   | Def -> "def"
+  | DynDef -> "dyndef"
   | LetEager -> "let"
   | LetLazy -> "let&"
   | LetCBN -> "let&#"

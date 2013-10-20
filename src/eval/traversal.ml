@@ -31,6 +31,8 @@ let traverse0 f node acc =
                   do_traverse f b (do_traverse f a acc2)
               | Cond(x, y, z, _) ->
                   do_traverse f z (do_traverse f y (do_traverse f x acc2))
+              | DynDef(x, _, y, z) ->
+                  do_traverse f z (do_traverse f y (do_traverse f x acc2))
               | Delay(x) ->
                   do_traverse f x acc2
               | Force(x) ->
@@ -104,7 +106,7 @@ let traverse0 f node acc =
               | Marked(x, y) ->
                   do_traverse f y (do_traverse f x acc2)
               | Var(_) | FrameRef(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-                True | False | Placeholder | Ignore | Nil | Tokens(_) ->
+                True | False | Placeholder | Ignore | Nil | Tokens(_) | Dynenv(_) | BDynenvGet(_) ->
                   acc2
               | _ -> Debug.print (to_string node); failwith "unknown node"
           end
@@ -134,6 +136,8 @@ let transform0 g f node0 =
                   f (Appl(do_transform g f a, do_transform g f b, attrs))
               | Cond(x, y, z, attrs) ->
                   f (Cond(do_transform g f x, do_transform g f y, do_transform g f z, attrs))
+              | DynDef(x, i, y, z) ->
+                  f (DynDef(do_transform g f x, i, do_transform g f y, do_transform g f z))
               | Delay(x) ->
                   f (Delay(do_transform g f x))
               | Force(x) ->
@@ -208,7 +212,7 @@ let transform0 g f node0 =
               | Marked(x, y) ->
                   f (Marked(do_transform g f x, do_transform g f y))
               | Var(_) | FrameRef(_) | MakeRecord(_) | Builtin(_) | Integer(_) | String(_) | Record(_) | Sym(_) |
-                True | False | Placeholder | Ignore | Nil | Tokens(_) ->
+                True | False | Placeholder | Ignore | Nil | Tokens(_) | Dynenv(_) | BDynenvGet(_) ->
                   f node
               | Dummy ->
                   node

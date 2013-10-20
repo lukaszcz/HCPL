@@ -441,10 +441,10 @@ let rec do_match node pat acc =
         | Quoted(y) -> do_match_quoted y x [] 0 [] 0 acc ModeMatch
         | _ -> raise Exit
       end
-  | Appl(_) | Cond(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | Proxy(_) | MakeRecord(_) |
+  | Appl(_) | Cond(_) | DynDef(_) | Delay(_) | Leave(_) | Force(_) | Var(_) | Proxy(_) | MakeRecord(_) |
     BEq(_) | BGt(_) | BGe(_) | BAdd(_) | BSub(_) | BMul(_) | BIDiv(_) | BMod(_) | BCons(_) |
-    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) |
-    Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | LambdaClosure(_)
+    BConsNE(_) | BFst(_) | BSnd(_) | BAnd(_) | BOr(_) | BMatch(_) | BRecordGet(_) | BDynenvGet(_) |
+    Closure(_) | Delayed(_) | Lambda(_) | Builtin(_) | LambdaClosure(_) | Dynenv(_)
     ->
       Error.runtime_error ("bad pattern: " ^ Node.to_string pat)
   | _ ->

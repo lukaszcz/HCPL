@@ -1,0 +1,25 @@
+
+// dyndef
+
+dyndef y = 0;
+
+let f = \x {
+   dyndef y = y + x;
+   if x == 0 then
+      y
+   else
+      f (x - 1)
+};
+
+print (f 2);
+print (f 10);
+print (f 5);
+
+{
+   dyndef y = 16;
+   print (f 2);
+   print (f 3);
+};
+
+print (f 2);
+print (f 3);

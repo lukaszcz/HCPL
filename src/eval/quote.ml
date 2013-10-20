@@ -85,6 +85,9 @@ let correct_lambda node =
   | Node.Lambda(body, frame, call_type, _, attrs) ->
       let frame2 = max_lambda_body_frame_ref body frame + 1
       in
+(*      Debug.print "correct_lambda";
+      Debug.print (Node.to_string node);
+      Debug.print_int frame2; *)
       if frame2 <> frame then
         begin
           assert (frame2 < frame);

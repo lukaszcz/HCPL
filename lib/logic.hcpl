@@ -205,7 +205,7 @@ include "tactics/auto.hcpl"
 /*********************************************************************************/
 /* derived rules and lemmas which require standard proof tactics */
 
-include "logic/derived2.hcpl"
+include "logic/derived2.hcpl";
 
 /*********************************************************************************/
 

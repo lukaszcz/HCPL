@@ -418,10 +418,10 @@ m4_changequote([`],['])
   and sym_quote = Symtab.find symtab "'"
   and sym_quote2 = Symtab.find symtab "quote"
   and sym_join_tokens = Symtab.find symtab "join-tokens"
-  and sym_macro_tmp = Symtab.find symtab "__ipl_macro_tmp"
-  and sym_macro_file = Symtab.find symtab "__ipl_file"
-  and sym_macro_line = Symtab.find symtab "__ipl_line"
-  and sym_macro_column = Symtab.find symtab "__ipl_column"
+  and sym_macro_tmp = Symtab.find symtab "__hcpl_macro_tmp"
+  and sym_macro_file = Symtab.find symtab "__hcpl_file"
+  and sym_macro_line = Symtab.find symtab "__hcpl_line"
+  and sym_macro_column = Symtab.find symtab "__hcpl_column"
   and sym_file = Symtab.find symtab "file"
   and sym_line = Symtab.find symtab "line"
   and sym_column = Symtab.find symtab "column"
@@ -454,7 +454,7 @@ m4_changequote([`],['])
 
   and sym_return_type = Symtab.find symtab "return_type"
 
-  and sym_ipl_load_module = Symtab.find symtab "__ipl_load_module"
+  and sym_hcpl_load_module = Symtab.find symtab "__hcpl_load_module"
 
   and sym_unknown = Symtab.find symtab "??"
 
@@ -490,9 +490,9 @@ m4_changequote([`],['])
     | _ -> assert false
 
   and mkmodule scope sym node frm =
-    Node.Delayed(ref (Node.Closure((mkapply scope sym_ipl_load_module
+    Node.Delayed(ref (Node.Closure((mkapply scope sym_hcpl_load_module
                                       [Node.Sym(sym); node; Node.Integer(Big_int.big_int_of_int frm)]),
-                                   Env.empty, 0)))
+                                   Env.empty, Env.length Env.empty)))
 
   and join_syms sym1 sym2 =
     Symtab.find symtab (Symbol.to_string sym1 ^ "." ^ Symbol.to_string sym2)
@@ -500,7 +500,7 @@ m4_changequote([`],['])
   and unique_module_id =
     let id = ref 0
     in
-    fun () -> incr id; Symtab.find symtab ("__ipl__module__" ^ string_of_int !id)
+    fun () -> incr id; Symtab.find symtab ("__hcpl__module__" ^ string_of_int !id)
   in
 
   let rec do_parse_lexbuf is_repl_mode lexbuf initial_scope =
@@ -519,7 +519,7 @@ m4_changequote([`],['])
         if Quote.largest_frame node > frame then
           Error.error pos ("definition of '" ^ Symbol.to_string sym ^
                            "' depends on values defined after its forward declaration");
-        rnode := node;
+        rnode := Node.Appl(Node.Appl(Node.progn, Node.FrameRef(frame), None), node, None);
         Hashtbl.remove fwd_decls id
       with
         Not_found ->
@@ -1052,7 +1052,7 @@ m4_changequote([`],['])
     and statement () =
       recursive
         begin
-          xlet ^|| macrodef ^|| symdef ^|| syntax ^|| import_syntax ^||
+          xlet ^|| dyndef ^|| macrodef ^|| symdef ^|| syntax ^|| import_syntax ^||
           import ^|| xopen ^|| xinclude ^|| xmodule ^|| forward ^||
           macro_expand ^|| macro_call statement ^|| module_end ^|| expr
         end
@@ -1165,6 +1165,37 @@ m4_changequote([`],['])
                     Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs)
                   in
                   Program(Node.Appl(lam, value, None))
+            | _ -> assert false)
+        end
+
+    and dyndef () =
+      recursive
+        begin
+          token Token.DynDef ++ name ++
+            symbol sym_eq ++ new_keyword sym_in (catch_errors expr)
+            ++
+            (fun () (lst, attrs, strm, scope) cont ->
+              match lst with
+              | [Program(value); Ident(sym)] ->
+                  begin
+                    let (scope2, i) = Scope.find_dynvar scope sym
+                    in
+                    cont ([Program(value); Num(i)], attrs, strm, scope2)
+                  end
+              | _ -> assert false
+            )
+            ++
+            ((symbol sym_in ^|| keyword sym_in) +! new_ident_scope progn
+             ^||
+             token Token.Sep +! progn
+             ^||
+             progn
+            )
+            >>
+          (fun lst attrs scope ->
+            match lst with
+            | [Num(i); Program(value); Program(value2)] ->
+                Program(Node.DynDef(Node.Var(Scope.frame scope), i, Node.optimize value, Node.optimize value2))
             | _ -> assert false)
         end
 
@@ -2030,13 +2061,14 @@ m4_changequote([`],['])
                   (fun x -> List_builtins.declare_builtins x symtab)]
   in
   let scope0 =
-    List.fold_left
-      (fun scope f -> f scope)
+    Scope.push_frame
       (List.fold_left
-         (fun scope x -> Scope.add_permanent_keyword scope x)
-         (if is_repl_mode then Scope.empty_repl else Scope.empty)
-         keywords)
-      builtins
+         (fun scope f -> f scope)
+         (List.fold_left
+            (fun scope x -> Scope.add_permanent_keyword scope x)
+            (if is_repl_mode then Scope.empty_repl else Scope.empty)
+            keywords)
+         builtins)
   in
 
   match runtime_lexbuf with
