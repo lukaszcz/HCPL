@@ -8,8 +8,13 @@
  */
 
 syntax operator of is right, binary, after appl;
-syntax operator -> is right, binary, after of;
-syntax operator c= is left, binary, after ->;
+syntax operator xx is left, binary, after of;
+syntax operator ++ is left, binary, prio xx;
+syntax operator -> is right, binary, after xx;
+syntax operator & is left, binary, after ->;
+syntax operator | is left, binary, after &
+syntax operator c= is left, binary, after |;
+syntax operator s= is left, binary, prio c=;
 
 syntax operator in is left, binary, after =;
 syntax operator => is right, binary, after or;
@@ -20,11 +25,11 @@ symbol BigType
 symbol Prop
 symbol Any
 symbol Data
+symbol Set
 
 symbol ALL
 symbol EX
 symbol ASSM
-symbol SUB
 
 symbol equal
 
@@ -37,7 +42,16 @@ let -> = \&#t1 \&#t2 \&#f (ALL t1 \x . f x in t2)
 let => = \&#x \&#y . if x then y else true
 let <=> = \x \y . (x => y) and (y => x)
 let c= = \&#a \&#b (ALL a b)
-let Set = \&#T (T -> Prop)
+let s= = \&#a \&#b (a c= b and b c= a)
+let | = \&#a \&#b \x (a x or b x)
+let & = \&#a \&#b \x (a x and b x)
+let sub = \&#t \&#p \x (x in t and p x)
+let img = \&#a \&#f \x (EX a \y . f y == x)
+let pow = \&#T (T -> Prop)
+let || = \&#a \x (EX a \y . x in y)
+let && = \&#a \x (ALL a \y . x in y)
+let xx = \&#a \&#b \x (fst x in a and snd x in b)
+let ++ = \&#a \&#b \x (match x with (`left, %y) -> y in a | (`right, %y) -> y in b | %_ -> false)
 
 let extract-type = \x {
    match x with
@@ -49,6 +63,19 @@ let extract-elem = \x {
    match x with
    | '(%e in %_) -> e
    | %_ -> error2 x "expected a formula of the form (a in b)"
+}
+
+let type-meet = \t1 \t2 {
+   if eq t1 t2 then
+      t1
+   else {
+      match t1, t2 with
+      | BigType %n, BigType %m -> BigType (max n m)
+      | BigType %_, SuperType -> SuperType
+      | SuperType, BigType %_ -> SuperType
+      | SuperType, SuperType -> SuperType
+      | %_ -> error2 (t1, t2) "type-meet: wrong arguments"
+   }
 }
 
 /*********************************************************************************/
@@ -586,34 +613,17 @@ rule equal-fun-elim = \p1 \p2 {
 
 
 /*****************************************************************************/
-/* subtype rules */
+/* type construction rules */
 
-rule subtype-intro-3 = \p1 \p2 \p3 {
-   match goal p1, goal p2, goal p3 with
-   | '(%f in %t -> Prop), '(%a in %t1), '(%f1 %a1) when eq a a1 and eq t t1 and eq f f1 ->
-      proof-of '(a in SUB t f)
-   | %_ -> error2 (p1, p2, p3) "subtype-intro: wrong arguments"
-}
-
-rule subtype-elim = \p {
-   match goal p with
-   | '(%a in SUB %t %f) -> proof-of '(f a)
-   | %_ -> error2 p "subtype-elim: wrong argument"
-}
-
-rule subtype-elim-dom = \p {
-   match goal p with
-   | '(%a in SUB %t %f) -> proof-of '(a in t)
-   | %_ -> error2 p "subtype-elim-dom: wrong argument"
-}
-
-rule subtype-type-intro-2 = \p1 \p2 {
+rule pred-type-intro-2 = \p1 \p2 {
    let aux = \t \tp {
       match goal p2 with
       | '(%f in %t1 -> Prop) when eq t t1 ->
-         proof-of '(SUB f t in tp)
+         proof-of '(f in tp)
+      | '(%f in Set of %t1) when eq t t1 ->
+         proof-of '(f in tp)
       | %_ ->
-         error2 (p1, p2) "subtype-type-intro: wrong arguments"
+         error2 (p1, p2) "set-type-intro-2: wrong arguments"
    };
    match goal p1 with
    | '(%t in BigType %n) ->
@@ -621,8 +631,94 @@ rule subtype-type-intro-2 = \p1 \p2 {
    | '(%t in SuperType) ->
       aux t SuperType
    | %_ ->
-      error2 (p1, p2) "subtype-type-intro: wrong arguments"
+      error2 (p1, p2) "set-type-intro-2: wrong arguments"
 }
+
+rule set-intro = \p {
+   match goal p with
+   | '(%f in %t -> Prop) -> proof-of '(sub t f in Set of t)
+   | %_ -> error2 p "set-intro: wrong argument"
+}
+
+rule set-dom-elim = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%x in %S), '(%S1 in Set of %t) when eq S S1 -> proof-of '(x in t)
+   | %_ -> error2 (p1, p2) "set-dom-elim: wrong argument"
+}
+
+rule set-type-intro = \p {
+   match goal p with
+   | '(%t in BigType %n) -> '(Set of t in BigType n)
+   | '(%t in SuperType) -> '(Set of t in SuperType)
+   | %_ -> error2 p "set-type-intro: wrong argument"
+}
+
+rule union-type-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a in %t1), '(%b in %t2) ->
+      let t = type-meet t1 t2
+      in
+      proof-of '((a | b) in t)
+   | %_ ->
+      error2 (p1, p2) "union-type-intro: wrong arguments"
+}
+
+rule inters-type-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a in %t1), '(%b in %t2) ->
+      let t = type-meet t1 t2
+      in
+      proof-of '((a & b) in t)
+   | %_ ->
+      error2 (p1, p2) "inters-type-intro: wrong arguments"
+}
+
+rule img-type-intro = \f \p {
+   match goal p with
+   | '(%a in BigType %n) ->
+      proof-of '(img a f in BigType n)
+   | '(%a in SuperType) ->
+      proof-of '(img a f in SuperType)
+   | %_ ->
+      error2 (f, p) "img-type-intro: wrong arguments"
+}
+
+rule family-union-type-intro = \p {
+   match goal p with
+   | '(%a c= %t) ->
+      proof-of '(|| a in t)
+   | %_ ->
+      error2 p "family-union-type-intro: wrong argument"
+}
+
+rule family-inters-type-intro = \p {
+   match goal p with
+   | '(%a c= %t) ->
+      proof-of '(&& a in t)
+   | %_ ->
+      error2 p "family-inters-type-intro: wrong argument"
+}
+
+rule prod-type-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a in %t1), '(%b in %t2) ->
+      let t = type-meet t1 t2
+      in
+      proof-of '(a xx b in t)
+   | %_ ->
+      error2 (p1, p2) "prod-type-intro: wrong arguments"
+}
+
+rule plus-type-intro = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a in %t1), '(%b in %t2) ->
+      let t = type-meet t1 t2
+      in
+      proof-of '(a ++ b in t)
+   | %_ ->
+      error2 (p1, p2) "plus-type-intro: wrong arguments"
+}
+
 
 /*****************************************************************************/
 /* datatype induction */

@@ -3,6 +3,32 @@
  * Copyright (C) 2013 by Lukasz Czajka
  */
 
+rule subtype-type-intro-2 = \p1 \p2 {
+   let aux = \t {
+      match goal p2 with
+      | '(%f in %t1 -> Prop) when eq t t1 ->
+         pred-type-intro-2 p1 {
+            show '(sub t f in t -> Prop) with {
+               fix x : t with p1;
+               and-type-intro {
+                  prop-intro (fact '(x in t))
+               }{
+                  forall-elim (pequal '(all x : t . f x in Prop) p2) (fact '(x in t))
+               }
+            }
+         }
+      | %_ ->
+         error2 (p1, p2) "subtype-type-intro: wrong arguments"
+   };
+   match goal p1 with
+   | '(%t in BigType %n) ->
+      aux t
+   | '(%t in SuperType) ->
+      aux t
+   | %_ ->
+      error2 (p1, p2) "subtype-type-intro: wrong arguments"
+}
+
 rule subtype-type-intro-1 = \p {
    match goal p with
    | '(%_ in %t -> Prop) ->
@@ -15,4 +41,12 @@ macro subtype-type-intro = \args {
    | [%x] -> #< subtype-type-intro-1 #x >#
    | [%x, %y] -> #< subtype-type-intro-2 #x #y >#
    | %_ -> error "subtype-type-intro: wrong arguments"
+}
+
+rule subtype-intro = \p {
+   match goal p with
+   | '(%f %a) ->
+      subtype-intro-2 (infer-type a) p
+   | %_ ->
+      error2 p "subtype-intro: wrong argument"
 }

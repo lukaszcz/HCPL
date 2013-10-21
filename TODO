@@ -1,5 +1,4 @@
 
-* def (overriding, non-recursive let)
 * fix ex & all without dot
 * update 'thesis' in *-intro
 * intros, forall-intros, impl-intros
@@ -7,6 +6,8 @@
 
 * more logic: induction, sets, etc
 * tauto & auto tactics
+* lambda correction (correct_lambda etc.) is quadratic, which slows
+  down the parser unacceptably
 * bug: nested modules don't quite work
 * forward bug (checking frames does not work)
 * bug: forward should be disallowed in macro functions (check if this is so)
@@ -26,7 +27,7 @@
 * inherit Module
 * improve efficiency of type inference
 * macro priorities instead of syntax macrosep
-* saving parsed files in binary (*.ipb)
+* saving parsed files in binary (*.hcpb)
 * Improve evaluator efficiency even more
 * Improve quoted match / equal efficiency
 * In the parser, translate closed lets directly into Delayed nodes (?)

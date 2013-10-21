@@ -62,6 +62,7 @@
 
     <list name="operators">
       <item> o </item>
+      <item> xx </item>
       <item> comp </item>
       <item> all </item>
       <item> ex </item>

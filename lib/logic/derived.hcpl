@@ -52,3 +52,18 @@ rule bigtype-upgrade = \m \p {
 rule bigtype-in-supertype = \n {
    bigtype-to-supertype (bigtype-type-intro n (n + 1))
 }
+
+rule subtype-intro-2 = \p1 \p2 {
+   match goal p1, goal p2 with
+   | '(%a in %t), '(%f %a1) when eq a a1 ->
+      pequal '(a in sub t f) (and-intro p1 p2)
+   | %_ -> error2 (p1, p2) "subtype-intro-2: wrong arguments"
+}
+
+rule subtype-elim = \p {
+   and-elim-right (preduce-appl (preduce-appl p))
+}
+
+rule subtype-elim-dom = \p {
+   and-elim-left (preduce-appl (preduce-appl p))
+}

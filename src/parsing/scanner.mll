@@ -19,6 +19,9 @@ rule read_token symtab = parse
   | ';'                            { Token.Sep }
   | ';'[' ' '\t' '\r']*'\n'        { new_line lexbuf; Token.NewlineSep }
   | '\\'                           { Token.Lambda }
+  | '&'[' ' '\t' '\r']             { Token.Symbol(Symtab.find symtab "&") }
+  | "&\n"                          { new_line lexbuf; Token.Symbol(Symtab.find symtab "&") }
+  | "&&"                           { Token.Symbol(Symtab.find symtab "&&") }
   | '!'                            { Token.Force }
   | '&'                            { Token.Lazy }
   | "&#"                           { Token.Leave }

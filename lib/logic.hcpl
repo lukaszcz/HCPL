@@ -30,7 +30,7 @@ let is-proof = \p . matches p (`__hcpl_proof, %_)
 let var-intro = \f {
    let x = unique-int ()
    in
-   f '(VAR x)
+   f '!(VAR, x)
 }
 
 let lambda-body = \f { var-intro \x { apply f x } };

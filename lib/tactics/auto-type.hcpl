@@ -239,6 +239,17 @@ let infer-type-proc = \facts \phi {
                quant-aux a b forall-type-intro-rule
             | '(EX %a %b) ->
                quant-aux a b exists-type-intro-rule
+            | '(Set of %a) ->
+               /* TODO: this is not completely OK */
+               let da = aux a context
+               let sa = t-match SuperType (get-type da)
+               in
+               mk-data
+                  << SuperType
+                  << \facts \v-assoc \s {
+                        set-type-intro ((get-fun da) facts v-assoc (s o sa))
+                     }
+                  << sa o (get-subst da)
             | '(%a -> %b) ->
                /* TODO: this is not completely OK */
                aux2 a b SuperType fun-type-intro-rule
@@ -316,6 +327,16 @@ tactic auto-type = \phi {
          f facts [] ((\t . t-subst t \_ Any) o s)
       }
    };
+   let aux1 = \a \tp0 {
+      let p = infer-type a;
+      match extract-type (goal p) with
+      | '(%tp -> Prop) ->
+         pred-type-intro-2 (auto-type '(tp in tp0)) p
+      | '(Set of %tp) ->
+         pred-type-intro-2 (auto-type '(tp in tp0)) p
+      | %_ ->
+         error "auto-type failed"
+   };
    let p = find-fact phi;
    if is-proof p then
       p
@@ -358,10 +379,22 @@ tactic auto-type = \phi {
             let b1 = apply b x;
             auto-type '(b1 in Prop)
          }
-      | '((%a -> %b) in BigType %n) ->
-         fun-type-intro (auto-type '(a in BigType n)) (auto-type '(b in BigType n))
-      | '((%a -> %b) in SuperType) ->
-         fun-type-intro (auto-type '(a in SuperType)) (auto-type '(b in SuperType))
+      | '((%a -> %b) in %t) ->
+         fun-type-intro (auto-type '(a in t)) (auto-type '(b in t))
+      | '(Set of %a in %t) ->
+         set-type-intro (auto-type '(a in t))
+      | '((%a | %b) in %t) ->
+         union-type-intro (auto-type '(a in t)) (auto-type '(b in t))
+      | '((%a & %b) in %t) ->
+         inters-type-intro (auto-type '(a in t)) (auto-type '(b in t))
+  /*    | '(%a in BigType %n) ->
+         aux1 a '(BigType n)
+      | '(%a in SuperType) ->
+         aux1 a SuperType*/
+      | '(sub %t %a in Set of %t1) when eq t t1 ->
+         set-intro (auto-type '(a in t1 -> Prop))
+      | '((%x in %a) in %tp) ->
+         auto-type '(a x in tp)
       | '(%a %b in %tp) ->
          begin
             let pa = match-type a '(%_ -> %_);
