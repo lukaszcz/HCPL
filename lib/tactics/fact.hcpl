@@ -1,4 +1,4 @@
-/* fact.ipl: 'fact' proof tactic.
+/* fact.hcpl: 'fact' proof tactic.
  *
  * Copyright (C) 2013 by Lukasz Czajka
  */

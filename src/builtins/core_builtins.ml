@@ -88,16 +88,6 @@ let xmatch lst =
 
 (* quoting etc *)
 
-let ipl_quote lst =
-  match lst with
-  | [Closure(x, env, _)] ->
-      Quote.quote x env
-  | [LambdaClosure(body, env, env_len, call_type, times_entered, attrs)] ->
-      Quote.quote (Lambda(body, env_len, call_type, times_entered, attrs)) env
-  | [x] ->
-      Quote.quote x Env.empty
-  | _ -> assert false
-
 let mark lst =
   match lst with
   | y :: Quoted(x) :: _ ->

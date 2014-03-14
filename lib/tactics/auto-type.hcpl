@@ -1,4 +1,4 @@
-/* auto-type.ipl: Automatic typing proof tactic.
+/* auto-type.hcpl: Automatic typing proof tactic.
  *
  * Copyright (C) 2013 by Lukasz Czajka
  */

@@ -1,4 +1,4 @@
-/* core-logic.ipl: Illative logic rules. This is the 'kernel' of the logic
+/* core-logic.hcpl: Illative logic rules. This is the 'kernel' of the logic
  * implementation. This file implements all basic reasoning rules. All other
  * rules and tactics are supposed to use rules from this file and NOT use
  * 'proof-of', and NOT use definitions from this file which are not a part

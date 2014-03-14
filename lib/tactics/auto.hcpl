@@ -1,4 +1,4 @@
-/* auto.ipl: Automatic proof tactic.
+/* auto.hcpl: Automatic proof tactic.
  *
  * Copyright (C) 2013 by Lukasz Czajka
  */

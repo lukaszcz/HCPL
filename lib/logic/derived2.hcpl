@@ -1,4 +1,4 @@
-/* derived2.ipl: Derived rules and lemmas which require standard proof tactics.
+/* derived2.hcpl: Derived rules and lemmas which require standard proof tactics.
  *
  * Copyright (C) 2013 by Lukasz Czajka
  */

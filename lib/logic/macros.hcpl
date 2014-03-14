@@ -1,4 +1,4 @@
-/* macros.ipl: Convenience logic macros.
+/* macros.hcpl: Convenience logic macros.
  *
  * Copyright (C) 2013 by Lukasz Czajka
  */
@@ -30,7 +30,7 @@ macro axiom = \args {
    | %_ -> error "axiom: wrong arguments"
 }
 
-let __ipl_ex_all_aux = \args \quant \msg {
+let __hcpl_ex_all_aux = \args \quant \msg {
    match List.split-once (== #< : >#) args with
    | [%lst1, %lst2] ->
       begin
@@ -62,8 +62,8 @@ let __ipl_ex_all_aux = \args \quant \msg {
    | %_ -> error msg
 }
 
-macro ex = \args { __ipl_ex_all_aux args #< EX ># "ex: wrong arguments" }
-macro all = \args { __ipl_ex_all_aux args #< ALL ># "all: wrong arguments" }
+macro ex = \args { __hcpl_ex_all_aux args #< EX ># "ex: wrong arguments" }
+macro all = \args { __hcpl_ex_all_aux args #< ALL ># "all: wrong arguments" }
 
 
 macro(0) last = \_ #< (hd facts) >#
