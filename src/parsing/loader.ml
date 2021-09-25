@@ -7,14 +7,14 @@ type identtab_t = Node.t Symbol.Map.t
 
 let load_module name parse =
     assert (name <> "");
-    let name2 = String.copy name
+    let name2 = Bytes.of_string name
     in
-    name2.[0] <- Char.lowercase (name2.[0]);
+    Bytes.set name2 0 (Char.lowercase_ascii (Bytes.get name2 0));
     let rec loop lst =
       match lst with
       | h :: t ->
           begin
-            let path = h ^ Config.dir_sep () ^ name2 ^ ".hcpl"
+            let path = h ^ Config.dir_sep () ^ (Bytes.to_string name2) ^ ".hcpl"
             in
             try
               let lexbuf = Lexing.from_channel (open_in path)

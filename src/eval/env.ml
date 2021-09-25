@@ -43,7 +43,7 @@ let rec pop_n env n =
     begin
       assert (env != []);
       match env with
-      | h :: t -> pop_n t (n - 1)
+      | _ :: t -> pop_n t (n - 1)
       | [] -> assert (env <> []); []
     end
   else

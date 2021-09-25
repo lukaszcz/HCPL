@@ -280,13 +280,13 @@ let get_name node = Attrs.get_name (get_attrs node)
 
 let get_pos node = Attrs.get_pos (get_attrs node)
 
-let get_attr node name = Attrs.get_attr (get_attrs node)
+let get_attr node _ = Attrs.get_attr (get_attrs node)
 
 let is_special node = Attrs.is_special (get_attrs node)
 
 let rec is_module_closed node =
   match node with
-  | Appl(Appl(f, x, _), y, _) when f == progn -> is_module_closed y
+  | Appl(Appl(f, _, _), y, _) when f == progn -> is_module_closed y
   | Appl(f, x, _) ->
       if f == id then
         is_module_closed x
@@ -401,7 +401,7 @@ let to_string node =
         in
         let rec is_list node =
           match node with
-          | Cons(x, y) -> is_list y
+          | Cons(_, y) -> is_list y
           | Nil -> true
           | _ -> false
         in

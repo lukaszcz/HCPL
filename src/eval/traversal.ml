@@ -238,7 +238,7 @@ let traverse f node acc =
               end
             else
               f node acc
-        | Lambda(body, frame, call_type, times_entered, attrs) ->
+        | Lambda(body, frame, _, _, _) ->
             begin
               assert (frame <= env_len);
               let env2 = Env.pop_n env (env_len - frame)
@@ -268,7 +268,7 @@ let traverse f node acc =
             end
         | Closure(x, env, env_len) ->
             Skip(aux x env env_len acc)
-        | LambdaClosure(body, env, env_len, call_type, times_entered, attrs) ->
+        | LambdaClosure(body, env, env_len, _, _, _) ->
             Skip(aux body (Dummy :: env) (env_len + 1) acc)
         | _ ->
             f node acc)

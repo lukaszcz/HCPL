@@ -50,7 +50,6 @@ type sexp_t =
   | Program of Node.t
   | MatchBranch of Node.t * Node.t * int (* (cond, body, args_num) *)
   | Ident of Symbol.t
-  | Bool of bool
   | CallType of Node.call_t
   | Number of Big_int.big_int
   | Num of int
@@ -66,7 +65,6 @@ let rec sexp_to_string sexp =
   | Program(node) -> "Program(" ^ Node.to_string node ^ ")"
   | MatchBranch(cond, body, n) -> "Program(" ^ Node.to_string cond ^ "," ^ Node.to_string body ^ ", " ^ string_of_int n ^ ")"
   | Ident(sym) -> "Ident(" ^ Symbol.to_string sym ^ ")"
-  | Bool(b) -> "Bool(" ^ (if b then "true" else "false") ^ ")"
   | CallType(ct) -> "CallType(" ^ Node.call_type_to_string ct ^ ")"
   | Number(num) -> "Number(" ^ Big_int.string_of_big_int num ^ ")"
   | Num(num) -> "Num(" ^ string_of_int num ^ ")"
@@ -85,11 +83,6 @@ let create_attrs scope strm =
 module State =
   struct
     type t = sexp_t list * Node.Attrs.t * TokenStream.t * Scope.t
-
-    let get_lst ((x, _, _, _) : t) = x
-    let get_attrs ((_, x, _, _) : t) = x
-    let get_strm ((_, _, x, _) : t) = x
-    let get_scope ((_, _, _, x) : t) = x
   end
 
 type parser_cont_t = State.t -> State.t
@@ -208,20 +201,13 @@ let token (token : Token.t) =
                           (fun () -> cont state2)))
 
 let peek (token : Token.t) =
-  fun () ((lst, attrs, strm, scope) as state) (cont : parser_cont_t) ->
+  fun () ((_, _, strm, scope) as state) (cont : parser_cont_t) ->
     if Token.eq (Scope.strm_token scope strm) token then
       cont state
     else
       raise (ParseFailure(Some(Scope.strm_position scope strm),
                           "syntax error",
                           (fun () -> cont state)))
-
-let warn msg =
-  fun () ((_, _, strm, scope) as state) (cont : parser_cont_t) ->
-    begin
-      Error.warn (Some(Scope.strm_position scope strm)) msg;
-      cont state
-    end
 
 let symbol sym = token (Token.Symbol(sym))
 let keyword sym = token (Token.Keyword(sym))
@@ -274,7 +260,7 @@ let skip_until (tokens : Token.t list) =
 let std_error_resume state cont =
   (fun () -> skip_until [Token.Sep; Token.LetEager; Token.LetLazy; Token.LetCBN] () state cont)
 
-let eof () ((lst, attrs, strm, scope) as state) cont =
+let eof () ((_, _, strm, scope) as state) cont =
   if Scope.is_strm_empty scope strm then
     cont state
   else
@@ -282,7 +268,7 @@ let eof () ((lst, attrs, strm, scope) as state) cont =
                         "syntax error",
                         std_error_resume state cont))
 
-let check pred error_msg () ((lst, attrs, strm, scope) as state) cont =
+let check pred error_msg () ((_, _, strm, scope) as state) cont =
   if pred scope then
     cont state
   else
@@ -298,7 +284,7 @@ let maybe r = r ^|| empty
 let optional r = maybe r >> collect
 
 let fail msg lst0 =
-  (fun () ((lst, attrs, strm, scope) as state) cont ->
+  (fun () ((_, _, strm, scope) as state) cont ->
     raise (ParseFailure(Some(Scope.strm_position scope strm), msg,
                         (fun () ->
                           skip () state
@@ -354,12 +340,6 @@ let new_ident_scope (r : parser_rule_t) =
 let enter_match (r : parser_rule_t) =
   fun () (lst, attrs, strm, scope) cont ->
     r () (lst, attrs, strm, Scope.enter_match scope)
-      (fun (lst2, attrs2, strm2, _) ->
-        cont (lst2, attrs2, strm2, scope))
-
-let save_scope (r : parser_rule_t) =
-  fun () (lst, attrs, strm, scope) cont ->
-    r () (lst, attrs, strm, scope)
       (fun (lst2, attrs2, strm2, _) ->
         cont (lst2, attrs2, strm2, scope))
 
@@ -614,7 +594,7 @@ m4_changequote([`],['])
         | [String(str)] -> Program(Node.String(str))
         | _ -> assert false)
 
-    and repl_eval () ((lst, attrs, _, scope) as state) cont =
+    and repl_eval () ((lst, _, _, scope) as state) cont =
       if is_repl_mode && Scope.nesting scope = 0 then
         begin
           check_fwd_decls ();
@@ -630,7 +610,7 @@ m4_changequote([`],['])
       else
         cont state
 
-    and repl_decl () ((lst, attrs, _, scope) as state) cont =
+    and repl_decl () ((lst, _, _, scope) as state) cont =
       if is_repl_mode && Scope.nesting scope = 0 then
         begin
           check_fwd_decls ();
@@ -703,7 +683,7 @@ m4_changequote([`],['])
         | _ -> assert false)
 
     and import_idents f =
-      (fun sym module_node identtab syntax attrs scope ->
+      (fun sym module_node identtab _ attrs scope ->
         Symbol.Map.fold
           (fun k node scope ->
             let node2 =
@@ -724,7 +704,7 @@ m4_changequote([`],['])
           scope
       )
 
-    and add_syntax sym module_node identtab syntax attrs scope =
+    and add_syntax _ _ _ syntax _ scope =
       Scope.add_syntax scope syntax
     in
 
@@ -877,7 +857,7 @@ m4_changequote([`],['])
                   aux2 Token.LeftParen Token.RightParen
               | Token.LeftParenCurl ->
                   aux2 Token.LeftParenCurl Token.RightParenCurl
-              | Token.Symbol(sym) ->
+              | Token.Symbol(_) ->
                   let strm3 = Scope.strm_next scope strm2
                   in
                   (((tok2, pos2) :: (tok, pos) :: acc), strm3)
@@ -910,7 +890,7 @@ m4_changequote([`],['])
               let acc2 = (tok2, pos2) :: (tok, pos) :: acc
               in
               match tok2 with
-              | Token.Symbol(sym) ->
+              | Token.Symbol(_) ->
                   begin
                     let strm3 = Scope.strm_next scope strm2
                     in
@@ -1157,7 +1137,7 @@ m4_changequote([`],['])
             >>
           (fun lst attrs scope ->
             match lst with
-            | [CallType(ct); Ident(sym); Program(value); Program(body)] ->
+            | [CallType(ct); Ident(_); Program(value); Program(body)] ->
                 if Node.is_immediate value then
                   Program(Node.optimize body)
                 else
@@ -1192,7 +1172,7 @@ m4_changequote([`],['])
              progn
             )
             >>
-          (fun lst attrs scope ->
+          (fun lst _ scope ->
             match lst with
             | [Num(i); Program(value); Program(value2)] ->
                 Program(Node.DynDef(Node.Var(Scope.frame scope), i, Node.optimize value, Node.optimize value2))
@@ -1296,7 +1276,7 @@ m4_changequote([`],['])
       symbol sym_unary +> return (Arity 1) ^||
       maybe (symbol sym_prio) ++ symbol sym_after ++ name
         +>
-      (fun lst attrs scope ->
+      (fun lst _ _ ->
         match lst with
         | [Ident(sym)] ->
             if Symbol.eq sym sym_appl then
@@ -1307,7 +1287,7 @@ m4_changequote([`],['])
     ^||
       maybe (symbol sym_prio) ++ symbol sym_before ++ name
         +>
-      (fun lst attrs scope ->
+      (fun lst _ _ ->
         match lst with
         | [Ident(sym)] ->
             if Symbol.eq sym sym_appl then
@@ -1326,7 +1306,7 @@ m4_changequote([`],['])
     ^||
       symbol sym_prio ++ name
         +>
-      (fun lst attrs scope ->
+      (fun lst _ _ ->
         match lst with
         | [Ident(sym)] ->
             if Symbol.eq sym sym_appl then
@@ -1363,7 +1343,7 @@ m4_changequote([`],['])
         (discard
            (symbol sym_block +! name ++ name ++
               change_scope
-              (fun lst attrs scope ->
+              (fun lst _ scope ->
                 match lst with
                 | [Ident(beg_sym); Ident(end_sym)] ->
                     Scope.add_block scope beg_sym end_sym
@@ -1374,7 +1354,7 @@ m4_changequote([`],['])
         (discard
            (symbol sym_macrosep +! name ++
               change_scope
-              (fun lst attrs scope ->
+              (fun lst _ scope ->
                 match lst with
                 | [Ident(sym)] ->
                     Scope.add_macrosep scope sym
@@ -1473,7 +1453,7 @@ m4_changequote([`],['])
                       in
                       progn () ([], create_attrs scope strm, strm,
                                 Scope.enter_module (Scope.push scope) (unique_module_id ()))
-                        (fun (lst2, attrs2, strm2, scope2) ->
+                        (fun (lst2, _, strm2, scope2) ->
                           let node = get_singleton_node lst2
                           in
                           let m =
@@ -1686,7 +1666,7 @@ m4_changequote([`],['])
             >>
           (fun lst attrs scope ->
             match lst with
-            | [CallType(ct); Ident(sym); Program(body)] ->
+            | [CallType(ct); Ident(_); Program(body)] ->
                 Program(Quote.correct_lambda (Node.Lambda(Node.optimize body, Scope.frame scope + 1, ct, ref 0, attrs)))
             | _ -> assert false)
         end
@@ -1728,7 +1708,7 @@ m4_changequote([`],['])
         begin
           (symbol sym_quote ^|| symbol sym_quote2) ++ term
             >>
-          (fun lst attrs scope ->
+          (fun lst _ _ ->
             match lst with
             | [Program(value)] ->
                 begin
@@ -1849,7 +1829,7 @@ m4_changequote([`],['])
           keyword sym_match +! new_keyword sym_with (catch_errors expr) ++ symbol sym_with ++
             new_ident_scope (maybe (symbol sym_match_sep) ++ match_branches)
             >>
-          (fun lst attrs scope ->
+          (fun lst _ _ ->
             match lst with
             | Program(value) :: lst2 ->
                 Program(Node.BMatch(value, mkbranches lst2))
@@ -1868,7 +1848,7 @@ m4_changequote([`],['])
           new_ident_scope
             (enter_match
                (new_keyword sym_arrow (new_keyword sym_when (catch_errors expr)) ++
-                  (fun () ((lst, attrs, strm, scope) as state) cont ->
+                  (fun () ((_, _, strm, scope) as state) cont ->
                     let rec mkparse placeholders =
                       match placeholders with
                       | h :: t ->
@@ -1896,7 +1876,7 @@ m4_changequote([`],['])
                     let n = List.length placeholders
                     in
                     (mkparse placeholders >>
-                     (fun lst attrs _ ->
+                     (fun lst _ _ ->
                        match lst with
                        | [Program(cond); Program(body)] -> MatchBranch(Node.optimize cond, Node.optimize body, n)
                        | _ -> assert false))
@@ -1932,7 +1912,7 @@ m4_changequote([`],['])
         begin
           lparen_sqr +! new_scope (maybe list_elems) ++ rparen_sqr
             >>
-          (fun lst _ scope ->
+          (fun lst _ _ ->
             Program(List.fold_right
                       (fun x y ->
                         match x with
@@ -1977,7 +1957,7 @@ m4_changequote([`],['])
       recursive
         begin
           ident
-            (fun sym pos _ ->
+            (fun _ _ _ ->
               (Node.Proxy(ref Node.Nil)))
         end
 

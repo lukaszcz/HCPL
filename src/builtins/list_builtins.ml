@@ -233,7 +233,7 @@ let rec do_rev_split_n f n lst acc acc2 =
 
 let do_split_n f n lst =
   match lst with
-  | Cons(h, t) -> do_rev2 (do_rev_split_n f n lst Nil Nil) Nil
+  | Cons(_, _) -> do_rev2 (do_rev_split_n f n lst Nil Nil) Nil
   | _ -> Cons(Nil, Nil)
 
 (* quoted variants *)

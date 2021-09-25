@@ -8,7 +8,7 @@ open Lexing
 exception RuntimeError of Node.t
 
 (* 'rec' to prevent inlining *)
-let rec runtime_error msg = raise (RuntimeError(Node.String(msg)))
+let [@warning "-39"]rec runtime_error msg = raise (RuntimeError(Node.String(msg)))
 
 let err_count = Array.make 4 0
 

@@ -7,7 +7,9 @@ let version = "git-master"
 
 let data_dir = "."
 
+[@@@warning "-32"]
 let bin_dir = "."
+[@@@warning "+32"]
 
 let dir_sep () = "/"
 

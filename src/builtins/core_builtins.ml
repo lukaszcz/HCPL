@@ -4,7 +4,6 @@
 *)
 
 open Node
-open Big_int
 
 let is_number lst =
   match lst with
@@ -46,10 +45,10 @@ let module_hash = Symbol.Hash.create 16
 
 let load_module lst =
   match lst with
-  | x :: init_node :: y :: env ->
+  | x :: init_node :: y :: _ ->
       begin
         match x, y with
-        | bfrm, Sym(sym) ->
+        | _, Sym(sym) ->
             begin
               try
                 Symbol.Hash.find module_hash sym

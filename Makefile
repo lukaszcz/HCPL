@@ -1,30 +1,9 @@
-
-MODE=debug
-# debug or release
-
 VERSION := $(strip $(shell scripts/getcfgvar.sh version))
 
-DEBUG_LIBS=nums.cmxa
-RELEASE_LIBS=nums.cmxa
-
-DEBUG_FLAGS=-inline 0 -g
-RELEASE_FLAGS=-inline 40 -noassert -unsafe -nodynlink -ccopt -O9
-
-SPACE :=
-SPACE +=
-COMMA = ,
-DIRS=$(shell scripts/lsdirs.sh src)
-IDIRS=$(subst $(SPACE),$(COMMA),$(DIRS))
-
-all: $(MODE)
-
-debug:
-	ocamlbuild -pp 'm4 -P' -ocamlopt "ocamlopt.opt -pp 'm4 -P' -S $(DEBUG_FLAGS) $(DEBUG_LIBS)" -Is $(IDIRS) hcpl.native
-	cp hcpl.native hcpl
-
-release:
-	ocamlbuild -pp 'm4 -P' -ocamlopt "ocamlopt.opt -pp 'm4 -P' -S $(RELEASE_FLAGS) $(RELEASE_LIBS)" -Is $(IDIRS) hcpl.native
-	cp hcpl.native hcpl
+all:
+	dune build
+	cp _build/default/src/hcpl.exe hcpl
+	chmod u+w hcpl
 
 package: clean
 	-scripts/rmbackups.sh
@@ -67,7 +46,7 @@ benchmark: release
 	scripts/run-benchmarks.sh
 
 clean:
-	ocamlbuild -clean
+	dune clean
 	-rm hcpl
 	-rm *.out
 	-rm *.log

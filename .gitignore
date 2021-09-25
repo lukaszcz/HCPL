@@ -10,3 +10,4 @@ test.out
 a.out
 *.log
 *.tar.gz
+src/.merlin

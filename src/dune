@@ -1,0 +1,8 @@
+(executable
+  (name hcpl)
+  (libraries num)
+  (modes native)
+  (ocamlopt_flags -inline 40 -noassert -unsafe -nodynlink -ccopt -O9)
+  (preprocess (action (run m4 -P %{input-file}))))
+
+(include_subdirs unqualified)

@@ -263,7 +263,7 @@ let subst node node1 node2 =
     Error.runtime_error "arguments of subst should be quoted"
 
 let do_lift node f =
-  let rec aux node =
+  let [@warning "-39"]rec aux node =
     Traversal.transform
       (fun x _ _ frames_num ->
         if f x then

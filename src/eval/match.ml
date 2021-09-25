@@ -10,9 +10,9 @@ exception Unknown
 
 type match_quoted_mode_t = ModeMatch | ModeEq | ModeQuotedEq
 
-let rec check_tokens_eq lst1 lst2 =
+let [@warning "-39"]rec check_tokens_eq lst1 lst2 =
   match lst1, lst2 with
-  | ((tok1, _) :: t1), ((tok2, _) :: t2) when Token.eq tok1 tok2 -> true
+  | ((tok1, _) :: _), ((tok2, _) :: _) when Token.eq tok1 tok2 -> true
   | _ -> false
 
 let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_quoted_mode_t) =
@@ -131,10 +131,10 @@ let rec do_match_quoted node pat penv penv_len nenv nenv_len acc (mode : match_q
                   | _ ->
                       raise Exit
                 end
-            | Lambda(body, frame, _, _, attrs1) ->
+            | Lambda(body, frame, _, _, _) ->
                 begin
                   match node with
-                  | Lambda(body2, frame2, _, _, attrs2) ->
+                  | Lambda(body2, frame2, _, _, _) ->
                       if frame > penv_len || frame2 > nenv_len then
                         begin
                           raise Exit

@@ -151,7 +151,7 @@ let enter_module scope (sym : Symbol.t) =
 
 let leave_module scope =
   match scope.modules with
-  | h :: t -> { scope with modules = t; module_mode = false }
+  | _ :: t -> { scope with modules = t; module_mode = false }
   | [] -> scope
 
 let current_module scope =
@@ -267,7 +267,7 @@ let get_block_end scope beg_sym =
 let is_block_end scope end_sym =
   try
     Symbol.Map.fold
-      (fun k sym acc ->
+      (fun _ sym acc ->
         if Symbol.eq sym end_sym then
           raise Exit
         else

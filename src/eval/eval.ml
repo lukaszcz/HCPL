@@ -81,13 +81,6 @@ m4_define(`ACCESS_VAR', `
     in
     do_eval x $1 $2
     (* keep in mind that the values in environments are closed *)
-  (*  match x with
-    | Closure(a, env2, env2_len) ->
-        do_eval a env2 env2_len
-    | Delayed(r) ->
-        do_eval_delayed r
-    | _ -> (*assert (is_immed x || (match x with Lambda(_, 0, _, _, _) -> true | _ -> false));*) x *)
-           (* TODO: this need not be true, e.g.: let x = hd 3; This should be fixed!!! *)
   end
 ')
 
@@ -133,9 +126,7 @@ let check_limit times_entered =
   else
     true
 
-let rec do_eval_delayed r =
-  EVAL_DELAYED(r)
-and do_eval node env env_len =
+let rec do_eval node env env_len =
   (* Debug.print ("do_eval " ^ Utils.list_to_string Node.to_string env ^ ": " ^ Node.to_string node); *)
   match node with
   | Appl(x, y, attrs) ->

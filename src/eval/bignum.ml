@@ -57,7 +57,7 @@ let mul_fits x y =
   msb x + msb y <= smallint_bits
 
 (* "rec" to prevent inlining *)
-let rec do_gt x y =
+let [@warning "-39"]rec do_gt x y =
   if is_smallint x then
     begin
       assert (not (is_smallint y));
@@ -88,7 +88,7 @@ let gt x y =
   else
     do_gt x y
 
-let rec do_ge x y =
+let [@warning "-39"]rec do_ge x y =
   if is_smallint x then
     begin
       assert (not (is_smallint y));
@@ -119,7 +119,7 @@ let ge x y =
   else
     do_ge x y
 
-let rec do_add x y =
+let [@warning "-39"]rec do_add x y =
   if is_smallint x then
     begin
       assert (not (is_smallint y));
@@ -146,7 +146,7 @@ let add x y =
   else
     do_add x y
 
-let rec do_sub x y =
+let [@warning "-39"]rec do_sub x y =
   if is_smallint x then
     begin
       assert (not (is_smallint y));
@@ -173,7 +173,7 @@ let sub x y =
   else
     do_sub x y
 
-let rec do_mul x y =
+let [@warning "-39"]rec do_mul x y =
   if is_smallint x then
     begin
       assert (not (is_smallint y));
@@ -208,7 +208,7 @@ let mul x y =
   else
     do_mul x y
 
-let rec do_idiv x y =
+let [@warning "-39"]rec do_idiv x y =
   if is_smallint x then
     begin
       assert (not (is_smallint y));
@@ -235,7 +235,7 @@ let idiv x y =
   else
     do_idiv x y
 
-let rec do_modulo x y =
+let [@warning "-39"]rec do_modulo x y =
   if is_smallint x then
     begin
       assert (not (is_smallint y));
