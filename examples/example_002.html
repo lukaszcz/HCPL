@@ -69,7 +69,7 @@
 <i><span style='color:#898887;'> lib/logic/core-logic.ipl which implement basic inference rules. Inference rules</span></i>
 <i><span style='color:#898887;'> are implemented as functions which given proofs of premises (and possibly some</span></i>
 <i><span style='color:#898887;'> additional arguments) evaluate to a proof of the conclusion. Derived rules and</span></i>
-<i><span style='color:#898887;'> proof tactics may be simply implemented as functions in IPL which manipulate proofs</span></i>
+<i><span style='color:#898887;'> proof tactics may be simply implemented as functions in HCPL which manipulate proofs</span></i>
 <i><span style='color:#898887;'> using the primitive or previously defined rules.</span></i>
 <i><span style='color:#898887;'>*/</span></i>
 
@@ -104,20 +104,20 @@
 <b><span style='color:#000000;'>qed</span></b>;
 
 <i><span style='color:#898887;'>/*</span></i>
-<i><span style='color:#898887;'> The logic of IPL could be described as &quot;dynamically typed&quot;. No typing discipline is statically</span></i>
+<i><span style='color:#898887;'> The logic of HCPL could be described as &quot;dynamically typed&quot;. No typing discipline is statically</span></i>
 <i><span style='color:#898887;'> enforced (unless such enforcement is explicitly asked for), but some inference rules need</span></i>
 <i><span style='color:#898887;'> to be supplied with typing derivations to ensure consistency of the logic. Such derivations are</span></i>
 <i><span style='color:#898887;'> usually obtained automatically with the auto-type tactic, which given a formula of the form</span></i>
 <i><span style='color:#898887;'> '(phi in T) tries to find its proof, and returns the proof when successful, or fails with</span></i>
 <i><span style='color:#898887;'> an error message otherwise.</span></i>
 
-<i><span style='color:#898887;'> Types in IPL are thus similar to sets in set theory as they may freely occur in formulas, and</span></i>
+<i><span style='color:#898887;'> Types in HCPL are thus similar to sets in set theory as they may freely occur in formulas, and</span></i>
 <i><span style='color:#898887;'> the relation `in' of belonging to a type is an ordinary function. In fact, `in' is simply</span></i>
 <i><span style='color:#898887;'> defined as \x \y (y x). Hence, a type is just a function which returns true for some of its</span></i>
 <i><span style='color:#898887;'> arguments (but not every function returning true for some arguments is a type!). The functions</span></i>
 <i><span style='color:#898887;'> which are types are often non-computable.</span></i>
 
-<i><span style='color:#898887;'> Despite being similar to sets, the types of IPL are also close to types in programming languages</span></i>
+<i><span style='color:#898887;'> Despite being similar to sets, the types of HCPL are also close to types in programming languages</span></i>
 <i><span style='color:#898887;'> or type theory. Typing rules in the logic (to be found in lib/logic/core-logic.ipl) closely</span></i>
 <i><span style='color:#898887;'> resemble rules in type theory. In fact, the tactic `auto-type' (currently) just implements</span></i>
 <i><span style='color:#898887;'> a variation of the type-checking algorithm for simple types.</span></i>

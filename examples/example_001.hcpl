@@ -1,9 +1,8 @@
-
 /* Example 01
 
    Programming in HCPL.
 
-   In this example it is shown how to write programs in IPL. This does not
+   In this example it is shown how to write programs in HCPL. This does not
    cover the whole language. In particular, macros are not covered.
 
    Proving theorems is covered in succeeding examples.
@@ -66,7 +65,7 @@ print (power 3 4); // prints 81
 print (power 2 16); // prints 65536
 print (power 5 7); // prints 78125
 
-// Evaluation in IPL is eager by default, but this should not be relied on.
+// Evaluation in HCPL is eager by default, but this should not be relied on.
 
 /* The brackets {} and () are used to embrace expressions so
    that they will be treated as single terms.

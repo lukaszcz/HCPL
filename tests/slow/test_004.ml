@@ -1,7 +1,6 @@
-
 (* Note: This is a naive translation of test_004.ipl. It is actually
-   slower, because the IPL interpreter is better at keeping track of
-   what really needs a bignum and what doesn't. The IPL interpreter
+   slower, because the HCPL interpreter is better at keeping track of
+   what really needs a bignum and what doesn't. The HCPL interpreter
    uses unboxed integers whenever possible, but converts automatically
    to big integers when necessary.  *)
 
