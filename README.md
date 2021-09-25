@@ -18,17 +18,6 @@ Features
 The current version is a prototype, but it is complete and stable
 enough to be usable.
 
-Examples
-========
-
-The [`examples/`](examples) subdirectory of the data directory
-contains commented examples which form a tutorial introduction to
-HCPL. Some knowledge of logic and functional programming is necessary
-to understand them. You should read the examples in their numerical
-order. Preferably, *.hcpl files should be edited in Kate as syntax
-highlighting is installed for this editor. In case the highlighting
-does not work, there are also html versions of the examples.
-
 Requirements
 ============
 * OCaml
@@ -68,6 +57,17 @@ After installation you should be able to run HCPL with: `hcpl
 file.hcpl` or `hcpl -i` for REPL.  Type `hcpl --help` for a list of
 options. To remove HCPL from your system type: `uninstall-hcpl` (note:
 this will remove the data directory completely).
+
+Examples
+========
+
+The [`examples/`](examples) subdirectory of the data directory
+contains commented examples which form a tutorial introduction to
+HCPL. Some knowledge of logic and functional programming is necessary
+to understand them. You should read the examples in their numerical
+order. Preferably, *.hcpl files should be edited in Kate as syntax
+highlighting is installed for this editor. In case the highlighting
+does not work, there are also html versions of the examples.
 
 Copyright and license
 =====================
