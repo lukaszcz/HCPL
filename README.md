@@ -6,7 +6,7 @@ programming language, HCPL is similar to Lisp but with more syntactic
 sugar.
 
 Features
-========
+--------
 * Functional language with pattern matching, macros, modules and
   custom syntax extensions.
 * Relatively efficient interpreter, with unboxed values, etc.
@@ -19,7 +19,7 @@ The current version is a prototype, but it is complete and stable
 enough to be usable.
 
 Requirements
-============
+------------
 * OCaml
 * dune
 * m4, sed, diff, GNU make
@@ -30,7 +30,7 @@ recommended, because syntax highlighting is available and
 automatically installed for it.
 
 Installation and usage
-======================
+----------------------
 
 To compile HCPL type:
 ```
@@ -59,7 +59,7 @@ options. To remove HCPL from your system type: `uninstall-hcpl` (note:
 this will remove the data directory completely).
 
 Examples
-========
+--------
 
 The [`examples/`](examples) subdirectory of the data directory
 contains commented examples which form a tutorial introduction to
@@ -70,7 +70,7 @@ highlighting is installed for this editor. In case the highlighting
 does not work, there are also html versions of the examples.
 
 Copyright and license
-=====================
+---------------------
 
 Copyright (C) 2013-2021 by Lukasz Czajka
 
