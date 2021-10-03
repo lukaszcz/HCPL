@@ -11,3 +11,4 @@ a.out
 *.log
 *.tar.gz
 src/.merlin
+.DS_Store
