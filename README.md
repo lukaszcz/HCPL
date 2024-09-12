@@ -1,6 +1,6 @@
 HCPL is a programming language and a proof checker based on illative
 combinatory logic - a foundational system dating back to the work of
-Haskell Curry and his school. One could say that the logic is dynamically 
+Haskell Curry and his school. In brief, one could say that the logic is dynamically 
 typed. As a programming language, HCPL is similar to Lisp but with more 
 syntactic sugar.
 
